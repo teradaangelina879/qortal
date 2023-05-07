@@ -6,6 +6,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import java.util.Objects;
 
+import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status;
+
 @XmlAccessorType(XmlAccessType.FIELD)
 public class ArbitraryResourceData {
 
@@ -22,9 +24,28 @@ public class ArbitraryResourceData {
 	public ArbitraryResourceData() {
 	}
 
+	public ArbitraryResourceData(Service service, String name, String identifier) {
+		if (identifier == null) {
+			identifier = "default";
+		}
+
+		this.service = service;
+		this.name = name;
+		this.identifier = identifier;
+	}
+
 	@Override
 	public String toString() {
 		return String.format("%s %s %s", name, service, identifier);
+	}
+
+	public void setStatus(Status status) {
+		if (status == null) {
+			this.status = null;
+		}
+		else {
+			this.status = new ArbitraryResourceStatus(status);
+		}
 	}
 
 	@Override

@@ -240,7 +240,7 @@ public class ArbitraryDataReader {
         try {
             Files.createDirectories(this.workingPath);
         } catch (IOException e) {
-            throw new DataException("Unable to create temp directory");
+            throw new DataException(String.format("Unable to create temp directory %s: %s", this.workingPath, e.getMessage()));
         }
     }
 

@@ -3,6 +3,7 @@ package org.qortal.repository;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 
@@ -44,6 +45,7 @@ public interface ArbitraryRepository {
 	// Arbitrary resources cache save/load
 
 	public void save(ArbitraryResourceData arbitraryResourceData) throws DataException;
+	public void setStatus(ArbitraryResourceData arbitraryResourceData, ArbitraryResourceStatus.Status status) throws DataException;
 	public void delete(ArbitraryResourceData arbitraryResourceData) throws DataException;
 
 	public void save(ArbitraryResourceMetadata metadata) throws DataException;

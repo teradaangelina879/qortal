@@ -393,7 +393,7 @@ public class ArbitraryTransactionUtils {
      * @param build
      * @return
      */
-    public static ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
+    public static ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build, boolean updateCache) {
 
         // If "build" has been specified, build the resource before returning its status
         if (build != null && build == true) {
@@ -408,27 +408,6 @@ public class ArbitraryTransactionUtils {
         }
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
-        return resource.getStatus(false);
-    }
-
-    public static List<ArbitraryResourceData> addStatusToResources(List<ArbitraryResourceData> resources) {
-        // Determine and add the status of each resource
-        List<ArbitraryResourceData> updatedResources = new ArrayList<>();
-        for (ArbitraryResourceData resourceInfo : resources) {
-            try {
-                ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
-                        resourceInfo.service, resourceInfo.identifier);
-                ArbitraryResourceStatus status = resource.getStatus(true);
-                if (status != null) {
-                    resourceInfo.status = status;
-                }
-                updatedResources.add(resourceInfo);
-
-            } catch (Exception e) {
-                // Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
-                LOGGER.info("Caught exception when adding status to resource {}: {}", resourceInfo, e.toString());
-            }
-        }
-        return updatedResources;
+        return resource.getStatusAndUpdateCache(updateCache);
     }
 }

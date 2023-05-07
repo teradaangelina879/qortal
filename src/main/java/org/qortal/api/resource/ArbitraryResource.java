@@ -141,10 +141,6 @@ public class ArbitraryResource {
 				return new ArrayList<>();
 			}
 
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-
 			return resources;
 
 		} catch (DataException e) {
@@ -212,10 +208,6 @@ public class ArbitraryResource {
 				return new ArrayList<>();
 			}
 
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-
 			return resources;
 
 		} catch (DataException e) {
@@ -243,7 +235,7 @@ public class ArbitraryResource {
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
 			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
 
-		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, null, build, true);
 	}
 
 	@GET
@@ -290,7 +282,7 @@ public class ArbitraryResource {
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
 			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
 
-		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build, true);
 	}
 
 
@@ -482,7 +474,6 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceData> getHostedResources(
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@QueryParam("query") String query) {
@@ -511,10 +502,6 @@ public class ArbitraryResource {
 				if (!resources.contains(arbitraryResourceData)) {
 					resources.add(arbitraryResourceData);
 				}
-			}
-
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 
 			return resources;

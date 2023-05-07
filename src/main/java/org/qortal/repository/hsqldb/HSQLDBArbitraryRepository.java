@@ -7,6 +7,7 @@ import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -327,7 +328,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return null;
 		}
 
-		sql.append("SELECT name, service, identifier, size, created_when, updated_when, " +
+		sql.append("SELECT name, service, identifier, size, status, created_when, updated_when, " +
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
 				"FROM ArbitraryResourcesCache " +
 				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
@@ -352,18 +353,19 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			Service serviceResult = Service.valueOf(resultSet.getInt(2));
 			String identifierResult = resultSet.getString(3);
 			Integer sizeResult = resultSet.getInt(4);
-			Long created = resultSet.getLong(5);
-			Long updated = resultSet.getLong(6);
+			Integer status = resultSet.getInt(5);
+			Long created = resultSet.getLong(6);
+			Long updated = resultSet.getLong(7);
 
 			// Optional metadata fields
-			String title = resultSet.getString(7);
-			String description = resultSet.getString(8);
-			String category = resultSet.getString(9);
-			String tag1 = resultSet.getString(10);
-			String tag2 = resultSet.getString(11);
-			String tag3 = resultSet.getString(12);
-			String tag4 = resultSet.getString(13);
-			String tag5 = resultSet.getString(14);
+			String title = resultSet.getString(8);
+			String description = resultSet.getString(9);
+			String category = resultSet.getString(10);
+			String tag1 = resultSet.getString(11);
+			String tag2 = resultSet.getString(12);
+			String tag3 = resultSet.getString(13);
+			String tag4 = resultSet.getString(14);
+			String tag5 = resultSet.getString(15);
 
 			if (Objects.equals(identifierResult, "default")) {
 				// Map "default" back to null. This is optional but probably less confusing than returning "default".
@@ -375,6 +377,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			arbitraryResourceData.service = serviceResult;
 			arbitraryResourceData.identifier = identifierResult;
 			arbitraryResourceData.size = sizeResult;
+			arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 			arbitraryResourceData.created = created;
 			arbitraryResourceData.updated = (updated == 0) ? null : updated;
 
@@ -405,7 +408,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT name, service, identifier, size, created_when, updated_when, " +
+		sql.append("SELECT name, service, identifier, size, status, created_when, updated_when, " +
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
 				"FROM ArbitraryResourcesCache " +
 				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
@@ -428,18 +431,19 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
 				Integer sizeResult = resultSet.getInt(4);
-				Long created = resultSet.getLong(5);
-				Long updated = resultSet.getLong(6);
+				Integer status = resultSet.getInt(5);
+				Long created = resultSet.getLong(6);
+				Long updated = resultSet.getLong(7);
 
 				// Optional metadata fields
-				String title = resultSet.getString(7);
-				String description = resultSet.getString(8);
-				String category = resultSet.getString(9);
-				String tag1 = resultSet.getString(10);
-				String tag2 = resultSet.getString(11);
-				String tag3 = resultSet.getString(12);
-				String tag4 = resultSet.getString(13);
-				String tag5 = resultSet.getString(14);
+				String title = resultSet.getString(8);
+				String description = resultSet.getString(9);
+				String category = resultSet.getString(10);
+				String tag1 = resultSet.getString(11);
+				String tag2 = resultSet.getString(12);
+				String tag3 = resultSet.getString(13);
+				String tag4 = resultSet.getString(14);
+				String tag5 = resultSet.getString(15);
 
 				if (Objects.equals(identifierResult, "default")) {
 					// Map "default" back to null. This is optional but probably less confusing than returning "default".
@@ -451,6 +455,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceData.service = serviceResult;
 				arbitraryResourceData.identifier = identifierResult;
 				arbitraryResourceData.size = sizeResult;
+				arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 				arbitraryResourceData.created = created;
 				arbitraryResourceData.updated = (updated == 0) ? null : updated;
 
@@ -487,7 +492,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT name, service, identifier, size, created_when, updated_when, " +
+		sql.append("SELECT name, service, identifier, size, status, created_when, updated_when, " +
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
 				"FROM ArbitraryResourcesCache " +
 				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
@@ -571,18 +576,19 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
 				Integer sizeResult = resultSet.getInt(4);
-				Long created = resultSet.getLong(5);
-				Long updated = resultSet.getLong(6);
+				Integer status = resultSet.getInt(5);
+				Long created = resultSet.getLong(6);
+				Long updated = resultSet.getLong(7);
 
 				// Optional metadata fields
-				String title = resultSet.getString(7);
-				String description = resultSet.getString(8);
-				String category = resultSet.getString(9);
-				String tag1 = resultSet.getString(10);
-				String tag2 = resultSet.getString(11);
-				String tag3 = resultSet.getString(12);
-				String tag4 = resultSet.getString(13);
-				String tag5 = resultSet.getString(14);
+				String title = resultSet.getString(8);
+				String description = resultSet.getString(9);
+				String category = resultSet.getString(10);
+				String tag1 = resultSet.getString(11);
+				String tag2 = resultSet.getString(12);
+				String tag3 = resultSet.getString(13);
+				String tag4 = resultSet.getString(14);
+				String tag5 = resultSet.getString(15);
 
 				if (Objects.equals(identifierResult, "default")) {
 					// Map "default" back to null. This is optional but probably less confusing than returning "default".
@@ -594,6 +600,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceData.service = serviceResult;
 				arbitraryResourceData.identifier = identifierResult;
 				arbitraryResourceData.size = sizeResult;
+				arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 				arbitraryResourceData.created = created;
 				arbitraryResourceData.updated = (updated == 0) ? null : updated;
 
@@ -633,7 +640,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		sql.append("SELECT name, service, identifier, size, created_when, updated_when, " +
+		sql.append("SELECT name, service, identifier, size, status, created_when, updated_when, " +
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
 				"FROM ArbitraryResourcesCache " +
 				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
@@ -747,18 +754,19 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
 				Integer sizeResult = resultSet.getInt(4);
-				Long created = resultSet.getLong(5);
-				Long updated = resultSet.getLong(6);
+				Integer status = resultSet.getInt(5);
+				Long created = resultSet.getLong(6);
+				Long updated = resultSet.getLong(7);
 
 				// Optional metadata fields
-				String title = resultSet.getString(7);
-				String description = resultSet.getString(8);
-				String category = resultSet.getString(9);
-				String tag1 = resultSet.getString(10);
-				String tag2 = resultSet.getString(11);
-				String tag3 = resultSet.getString(12);
-				String tag4 = resultSet.getString(13);
-				String tag5 = resultSet.getString(14);
+				String title = resultSet.getString(8);
+				String description = resultSet.getString(9);
+				String category = resultSet.getString(10);
+				String tag1 = resultSet.getString(11);
+				String tag2 = resultSet.getString(12);
+				String tag3 = resultSet.getString(13);
+				String tag4 = resultSet.getString(14);
+				String tag5 = resultSet.getString(15);
 
 				if (Objects.equals(identifierResult, "default")) {
 					// Map "default" back to null. This is optional but probably less confusing than returning "default".
@@ -770,6 +778,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceData.service = serviceResult;
 				arbitraryResourceData.identifier = identifierResult;
 				arbitraryResourceData.size = sizeResult;
+				arbitraryResourceData.setStatus(ArbitraryResourceStatus.Status.valueOf(status));
 				arbitraryResourceData.created = created;
 				arbitraryResourceData.updated = (updated == 0) ? null : updated;
 
@@ -809,6 +818,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	public void save(ArbitraryResourceData arbitraryResourceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryResourcesCache");
 
+		// "status" isn't saved here as we update this field separately
 		saveHelper.bind("service", arbitraryResourceData.service.value).bind("name", arbitraryResourceData.name)
 				.bind("identifier", arbitraryResourceData.identifier).bind("size", arbitraryResourceData.size)
 				.bind("created_when", arbitraryResourceData.created).bind("updated_when", arbitraryResourceData.updated);
@@ -817,6 +827,20 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save arbitrary resource info into repository", e);
+		}
+	}
+
+	@Override
+	public void setStatus(ArbitraryResourceData arbitraryResourceData, ArbitraryResourceStatus.Status status) throws DataException {
+		if (status == null) {
+			return;
+		}
+		String updateSql = "UPDATE ArbitraryResourcesCache SET status = ? WHERE service = ? AND name = ? AND identifier = ?";
+
+		try {
+			this.repository.executeCheckedUpdate(updateSql, status.value, arbitraryResourceData.service.value, arbitraryResourceData.name, arbitraryResourceData.identifier);
+		} catch (SQLException e) {
+			throw new DataException("Unable to set status for arbitrary resource", e);
 		}
 	}
 

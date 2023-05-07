@@ -70,7 +70,7 @@ public class GatewayResource {
         }
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-        return resource.getStatus(false);
+        return resource.getStatus();
     }
 
 

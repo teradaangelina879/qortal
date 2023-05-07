@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
@@ -18,6 +19,7 @@ import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
 import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -405,6 +407,12 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Save
 		repository.getArbitraryRepository().save(arbitraryResourceData);
+
+		// Update status
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+		ArbitraryResourceStatus arbitraryResourceStatus = resource.getStatus();
+		ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
+		repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
 	}
 
 	public void updateArbitraryMetadataCache() throws DataException {

@@ -9,6 +9,7 @@ import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.repository.DataException;
@@ -57,15 +58,32 @@ public class ArbitraryDataResource {
         this.identifier = identifier;
     }
 
-    public ArbitraryResourceStatus getStatus(boolean quick) {
-        // Calculate the chunk counts
-        // Avoid this for "quick" statuses, to speed things up
-        if (!quick) {
-            this.calculateChunkCounts();
+    public ArbitraryResourceStatus getStatusAndUpdateCache(boolean updateCache) {
+        ArbitraryResourceStatus arbitraryResourceStatus = this.getStatus();
 
-            if (!this.exists) {
-                return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
+        if (updateCache) {
+            // Update cache if possible
+            ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
+            ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData(this.service, this.resourceId, this.identifier);
+
+            try (final Repository repository = RepositoryManager.getRepository()) {
+                repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
+                repository.saveChanges();
+
+            } catch (DataException e) {
+                LOGGER.info("Unable to update status cache for resource {}: {}", arbitraryResourceData, e.getMessage());
             }
+        }
+
+        return arbitraryResourceStatus;
+    }
+
+    public ArbitraryResourceStatus getStatus() {
+        // Calculate the chunk counts
+        this.calculateChunkCounts();
+
+        if (!this.exists) {
+            return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
         }
 
         if (resourceIdType != ResourceIdType.NAME) {

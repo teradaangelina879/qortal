@@ -4,6 +4,7 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.repository.DataException;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
@@ -51,6 +52,9 @@ public class ArbitraryDataBuildQueueItem extends ArbitraryDataResource {
             arbitraryDataReader.loadSynchronously(true);
         } finally {
             this.buildEndTimestamp = NTP.getTime();
+
+            // Update status after build
+            ArbitraryTransactionUtils.getStatus(service, resourceId, identifier, false, true);
         }
     }
 
