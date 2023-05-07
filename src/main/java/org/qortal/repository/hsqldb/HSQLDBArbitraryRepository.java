@@ -552,7 +552,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			}
 		}
 
-		sql.append(" ORDER BY created_when");
+		sql.append(" ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
