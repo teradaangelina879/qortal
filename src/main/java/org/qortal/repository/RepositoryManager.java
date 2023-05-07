@@ -6,6 +6,7 @@ import org.qortal.api.resource.TransactionsResource;
 import org.qortal.controller.Controller;
 import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.gui.SplashFrame;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
@@ -82,6 +83,7 @@ public abstract class RepositoryManager {
 			}
 
 			LOGGER.info("Building arbitrary resources cache...");
+			SplashFrame.getInstance().updateStatus("Building QDN cache - please wait...");
 
 			final int batchSize = 100;
 			int offset = 0;
