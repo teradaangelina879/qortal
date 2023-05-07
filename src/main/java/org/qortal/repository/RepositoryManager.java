@@ -115,15 +115,15 @@ public abstract class RepositoryManager {
 			}
 
 			repository.saveChanges();
-			LOGGER.info("Completed build of initial arbitrary resources cache.");
+			LOGGER.info("Completed build of arbitrary resources cache.");
 			return true;
 		}
 		catch (DataException e) {
-			LOGGER.info("Unable to build initial arbitrary resources cache: {}. The database may have been left in an inconsistent state.", e.getMessage());
+			LOGGER.info("Unable to build arbitrary resources cache: {}. The database may have been left in an inconsistent state.", e.getMessage());
 
 			// Throw an exception so that the node startup is halted, allowing for a retry next time.
 			repository.discardChanges();
-			throw new DataException("Build of initial arbitrary resources cache failed.");
+			throw new DataException("Build of arbitrary resources cache failed.");
 		}
 	}
 

@@ -391,7 +391,9 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			if (tag5 != null) tags.add(tag5);
 			metadata.setTags(!tags.isEmpty() ? tags : null);
 
-			arbitraryResourceData.metadata = metadata;
+			if (metadata.hasMetadata()) {
+				arbitraryResourceData.metadata = metadata;
+			}
 
 			return arbitraryResourceData;
 		} catch (SQLException e) {
@@ -465,7 +467,9 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				if (tag5 != null) tags.add(tag5);
 				metadata.setTags(!tags.isEmpty() ? tags : null);
 
-				arbitraryResourceData.metadata = metadata;
+				if (metadata.hasMetadata()) {
+					arbitraryResourceData.metadata = metadata;
+				}
 
 				arbitraryResources.add(arbitraryResourceData);
 			} while (resultSet.next());
@@ -608,7 +612,9 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 					if (tag5 != null) tags.add(tag5);
 					metadata.setTags(!tags.isEmpty() ? tags : null);
 
-					arbitraryResourceData.metadata = metadata;
+					if (metadata.hasMetadata()) {
+						arbitraryResourceData.metadata = metadata;
+					}
 				}
 
 				arbitraryResources.add(arbitraryResourceData);
@@ -782,7 +788,9 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 					if (tag5 != null) tags.add(tag5);
 					metadata.setTags(!tags.isEmpty() ? tags : null);
 
-					arbitraryResourceData.metadata = metadata;
+					if (metadata.hasMetadata()) {
+						arbitraryResourceData.metadata = metadata;
+					}
 				}
 
 				arbitraryResources.add(arbitraryResourceData);

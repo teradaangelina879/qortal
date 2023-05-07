@@ -101,6 +101,10 @@ public class ArbitraryResourceMetadata {
         return this.category;
     }
 
+    public boolean hasMetadata() {
+        return title != null || description != null || tags != null || category != null || files != null || mimeType != null;
+    }
+
     public void setArbitraryResourceData(ArbitraryResourceData arbitraryResourceData) {
         this.arbitraryResourceData = arbitraryResourceData;
     }
