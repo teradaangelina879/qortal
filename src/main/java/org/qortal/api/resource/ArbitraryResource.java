@@ -162,9 +162,11 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceData> searchResources(
 			@QueryParam("service") Service service,
-			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
+			@Parameter(description = "Query (searches name, identifier, title and description fields)") @QueryParam("query") String query,
 			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
 			@Parameter(description = "Name (searches name field only)") @QueryParam("name") List<String> names,
+			@Parameter(description = "Title (searches title metadata field only)") @QueryParam("title") String title,
+			@Parameter(description = "Description (searches description metadata field only)") @QueryParam("description") String description,
 			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
 			@Parameter(description = "Exact match names only (if true, partial name matches are excluded)") @QueryParam("exactmatchnames") Boolean exactMatchNamesOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
@@ -201,7 +203,7 @@ public class ArbitraryResource {
 			}
 
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames,
+					.searchArbitraryResources(service, query, identifier, names, title, description, usePrefixOnly, exactMatchNames,
 							defaultRes, followedOnly, excludeBlocked, includeMetadata, includeStatus, limit, offset, reverse);
 
 			if (resources == null) {

@@ -638,7 +638,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
+	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, String title, String description, boolean prefixOnly,
 																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
 																Boolean includeMetadata, Boolean includeStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
@@ -669,9 +669,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			} else {
 				// Non-default resource requested
 				// In this case we search the identifier as well as the name
-				sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
-				bindParams.add(queryWildcard);
-				bindParams.add(queryWildcard);
+				sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ? OR LCASE(title) LIKE ? OR LCASE(description) LIKE ?)");
+				bindParams.add(queryWildcard); bindParams.add(queryWildcard); bindParams.add(queryWildcard); bindParams.add(queryWildcard);
 			}
 		}
 
@@ -680,6 +679,22 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			// Search anywhere in the identifier, unless "prefixOnly" has been requested
 			String queryWildcard = prefixOnly ? String.format("%s%%", identifier.toLowerCase()) : String.format("%%%s%%", identifier.toLowerCase());
 			sql.append(" AND LCASE(identifier) LIKE ?");
+			bindParams.add(queryWildcard);
+		}
+
+		// Handle title metadata matches
+		if (title != null) {
+			// Search anywhere in the title, unless "prefixOnly" has been requested
+			String queryWildcard = prefixOnly ? String.format("%s%%", title.toLowerCase()) : String.format("%%%s%%", title.toLowerCase());
+			sql.append(" AND LCASE(title) LIKE ?");
+			bindParams.add(queryWildcard);
+		}
+
+		// Handle description metadata matches
+		if (description != null) {
+			// Search anywhere in the description, unless "prefixOnly" has been requested
+			String queryWildcard = prefixOnly ? String.format("%s%%", description.toLowerCase()) : String.format("%%%s%%", description.toLowerCase());
+			sql.append(" AND LCASE(description) LIKE ?");
 			bindParams.add(queryWildcard);
 		}
 
@@ -763,8 +778,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Long updated = resultSet.getLong(7);
 
 				// Optional metadata fields
-				String title = resultSet.getString(8);
-				String description = resultSet.getString(9);
+				String titleResult = resultSet.getString(8);
+				String descriptionResult = resultSet.getString(9);
 				String category = resultSet.getString(10);
 				String tag1 = resultSet.getString(11);
 				String tag2 = resultSet.getString(12);
@@ -792,8 +807,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				if (includeMetadata != null && includeMetadata) {
 					// TODO: we could avoid the join altogether
 					ArbitraryResourceMetadata metadata = new ArbitraryResourceMetadata();
-					metadata.setTitle(title);
-					metadata.setDescription(description);
+					metadata.setTitle(titleResult);
+					metadata.setDescription(descriptionResult);
 					metadata.setCategory(Category.uncategorizedValueOf(category));
 
 					List<String> tags = new ArrayList<>();

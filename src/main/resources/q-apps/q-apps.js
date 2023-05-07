@@ -218,6 +218,8 @@ window.addEventListener("message", (event) => {
             if (data.identifier != null) url = url.concat("&identifier=" + data.identifier);
             if (data.name != null) url = url.concat("&name=" + data.name);
             if (data.names != null) data.names.forEach((x, i) => url = url.concat("&name=" + x));
+            if (data.title != null) url = url.concat("&title=" + data.title);
+            if (data.description != null) url = url.concat("&description=" + data.description);
             if (data.prefix != null) url = url.concat("&prefix=" + new Boolean(data.prefix).toString());
             if (data.exactMatchNames != null) url = url.concat("&exactmatchnames=" + new Boolean(data.exactMatchNames).toString());
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
