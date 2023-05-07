@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
@@ -31,6 +33,8 @@ import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.NTP;
 
 public class ArbitraryTransaction extends Transaction {
+
+	private static final Logger LOGGER = LogManager.getLogger(ArbitraryTransaction.class);
 
 	// Properties
 	private ArbitraryTransactionData arbitraryTransactionData;
@@ -274,6 +278,30 @@ public class ArbitraryTransaction extends Transaction {
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments());
+
+		// Update caches
+		this.updateCaches();
+	}
+
+	private void updateCaches() {
+		try {
+			// If the data is local, we need to perform a few actions
+			if (isDataLocal()) {
+
+				// We have the data for this transaction, so invalidate the file cache
+				if (arbitraryTransactionData.getName() != null) {
+					ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
+				}
+			}
+
+			// Add/update arbitrary resource caches
+			this.updateArbitraryResourceCache();
+			this.updateArbitraryMetadataCache();
+
+		} catch (Exception e) {
+			// Log and ignore all exceptions. The cache is updated from other places too, and can be rebuilt if needed.
+			LOGGER.info("Unable to update arbitrary caches", e);
+		}
 	}
 
 	@Override
