@@ -1316,7 +1316,7 @@ public class ArbitraryResource {
 			if (filepath == null || filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource
 				String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
-				if (files.length == 1) {
+				if (files != null && files.length == 1) {
 					// This is a single file resource
 					filepath = files[0];
 				}
