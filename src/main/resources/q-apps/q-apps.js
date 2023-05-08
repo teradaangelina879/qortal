@@ -236,13 +236,15 @@ window.addEventListener("message", (event) => {
             if (data.identifier != null) url = url.concat("/" + data.identifier);
             url = url.concat("?");
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
-            if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
+            if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString());
             if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
             return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_STATUS":
             url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
             if (data.identifier != null) url = url.concat("/" + data.identifier);
+            url = url.concat("?");
+            if (data.build != null) url = url.concat("&build=" + new Boolean(data.build).toString());
             return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_PROPERTIES":
