@@ -169,7 +169,7 @@ window.addEventListener("message", (event) => {
         return;
     }
 
-    console.log("Core received event: " + JSON.stringify(event.data));
+    console.log("Core received action: " + JSON.stringify(event.data.action));
 
     let url;
     let data = event.data;
