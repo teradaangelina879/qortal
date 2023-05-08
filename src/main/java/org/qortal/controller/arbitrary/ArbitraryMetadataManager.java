@@ -321,7 +321,7 @@ public class ArbitraryMetadataManager {
             return;
         }
 
-        // Update requests map to reflect that we've received all chunks
+        // Update requests map to reflect that we've received this metadata
         Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
         arbitraryMetadataRequests.put(message.getId(), newEntry);
 
@@ -356,6 +356,7 @@ public class ArbitraryMetadataManager {
 
             // Update arbitrary resource caches
             if (arbitraryTransactionData != null) {
+                repository.discardChanges();
                 ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, arbitraryTransactionData);
                 arbitraryTransaction.updateArbitraryResourceCache();
                 arbitraryTransaction.updateArbitraryMetadataCache();
@@ -363,7 +364,7 @@ public class ArbitraryMetadataManager {
             }
 
         } catch (DataException e) {
-            LOGGER.error(String.format("Repository issue while finding arbitrary transaction metadata for peer %s", peer), e);
+            LOGGER.error(String.format("Repository issue while saving arbitrary transaction metadata from peer %s", peer), e);
         }
     }
 
