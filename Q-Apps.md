@@ -425,7 +425,8 @@ let res = await qortalRequest({
     action: "GET_QDN_RESOURCE_STATUS",
     name: "QortalDemo",
     service: "THUMBNAIL",
-    identifier: "qortal_avatar" // Optional
+    identifier: "qortal_avatar", // Optional
+    build: true // Optional - request that the resource is fetched & built in the background
 });
 ```
 
