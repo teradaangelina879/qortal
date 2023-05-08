@@ -34,6 +34,9 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ArbitraryDataReader {
 
@@ -58,6 +61,10 @@ public class ArbitraryDataReader {
 
     // The resource being read
     ArbitraryDataResource arbitraryDataResource = null;
+
+    // Track resources that are currently being loaded, to avoid duplicate concurrent builds
+    // TODO: all builds could be handled by the build queue (even synchronous ones), to avoid the need for this
+    private static Map<String, Long> inProgress = Collections.synchronizedMap(new HashMap<>());
 
     public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         // Ensure names are always lowercase
@@ -166,6 +173,12 @@ public class ArbitraryDataReader {
 
             this.arbitraryDataResource = this.createArbitraryDataResource();
 
+            // Don't allow duplicate loads
+            if (!this.canStartLoading()) {
+                LOGGER.debug("Skipping duplicate load of {}", this.arbitraryDataResource);
+                return;
+            }
+
             this.preExecute();
             this.deleteExistingFiles();
             this.fetch();
@@ -193,6 +206,7 @@ public class ArbitraryDataReader {
 
     private void preExecute() throws DataException {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(true);
+
         this.checkEnabled();
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
@@ -200,12 +214,26 @@ public class ArbitraryDataReader {
 
     private void postExecute() {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(false);
+
+        this.arbitraryDataResource = this.createArbitraryDataResource();
+        ArbitraryDataReader.inProgress.remove(this.arbitraryDataResource.getUniqueKey());
     }
 
     private void checkEnabled() throws DataException {
         if (!Settings.getInstance().isQdnEnabled()) {
             throw new DataException("QDN is disabled in settings");
         }
+    }
+
+    private boolean canStartLoading() {
+        // Avoid duplicate builds if we're already loading this resource
+        String uniqueKey = this.arbitraryDataResource.getUniqueKey();
+        if (ArbitraryDataReader.inProgress.containsKey(uniqueKey)) {
+            return false;
+        }
+        ArbitraryDataReader.inProgress.put(uniqueKey, NTP.getTime());
+
+        return true;
     }
 
     private void createWorkingDirectory() throws DataException {
