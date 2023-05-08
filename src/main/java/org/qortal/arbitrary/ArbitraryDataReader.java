@@ -441,6 +441,7 @@ public class ArbitraryDataReader {
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
+                LOGGER.debug("Finished decrypting {} using algorithm {}", this.arbitraryDataResource, algorithm);
 
                 // Replace filePath pointer with the encrypted file path
                 // Don't delete the original ArbitraryDataFile, as this is handled in the cleanup phase
@@ -475,7 +476,9 @@ public class ArbitraryDataReader {
 
             // Handle each type of compression
             if (compression == Compression.ZIP) {
+                LOGGER.debug("Unzipping {}...", this.arbitraryDataResource);
                 ZipUtils.unzip(this.filePath.toString(), this.uncompressedPath.getParent().toString());
+                LOGGER.debug("Finished unzipping {}", this.arbitraryDataResource);
             }
             else if (compression == Compression.NONE) {
                 Files.createDirectories(this.uncompressedPath);
@@ -511,10 +514,12 @@ public class ArbitraryDataReader {
 
     private void validate() throws IOException, DataException {
         if (this.service.isValidationRequired()) {
+            LOGGER.debug("Validating {}...", this.arbitraryDataResource);
             Service.ValidationResult result = this.service.validate(this.filePath);
             if (result != Service.ValidationResult.OK) {
                 throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
             }
+            LOGGER.debug("Finished validating {}", this.arbitraryDataResource);
         }
     }
 
