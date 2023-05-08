@@ -2,6 +2,7 @@ package org.qortal.repository.hsqldb;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.api.SearchMode;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
@@ -639,16 +640,34 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, String title, String description, boolean prefixOnly,
-																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
+																List<String> exactMatchNames, boolean defaultResource, SearchMode mode, Boolean followedOnly, Boolean excludeBlocked,
 																Boolean includeMetadata, Boolean includeStatus, Long before, Long after, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
 		sql.append("SELECT name, service, identifier, size, status, created_when, updated_when, " +
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
-				"FROM ArbitraryResourcesCache " +
-				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
-				"WHERE name IS NOT NULL");
+				"FROM ArbitraryResourcesCache");
+
+		// Default to "latest" mode
+		if (mode == null) {
+			mode = SearchMode.LATEST;
+		}
+
+		switch (mode) {
+			case LATEST:
+				// Include latest item only for a name/service combination
+				sql.append(" JOIN (SELECT name, service, MAX(created_when) AS latest " +
+						"FROM ArbitraryResourcesCache GROUP BY name, service) LatestResources " +
+						"ON name=LatestResources.name AND service=LatestResources.service " +
+						"AND created_when=LatestResources.latest");
+				break;
+
+			case ALL:
+				break;
+		}
+
+		sql.append(" LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) WHERE name IS NOT NULL");
 
 		if (service != null) {
 			sql.append(" AND service = ");
