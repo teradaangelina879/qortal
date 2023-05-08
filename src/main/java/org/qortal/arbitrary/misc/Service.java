@@ -107,7 +107,7 @@ public enum Service {
             }
 
             // Require valid JSON
-            byte[] data = FilesystemUtils.getSingleFileContents(path);
+            byte[] data = FilesystemUtils.getSingleFileContents(path, 25*1024);
             String json = new String(data, StandardCharsets.UTF_8);
             try {
                 objectMapper.readTree(json);
@@ -201,7 +201,9 @@ public enum Service {
             return ValidationResult.OK;
         }
 
-        byte[] data = FilesystemUtils.getSingleFileContents(path);
+        // Load the first 25KB of data. This only needs to be long enough to check the prefix
+        // and also to allow for possible additional future validation of smaller files.
+        byte[] data = FilesystemUtils.getSingleFileContents(path, 25*1024);
         long size = FilesystemUtils.getDirectorySize(path);
 
         // Validate max size if needed
