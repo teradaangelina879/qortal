@@ -640,7 +640,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	@Override
 	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, String title, String description, boolean prefixOnly,
 																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
-																Boolean includeMetadata, Boolean includeStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
+																Boolean includeMetadata, Boolean includeStatus, Long before, Long after, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -722,6 +722,16 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				bindParams.add(exactMatchNames.get(i).toLowerCase());
 			}
 			sql.append(")");
+		}
+
+		// Timestamp range
+		if (before != null) {
+			sql.append(" AND created_when < ?");
+			bindParams.add(before);
+		}
+		if (after != null) {
+			sql.append(" AND created_when > ?");
+			bindParams.add(after);
 		}
 
 		// Handle "followed only"

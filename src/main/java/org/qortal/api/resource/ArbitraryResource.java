@@ -175,6 +175,8 @@ public class ArbitraryResource {
 			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
+			@Parameter(description = "Creation date before timestamp") @QueryParam("before") Long before,
+			@Parameter(description = "Creation date after timestamp") @QueryParam("after") Long after,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -203,8 +205,9 @@ public class ArbitraryResource {
 			}
 
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, title, description, usePrefixOnly, exactMatchNames,
-							defaultRes, followedOnly, excludeBlocked, includeMetadata, includeStatus, limit, offset, reverse);
+					.searchArbitraryResources(service, query, identifier, names, title, description, usePrefixOnly,
+							exactMatchNames, defaultRes, followedOnly, excludeBlocked, includeMetadata, includeStatus,
+							before, after, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();

@@ -367,6 +367,8 @@ let res = await qortalRequest({
     nameListFilter: "QApp1234Subscriptions", // Optional - will only return results if they are from a name included in supplied list
     followedOnly: false, // Optional - include followed names only
     excludeBlocked: false, // Optional - exclude blocked content
+    // before: 1683546000000, // Optional - limit to resources created before timestamp
+    // after: 1683546000000, // Optional - limit to resources created after timestamp
     limit: 100,
     offset: 0,
     reverse: true
