@@ -9,6 +9,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -50,7 +51,7 @@ public class ArbitraryDataMetadata {
             this.readJson();
 
         } catch (JSONException e) {
-            throw new DataException(String.format("Unable to read JSON: %s", e.getMessage()));
+            throw new DataException(String.format("Unable to read JSON at path %s: %s", this.filePath, e.getMessage()));
         }
     }
 
@@ -64,6 +65,10 @@ public class ArbitraryDataMetadata {
         writer.close();
     }
 
+    public void delete() throws IOException {
+        Files.delete(this.filePath);
+    }
+
 
     protected void loadJson() throws IOException {
         File metadataFile = new File(this.filePath.toString());
@@ -71,7 +76,7 @@ public class ArbitraryDataMetadata {
             throw new IOException(String.format("Metadata file doesn't exist: %s", this.filePath.toString()));
         }
 
-        this.jsonString = new String(Files.readAllBytes(this.filePath));
+        this.jsonString = new String(Files.readAllBytes(this.filePath), StandardCharsets.UTF_8);
     }
 
 

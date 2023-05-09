@@ -1,4 +1,4 @@
-function httpGet(event, url) {
+function httpGet(url) {
     var request = new XMLHttpRequest();
     request.open("GET", url, false);
     request.send(null);
@@ -169,7 +169,7 @@ window.addEventListener("message", (event) => {
         return;
     }
 
-    console.log("Core received event: " + JSON.stringify(event.data));
+    console.log("Core received action: " + JSON.stringify(event.data.action));
 
     let url;
     let data = event.data;
@@ -236,18 +236,25 @@ window.addEventListener("message", (event) => {
             if (data.identifier != null) url = url.concat("/" + data.identifier);
             url = url.concat("?");
             if (data.filepath != null) url = url.concat("&filepath=" + data.filepath);
-            if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString())
+            if (data.rebuild != null) url = url.concat("&rebuild=" + new Boolean(data.rebuild).toString());
             if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
             return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_STATUS":
             url = "/arbitrary/resource/status/" + data.service + "/" + data.name;
             if (data.identifier != null) url = url.concat("/" + data.identifier);
+            url = url.concat("?");
+            if (data.build != null) url = url.concat("&build=" + new Boolean(data.build).toString());
             return httpGetAsyncWithEvent(event, url);
 
         case "GET_QDN_RESOURCE_PROPERTIES":
             let identifier = (data.identifier != null) ? data.identifier : "default";
             url = "/arbitrary/resource/properties/" + data.service + "/" + data.name + "/" + identifier;
+            return httpGetAsyncWithEvent(event, url);
+
+        case "GET_QDN_RESOURCE_METADATA":
+            identifier = (data.identifier != null) ? data.identifier : "default";
+            url = "/arbitrary/metadata/" + data.service + "/" + data.name + "/" + identifier;
             return httpGetAsyncWithEvent(event, url);
 
         case "SEARCH_CHAT_MESSAGES":
@@ -259,6 +266,7 @@ window.addEventListener("message", (event) => {
             if (data.reference != null) url = url.concat("&reference=" + data.reference);
             if (data.chatReference != null) url = url.concat("&chatreference=" + data.chatReference);
             if (data.hasChatReference != null) url = url.concat("&haschatreference=" + new Boolean(data.hasChatReference).toString());
+            if (data.encoding != null) url = url.concat("&encoding=" + data.encoding);
             if (data.limit != null) url = url.concat("&limit=" + data.limit);
             if (data.offset != null) url = url.concat("&offset=" + data.offset);
             if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
@@ -426,6 +434,8 @@ function getDefaultTimeout(action) {
         // Some actions need longer default timeouts, especially those that create transactions
         switch (action) {
             case "GET_USER_ACCOUNT":
+            case "SAVE_FILE":
+            case "DECRYPT_DATA":
                 // User may take a long time to accept/deny the popup
                 return 60 * 60 * 1000;
 
@@ -434,8 +444,8 @@ function getDefaultTimeout(action) {
                 return 60 * 1000;
 
             case "PUBLISH_QDN_RESOURCE":
+            case "PUBLISH_MULTIPLE_QDN_RESOURCES":
                 // Publishing could take a very long time on slow system, due to the proof-of-work computation
-                // It's best not to timeout
                 return 60 * 60 * 1000;
 
             case "SEND_CHAT_MESSAGE":
