@@ -123,7 +123,7 @@ public class PollsResource {
             }
     )
     @ApiErrors({ApiError.REPOSITORY_ISSUE})
-    public PollVotes getPollVotes(@PathParam("pollName") String pollName) {
+    public PollVotes getPollVotes(@PathParam("pollName") String pollName, @QueryParam("onlyCounts") Boolean onlyCounts) {
             try (final Repository repository = RepositoryManager.getRepository()) {
                     PollData pollData = repository.getVotingRepository().fromPollName(pollName);
                     if (pollData == null)
@@ -151,7 +151,11 @@ public class PollsResource {
                         .map(entry -> new PollVotes.OptionCount(entry.getKey(), entry.getValue()))
                         .collect(Collectors.toList());
     
-                    return new PollVotes(votes, totalVotes, voteCounts);
+                    if (onlyCounts != null && onlyCounts) {
+                        return new PollVotes(null, totalVotes, voteCounts);
+                    } else {
+                        return new PollVotes(votes, totalVotes, voteCounts);
+                    }
             } catch (ApiException e) {
                     throw e;
             } catch (DataException e) {
