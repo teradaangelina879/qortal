@@ -37,6 +37,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import org.qortal.api.ApiException;
 import org.qortal.data.voting.PollData;
+import org.qortal.data.voting.VoteOnPollData;
 
 @Path("/polls")
 @Tag(name = "Polls")
@@ -95,6 +96,35 @@ public class PollsResource {
                             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.POLL_NO_EXISTS);
 
                     return pollData;
+            } catch (ApiException e) {
+                    throw e;
+            } catch (DataException e) {
+                    throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+            }
+    }
+
+    @GET
+    @Path("/votes/{pollName}")
+    @Operation(
+            summary = "Votes on poll",
+            responses = {
+                    @ApiResponse(
+                            description = "poll votes",
+                            content = @Content(
+                                    mediaType = MediaType.APPLICATION_JSON,
+                                    schema = @Schema(implementation = VoteOnPollData.class)
+                            )
+                    )
+            }
+    )
+    @ApiErrors({ApiError.REPOSITORY_ISSUE})
+    public List<VoteOnPollData> getVoteOnPollData(@PathParam("pollName") String pollName) {
+            try (final Repository repository = RepositoryManager.getRepository()) {
+                    if (repository.getVotingRepository().fromPollName(pollName) == null)
+                            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.POLL_NO_EXISTS);
+
+                    List<VoteOnPollData> voteOnPollData = repository.getVotingRepository().getVotes(pollName);
+                    return voteOnPollData;
             } catch (ApiException e) {
                     throw e;
             } catch (DataException e) {
