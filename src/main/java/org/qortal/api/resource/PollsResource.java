@@ -31,12 +31,17 @@ import javax.ws.rs.core.MediaType;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.ws.rs.GET;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import org.qortal.api.ApiException;
+import org.qortal.api.model.PollVotes;
 import org.qortal.data.voting.PollData;
+import org.qortal.data.voting.PollOptionData;
 import org.qortal.data.voting.VoteOnPollData;
 
 @Path("/polls")
@@ -112,19 +117,41 @@ public class PollsResource {
                             description = "poll votes",
                             content = @Content(
                                     mediaType = MediaType.APPLICATION_JSON,
-                                    schema = @Schema(implementation = VoteOnPollData.class)
+                                    schema = @Schema(implementation = PollVotes.class)
                             )
                     )
             }
     )
     @ApiErrors({ApiError.REPOSITORY_ISSUE})
-    public List<VoteOnPollData> getVoteOnPollData(@PathParam("pollName") String pollName) {
+    public PollVotes getPollVotes(@PathParam("pollName") String pollName) {
             try (final Repository repository = RepositoryManager.getRepository()) {
-                    if (repository.getVotingRepository().fromPollName(pollName) == null)
+                    PollData pollData = repository.getVotingRepository().fromPollName(pollName);
+                    if (pollData == null)
                             throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.POLL_NO_EXISTS);
 
-                    List<VoteOnPollData> voteOnPollData = repository.getVotingRepository().getVotes(pollName);
-                    return voteOnPollData;
+                    List<VoteOnPollData> votes = repository.getVotingRepository().getVotes(pollName);
+
+                    // Initialize map for counting votes
+                    Map<String, Integer> voteCountMap = new HashMap<>();
+                    for (PollOptionData optionData : pollData.getPollOptions()) {
+                            voteCountMap.put(optionData.getOptionName(), 0);
+                    }
+
+                    int totalVotes = 0;
+                    for (VoteOnPollData vote : votes) {
+                            String selectedOption = pollData.getPollOptions().get(vote.getOptionIndex()).getOptionName();
+                            if (voteCountMap.containsKey(selectedOption)) {
+                                    voteCountMap.put(selectedOption, voteCountMap.get(selectedOption) + 1);
+                                    totalVotes++;
+                            }
+                    }
+
+                    // Convert map to list of VoteInfo
+                    List<PollVotes.OptionCount> voteCounts = voteCountMap.entrySet().stream()
+                        .map(entry -> new PollVotes.OptionCount(entry.getKey(), entry.getValue()))
+                        .collect(Collectors.toList());
+    
+                    return new PollVotes(votes, totalVotes, voteCounts);
             } catch (ApiException e) {
                     throw e;
             } catch (DataException e) {
