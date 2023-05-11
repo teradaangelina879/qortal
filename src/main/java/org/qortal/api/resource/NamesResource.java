@@ -47,6 +47,7 @@ import org.qortal.transform.transaction.RegisterNameTransactionTransformer;
 import org.qortal.transform.transaction.SellNameTransactionTransformer;
 import org.qortal.transform.transaction.UpdateNameTransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Unicode;
 
 @Path("/names")
 @Tag(name = "Names")
@@ -135,12 +136,13 @@ public class NamesResource {
 	public NameData getName(@PathParam("name") String name) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData;
+			String reducedName = Unicode.sanitize(name);
 
 			if (Settings.getInstance().isLite()) {
 				nameData = LiteNode.getInstance().fetchNameData(name);
 			}
 			else {
-				nameData = repository.getNameRepository().fromName(name);
+				nameData = repository.getNameRepository().fromReducedName(reducedName);
 			}
 
 			if (nameData == null) {
