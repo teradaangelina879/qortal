@@ -369,6 +369,11 @@ public class ArbitraryTransaction extends Transaction {
 		String name = arbitraryTransactionData.getName();
 		String identifier = arbitraryTransactionData.getIdentifier();
 
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
+
 		// In the cache we store null identifiers as "default", as it is part of the primary key
 		if (identifier == null) {
 			identifier = "default";
@@ -426,6 +431,11 @@ public class ArbitraryTransaction extends Transaction {
 		Service service = latestTransactionData.getService();
 		String name = latestTransactionData.getName();
 		String identifier = latestTransactionData.getIdentifier();
+
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
 
 		// In the cache we store null identifiers as "default", as it is part of the primary key
 		if (identifier == null) {
