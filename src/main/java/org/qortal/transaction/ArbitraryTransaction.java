@@ -357,13 +357,6 @@ public class ArbitraryTransaction extends Transaction {
 			return;
 		}
 
-		// Get the latest transaction
-		ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(arbitraryTransactionData.getName(), arbitraryTransactionData.getService(), null, arbitraryTransactionData.getIdentifier());
-		if (latestTransactionData == null) {
-			// We don't have a latest transaction, so give up
-			return;
-		}
-
 		Service service = arbitraryTransactionData.getService();
 		String name = arbitraryTransactionData.getName();
 		String identifier = arbitraryTransactionData.getIdentifier();
@@ -378,14 +371,22 @@ public class ArbitraryTransaction extends Transaction {
 			identifier = "default";
 		}
 
-		// Get existing cached entry if it exists
-		ArbitraryResourceData existingArbitraryResourceData = repository.getArbitraryRepository()
-				.getArbitraryResource(service, name, identifier);
-
 		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
 		arbitraryResourceData.service = service;
 		arbitraryResourceData.name = name;
 		arbitraryResourceData.identifier = identifier;
+
+		// Get the latest transaction
+		ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(arbitraryTransactionData.getName(), arbitraryTransactionData.getService(), null, arbitraryTransactionData.getIdentifier());
+		if (latestTransactionData == null) {
+			// We don't have a latest transaction, so delete from cache
+			repository.getArbitraryRepository().delete(arbitraryResourceData);
+			return;
+		}
+
+		// Get existing cached entry if it exists
+		ArbitraryResourceData existingArbitraryResourceData = repository.getArbitraryRepository()
+				.getArbitraryResource(service, name, identifier);
 
 		// Check for existing cached data
 		if (existingArbitraryResourceData == null) {

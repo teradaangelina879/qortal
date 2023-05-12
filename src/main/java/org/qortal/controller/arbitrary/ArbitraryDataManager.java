@@ -546,32 +546,9 @@ public class ArbitraryDataManager extends Thread {
 			return;
 		}
 
-		Service service = arbitraryTransactionData.getService();
-		String name = arbitraryTransactionData.getName();
-		String identifier = arbitraryTransactionData.getIdentifier();
+		// Add to queue for update/deletion
+		ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
 
-		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
-		arbitraryResourceData.service = service;
-		arbitraryResourceData.name = name;
-		arbitraryResourceData.identifier = identifier;
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Find next oldest transaction (which is now the latest transaction)
-			ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(name, service, null, identifier);
-
-			if (latestTransactionData == null) {
-				// There are no transactions anymore, so we can delete from the cache entirely (this deletes metadata too)
-				repository.getArbitraryRepository().delete(arbitraryResourceData);
-			}
-			else {
-				// We found the next oldest transaction, so add to queue for processing
-				ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
-			}
-;
-			repository.saveChanges();
-		} catch (DataException  e) {
-			// Not much we can do, so ignore for now
-		}
 	}
 
 	public int getPowDifficulty() {
