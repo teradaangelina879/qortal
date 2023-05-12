@@ -886,10 +886,10 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		if (status == null) {
 			return;
 		}
-		String updateSql = "UPDATE ArbitraryResourcesCache SET status = ? WHERE service = ? AND name = ? AND identifier = ?";
+		String updateSql = "UPDATE ArbitraryResourcesCache SET status = ? WHERE service = ? AND LCASE(name) = ? AND LCASE(identifier) = ?";
 
 		try {
-			this.repository.executeCheckedUpdate(updateSql, status.value, arbitraryResourceData.service.value, arbitraryResourceData.name, arbitraryResourceData.identifier);
+			this.repository.executeCheckedUpdate(updateSql, status.value, arbitraryResourceData.service.value, arbitraryResourceData.name.toLowerCase(), arbitraryResourceData.identifier.toLowerCase());
 		} catch (SQLException e) {
 			throw new DataException("Unable to set status for arbitrary resource", e);
 		}
