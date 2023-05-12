@@ -115,6 +115,9 @@ public class CrossChainResource {
 				crossChainTrades.sort((a, b) -> Longs.compare(a.creationTimestamp, b.creationTimestamp));
 			}
 
+			// Remove any trades that have had too many failures
+			crossChainTrades = TradeBot.getInstance().removeFailedTrades(repository, crossChainTrades);
+
 			if (limit != null && limit > 0) {
 				// Make sure to not return more than the limit
 				int upperLimit = Math.min(limit, crossChainTrades.size());
