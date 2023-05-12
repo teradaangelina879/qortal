@@ -64,21 +64,19 @@ public class NamesResource {
 				description = "registered name info",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					array = @ArraySchema(schema = @Schema(implementation = NameSummary.class))
+					array = @ArraySchema(schema = @Schema(implementation = NameData.class))
 				)
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<NameSummary> getAllNames(@Parameter(ref = "after") @QueryParam("after") Long after,
+	public List<NameData> getAllNames(@Parameter(description = "Return only names registered or updated after timestamp") @QueryParam("after") Long after,
 										 @Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 										 @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 										 @Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getAllNames(after, limit, offset, reverse);
 
-			// Convert to summary
-			return names.stream().map(NameSummary::new).collect(Collectors.toList());
+			return repository.getNameRepository().getAllNames(after, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
