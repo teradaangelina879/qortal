@@ -103,7 +103,7 @@ public class HSQLDBNameRepository implements NameRepository {
 		}
 	}
 
-	public List<NameData> searchNames(String query, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<NameData> searchNames(String query, boolean prefixOnly, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -111,7 +111,10 @@ public class HSQLDBNameRepository implements NameRepository {
 				+ "is_for_sale, sale_price, reference, creation_group_id FROM Names "
 				+ "WHERE LCASE(name) LIKE ? ORDER BY name");
 
-		bindParams.add(String.format("%%%s%%", query.toLowerCase()));
+		// Search anywhere in the name, unless "prefixOnly" has been requested
+		// Note that without prefixOnly it will bypass any indexes
+		String queryWildcard = prefixOnly ? String.format("%s%%", query.toLowerCase()) : String.format("%%%s%%", query.toLowerCase());
+		bindParams.add(queryWildcard);
 
 		if (reverse != null && reverse)
 			sql.append(" DESC");

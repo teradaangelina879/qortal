@@ -173,6 +173,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NAME_UNKNOWN, ApiError.REPOSITORY_ISSUE})
 	public List<NameData> searchNames(@QueryParam("query") String query,
+									  @Parameter(description = "Prefix only (if true, only the beginning of the name is matched)") @QueryParam("prefix") Boolean prefixOnly,
 									  @Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 									  @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 									  @Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
@@ -181,7 +182,9 @@ public class NamesResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing query");
 			}
 
-			return repository.getNameRepository().searchNames(query, limit, offset, reverse);
+			boolean usePrefixOnly = Boolean.TRUE.equals(prefixOnly);
+
+			return repository.getNameRepository().searchNames(query, usePrefixOnly, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
