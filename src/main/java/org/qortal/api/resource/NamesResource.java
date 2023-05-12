@@ -70,10 +70,12 @@ public class NamesResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<NameSummary> getAllNames(@Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
+	public List<NameSummary> getAllNames(@Parameter(ref = "after") @QueryParam("after") Long after,
+										 @Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+										 @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+										 @Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getAllNames(limit, offset, reverse);
+			List<NameData> names = repository.getNameRepository().getAllNames(after, limit, offset, reverse);
 
 			// Convert to summary
 			return names.stream().map(NameSummary::new).collect(Collectors.toList());

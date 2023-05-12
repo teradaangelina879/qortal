@@ -16,10 +16,10 @@ public interface NameRepository {
 
 	public List<NameData> searchNames(String query, boolean prefixOnly, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<NameData> getAllNames(Long after, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public default List<NameData> getAllNames() throws DataException {
-		return getAllNames(null, null, null);
+		return getAllNames(null, null, null, null);
 	}
 
 	public List<NameData> getNamesForSale(Integer limit, Integer offset, Boolean reverse) throws DataException;

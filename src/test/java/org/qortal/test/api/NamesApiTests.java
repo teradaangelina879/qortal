@@ -37,8 +37,8 @@ public class NamesApiTests extends ApiCommon {
 
 	@Test
 	public void testGetAllNames() {
-		assertNotNull(this.namesResource.getAllNames(null, null, null));
-		assertNotNull(this.namesResource.getAllNames(1, 1, true));
+		assertNotNull(this.namesResource.getAllNames(null, null, null, null));
+		assertNotNull(this.namesResource.getAllNames(1L, 1, 1, true));
 	}
 
 	@Test
