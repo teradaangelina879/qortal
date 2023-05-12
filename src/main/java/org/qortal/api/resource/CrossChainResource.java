@@ -115,11 +115,72 @@ public class CrossChainResource {
 				crossChainTrades.sort((a, b) -> Longs.compare(a.creationTimestamp, b.creationTimestamp));
 			}
 
+			// Remove any trades that have had too many failures
+			crossChainTrades = TradeBot.getInstance().removeFailedTrades(repository, crossChainTrades);
+
 			if (limit != null && limit > 0) {
 				// Make sure to not return more than the limit
 				int upperLimit = Math.min(limit, crossChainTrades.size());
 				crossChainTrades = crossChainTrades.subList(0, upperLimit);
 			}
+
+			crossChainTrades.stream().forEach(CrossChainResource::decorateTradeDataWithPresence);
+
+			return crossChainTrades;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/tradeoffers/hidden")
+	@Operation(
+			summary = "Find cross-chain trade offers that have been hidden due to too many failures",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									array = @ArraySchema(
+											schema = @Schema(
+													implementation = CrossChainTradeData.class
+											)
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
+	public List<CrossChainTradeData> getHiddenTradeOffers(
+			@Parameter(
+					description = "Limit to specific blockchain",
+					example = "LITECOIN",
+					schema = @Schema(implementation = SupportedBlockchain.class)
+			) @QueryParam("foreignBlockchain") SupportedBlockchain foreignBlockchain) {
+
+		final boolean isExecutable = true;
+		List<CrossChainTradeData> crossChainTrades = new ArrayList<>();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Map<ByteArray, Supplier<ACCT>> acctsByCodeHash = SupportedBlockchain.getFilteredAcctMap(foreignBlockchain);
+
+			for (Map.Entry<ByteArray, Supplier<ACCT>> acctInfo : acctsByCodeHash.entrySet()) {
+				byte[] codeHash = acctInfo.getKey().value;
+				ACCT acct = acctInfo.getValue().get();
+
+				List<ATData> atsData = repository.getATRepository().getATsByFunctionality(codeHash, isExecutable, null, null, null);
+
+				for (ATData atData : atsData) {
+					CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+					if (crossChainTradeData.mode == AcctMode.OFFERING) {
+						crossChainTrades.add(crossChainTradeData);
+					}
+				}
+			}
+
+			// Sort the trades by timestamp
+			crossChainTrades.sort((a, b) -> Longs.compare(a.creationTimestamp, b.creationTimestamp));
+
+			// Remove trades that haven't failed
+			crossChainTrades.removeIf(t -> !TradeBot.getInstance().isFailedTrade(repository, t));
 
 			crossChainTrades.stream().forEach(CrossChainResource::decorateTradeDataWithPresence);
 

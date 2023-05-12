@@ -252,6 +252,7 @@ Here is a list of currently supported actions:
 - GET_USER_ACCOUNT
 - GET_ACCOUNT_DATA
 - GET_ACCOUNT_NAMES
+- SEARCH_NAMES
 - GET_NAME_DATA
 - LIST_QDN_RESOURCES
 - SEARCH_QDN_RESOURCES
@@ -321,6 +322,18 @@ let res = await qortalRequest({
 let res = await qortalRequest({
     action: "GET_ACCOUNT_NAMES",
     address: "QZLJV7wbaFyxaoZQsjm6rb9MWMiDzWsqM2"
+});
+```
+
+### Search names
+```
+let res = await qortalRequest({
+    action: "SEARCH_NAMES",
+    query: "search query goes here",
+    prefix: false, // Optional - if true, only the beginning of the name is matched
+    limit: 100,
+    offset: 0,
+    reverse: false
 });
 ```
 

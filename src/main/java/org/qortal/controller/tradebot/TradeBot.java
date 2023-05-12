@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.ECKey;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
+import org.qortal.api.resource.TransactionsResource;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.tradebot.AcctTradeBot.ResponseResult;
@@ -19,6 +20,7 @@ import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.data.network.TradePresenceData;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
@@ -33,6 +35,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.hsqldb.HSQLDBImportExport;
 import org.qortal.settings.Settings;
+import org.qortal.transaction.Transaction;
 import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
 
@@ -112,6 +115,9 @@ public class TradeBot implements Listener {
 	private final Map<ByteArray, TradePresenceData> allTradePresencesByPubkey = Collections.synchronizedMap(new HashMap<>());
 	private Map<ByteArray, TradePresenceData> safeAllTradePresencesByPubkey = Collections.emptyMap();
 	private long nextTradePresenceBroadcastTimestamp = 0L;
+
+	private Map<String, Long> failedTrades = new HashMap<>();
+	private Map<String, Long> validTrades = new HashMap<>();
 
 	private TradeBot() {
 		EventBus.INSTANCE.addListener(event -> TradeBot.getInstance().listen(event));
@@ -672,6 +678,78 @@ public class TradeBot implements Listener {
 					else if (signerAddress.equals(crossChainTradeData.qortalPartnerAddress))
 						crossChainTradeData.partnerPresenceExpiry = tradePresenceData.getTimestamp();
 				});
+	}
+
+	/** Removes any trades that have had multiple failures */
+	public List<CrossChainTradeData> removeFailedTrades(Repository repository, List<CrossChainTradeData> crossChainTrades) {
+		Long now = NTP.getTime();
+		if (now == null) {
+			return crossChainTrades;
+		}
+
+		List<CrossChainTradeData> updatedCrossChainTrades = new ArrayList<>(crossChainTrades);
+		int getMaxTradeOfferAttempts = Settings.getInstance().getMaxTradeOfferAttempts();
+
+		for (CrossChainTradeData crossChainTradeData : crossChainTrades) {
+			// We only care about trades in the OFFERING state
+			if (crossChainTradeData.mode != AcctMode.OFFERING) {
+				failedTrades.remove(crossChainTradeData.qortalAtAddress);
+				validTrades.remove(crossChainTradeData.qortalAtAddress);
+				continue;
+			}
+
+			// Return recently cached values if they exist
+			Long failedTimestamp = failedTrades.get(crossChainTradeData.qortalAtAddress);
+			if (failedTimestamp != null && now - failedTimestamp < 60 * 60 * 1000L) {
+				updatedCrossChainTrades.remove(crossChainTradeData);
+				//LOGGER.info("Removing cached failed trade AT {}", crossChainTradeData.qortalAtAddress);
+				continue;
+			}
+			Long validTimestamp = validTrades.get(crossChainTradeData.qortalAtAddress);
+			if (validTimestamp != null && now - validTimestamp < 60 * 60 * 1000L) {
+				//LOGGER.info("NOT removing cached valid trade AT {}", crossChainTradeData.qortalAtAddress);
+				continue;
+			}
+
+			try {
+				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, Arrays.asList(Transaction.TransactionType.MESSAGE), null, null, crossChainTradeData.qortalCreatorTradeAddress, TransactionsResource.ConfirmationStatus.CONFIRMED, null, null, null);
+				if (signatures.size() < getMaxTradeOfferAttempts) {
+					// Less than 3 (or user-specified number of) MESSAGE transactions relate to this trade, so assume it is ok
+					validTrades.put(crossChainTradeData.qortalAtAddress, now);
+					continue;
+				}
+
+				List<TransactionData> transactions = new ArrayList<>(signatures.size());
+				for (byte[] signature : signatures) {
+					transactions.add(repository.getTransactionRepository().fromSignature(signature));
+				}
+				transactions.sort(Transaction.getDataComparator());
+
+				// Get timestamp of the first MESSAGE transaction
+				long firstMessageTimestamp = transactions.get(0).getTimestamp();
+
+				// Treat as failed if first buy attempt was more than 60 mins ago (as it's still in the OFFERING state)
+				boolean isFailed = (now - firstMessageTimestamp > 60*60*1000L);
+				if (isFailed) {
+					failedTrades.put(crossChainTradeData.qortalAtAddress, now);
+					updatedCrossChainTrades.remove(crossChainTradeData);
+				}
+				else {
+					validTrades.put(crossChainTradeData.qortalAtAddress, now);
+				}
+
+			} catch (DataException e) {
+				LOGGER.info("Unable to determine failed state of AT {}", crossChainTradeData.qortalAtAddress);
+				continue;
+			}
+		}
+
+		return updatedCrossChainTrades;
+	}
+
+	public boolean isFailedTrade(Repository repository, CrossChainTradeData crossChainTradeData) {
+		List<CrossChainTradeData> results = removeFailedTrades(repository, Arrays.asList(crossChainTradeData));
+		return results.isEmpty();
 	}
 
 	private long generateExpiry(long timestamp) {

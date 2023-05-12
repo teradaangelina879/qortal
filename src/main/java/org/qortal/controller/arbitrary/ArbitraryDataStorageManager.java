@@ -488,6 +488,11 @@ public class ArbitraryDataStorageManager extends Thread {
             return false;
         }
 
+        if (Settings.getInstance().getStoragePolicy() == StoragePolicy.ALL) {
+            // Using storage policy ALL, so don't limit anything per name
+            return true;
+        }
+
         if (name == null) {
             // This transaction doesn't have a name, so fall back to total space limitations
             return true;

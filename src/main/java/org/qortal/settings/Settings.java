@@ -253,6 +253,9 @@ public class Settings {
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
 
+	/** Maximum buy attempts for each trade offer before it is considered failed, and hidden from the list */
+	private int maxTradeOfferAttempts = 3;
+
 	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
 	private String walletsPath = "wallets";
 
@@ -769,6 +772,10 @@ public class Settings {
 
 	public PirateChainNet getPirateChainNet() {
 		return this.pirateChainNet;
+	}
+
+	public int getMaxTradeOfferAttempts() {
+		return this.maxTradeOfferAttempts;
 	}
 
 	public String getWalletsPath() {
