@@ -113,13 +113,16 @@ public class ArbitraryDataStorageCapacityTests extends Common {
         assertTrue(resourceListManager.addToList("followedNames", "Test2", false));
         assertTrue(resourceListManager.addToList("followedNames", "Test3", false));
         assertTrue(resourceListManager.addToList("followedNames", "Test4", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test5", false));
+        assertTrue(resourceListManager.addToList("followedNames", "Test6", false));
 
         // Ensure the followed name count is correct
-        assertEquals(4, resourceListManager.getItemCountForList("followedNames"));
-        assertEquals(4, ListUtils.followedNamesCount());
+        assertEquals(6, resourceListManager.getItemCountForList("followedNames"));
+        assertEquals(6, ListUtils.followedNamesCount());
 
         // Storage space per name should be the total storage capacity divided by the number of names
-        long expectedStorageCapacityPerName = (long)(totalStorageCapacity / 4.0f);
+        // then multiplied by 4, to allow for names that don't use much space
+        long expectedStorageCapacityPerName = (long)(totalStorageCapacity / 6.0f) * 4L;
         assertEquals(expectedStorageCapacityPerName, storageManager.storageCapacityPerName(storageFullThreshold));
     }
 
