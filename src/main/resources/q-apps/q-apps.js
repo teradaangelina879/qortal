@@ -181,6 +181,15 @@ window.addEventListener("message", (event) => {
         case "GET_ACCOUNT_NAMES":
             return httpGetAsyncWithEvent(event, "/names/address/" + data.address);
 
+        case "SEARCH_NAMES":
+            url = "/names/search?";
+            if (data.query != null) url = url.concat("&query=" + data.query);
+            if (data.prefix != null) url = url.concat("&prefix=" + new Boolean(data.prefix).toString());
+            if (data.limit != null) url = url.concat("&limit=" + data.limit);
+            if (data.offset != null) url = url.concat("&offset=" + data.offset);
+            if (data.reverse != null) url = url.concat("&reverse=" + new Boolean(data.reverse).toString());
+            return httpGetAsyncWithEvent(event, url);
+
         case "GET_NAME_DATA":
             return httpGetAsyncWithEvent(event, "/names/" + data.name);
 
