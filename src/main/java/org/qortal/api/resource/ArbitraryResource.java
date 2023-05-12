@@ -45,6 +45,7 @@ import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataCacheManager;
 import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
@@ -1133,7 +1134,7 @@ public class ArbitraryResource {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			RepositoryManager.buildArbitraryResourcesCache(repository, true);
+			ArbitraryDataCacheManager.getInstance().buildArbitraryResourcesCache(repository, true);
 
 			return "true";
 		} catch (DataException e) {

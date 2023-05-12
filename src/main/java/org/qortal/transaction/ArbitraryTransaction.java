@@ -12,6 +12,7 @@ import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
+import org.qortal.controller.arbitrary.ArbitraryDataCacheManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.crypto.Crypto;
@@ -258,9 +259,8 @@ public class ArbitraryTransaction extends Transaction {
 			}
 		}
 
-		// Add to arbitrary resource caches
-		this.updateArbitraryResourceCache();
-		this.updateArbitraryMetadataCache();
+		// Add to queue for cache updates
+		ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
 	}
 
 	@Override
@@ -296,9 +296,8 @@ public class ArbitraryTransaction extends Transaction {
 				}
 			}
 
-			// Add/update arbitrary resource caches
-			this.updateArbitraryResourceCache();
-			this.updateArbitraryMetadataCache();
+			// Add to queue for cache updates
+			ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
 
 		} catch (Exception e) {
 			// Log and ignore all exceptions. The cache is updated from other places too, and can be rebuilt if needed.

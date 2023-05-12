@@ -564,10 +564,8 @@ public class ArbitraryDataManager extends Thread {
 				repository.getArbitraryRepository().delete(arbitraryResourceData);
 			}
 			else {
-				// We found the next oldest transaction, so we can update the cache
-				ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, latestTransactionData);
-				arbitraryTransaction.updateArbitraryResourceCache();
-				arbitraryTransaction.updateArbitraryMetadataCache();
+				// We found the next oldest transaction, so add to queue for processing
+				ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
 			}
 ;
 			repository.saveChanges();

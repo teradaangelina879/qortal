@@ -403,7 +403,7 @@ public class Controller extends Thread {
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				RepositoryManager.buildArbitraryResourcesCache(repository, false);
+				ArbitraryDataCacheManager.getInstance().buildArbitraryResourcesCache(repository, false);
 			}
 		}
 		catch (DataException e) {
@@ -485,6 +485,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
 		ArbitraryDataFileManager.getInstance().start();
+		ArbitraryDataCacheManager.getInstance().start();
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 		ArbitraryDataStorageManager.getInstance().start();
@@ -939,6 +940,7 @@ public class Controller extends Thread {
 				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
 				ArbitraryDataFileManager.getInstance().shutdown();
+				ArbitraryDataCacheManager.getInstance().shutdown();
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 				ArbitraryDataStorageManager.getInstance().shutdown();

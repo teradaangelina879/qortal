@@ -15,7 +15,6 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
@@ -354,13 +353,9 @@ public class ArbitraryMetadataManager {
                 }
             }
 
-            // Update arbitrary resource caches
+            // Add to resource queue to update arbitrary resource caches
             if (arbitraryTransactionData != null) {
-                repository.discardChanges();
-                ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, arbitraryTransactionData);
-                arbitraryTransaction.updateArbitraryResourceCache();
-                arbitraryTransaction.updateArbitraryMetadataCache();
-                repository.saveChanges();
+                ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
             }
 
         } catch (DataException e) {
