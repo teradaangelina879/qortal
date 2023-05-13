@@ -531,8 +531,14 @@ public class ArbitraryResource {
 								  @PathParam("identifier") String identifier) {
 
 		Security.checkApiCallAllowed(request);
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.delete(false);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+			return resource.delete(repository, false);
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@POST

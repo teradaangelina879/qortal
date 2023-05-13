@@ -407,7 +407,7 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Update status
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
-		ArbitraryResourceStatus arbitraryResourceStatus = resource.getStatus();
+		ArbitraryResourceStatus arbitraryResourceStatus = resource.getStatus(repository);
 		ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
 		repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
 	}

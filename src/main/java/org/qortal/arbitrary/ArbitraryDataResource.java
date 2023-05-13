@@ -59,28 +59,34 @@ public class ArbitraryDataResource {
     }
 
     public ArbitraryResourceStatus getStatusAndUpdateCache(boolean updateCache) {
-        ArbitraryResourceStatus arbitraryResourceStatus = this.getStatus();
+        ArbitraryResourceStatus arbitraryResourceStatus = null;
 
-        if (updateCache) {
-            // Update cache if possible
-            ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
-            ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData(this.service, this.resourceId, this.identifier);
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            arbitraryResourceStatus = this.getStatus(repository);
 
-            try (final Repository repository = RepositoryManager.getRepository()) {
+            if (updateCache) {
+                // Update cache if possible
+                ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
+                ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData(this.service, this.resourceId, this.identifier);
                 repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
                 repository.saveChanges();
-
-            } catch (DataException e) {
-                LOGGER.info("Unable to update status cache for resource {}: {}", arbitraryResourceData, e.getMessage());
             }
+        } catch (DataException e) {
+            LOGGER.info("Unable to update status cache for resource {}: {}", this.toString(), e.getMessage());
         }
 
         return arbitraryResourceStatus;
     }
 
-    public ArbitraryResourceStatus getStatus() {
+    /**
+     * Get current status of resource
+     *
+     * @param repository
+     * @return the resource's status
+     */
+    public ArbitraryResourceStatus getStatus(Repository repository) {
         // Calculate the chunk counts
-        this.calculateChunkCounts();
+        this.calculateChunkCounts(repository);
 
         if (!this.exists) {
             return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
@@ -111,11 +117,11 @@ public class ArbitraryDataResource {
         }
 
         // Check if we have all data locally for this resource
-        if (!this.allFilesDownloaded()) {
-            if (this.isDownloading()) {
+        if (!this.allFilesDownloaded(repository)) {
+            if (this.isDownloading(repository)) {
                 return new ArbitraryResourceStatus(Status.DOWNLOADING, this.localChunkCount, this.totalChunkCount);
             }
-            else if (this.isDataPotentiallyAvailable()) {
+            else if (this.isDataPotentiallyAvailable(repository)) {
                 return new ArbitraryResourceStatus(Status.PUBLISHED, this.localChunkCount, this.totalChunkCount);
             }
             return new ArbitraryResourceStatus(Status.MISSING_DATA, this.localChunkCount, this.totalChunkCount);
@@ -157,9 +163,9 @@ public class ArbitraryDataResource {
         return null;
     }
 
-    public boolean delete(boolean deleteMetadata) {
+    public boolean delete(Repository repository, boolean deleteMetadata) {
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 return false;
             }
@@ -208,7 +214,7 @@ public class ArbitraryDataResource {
         }
     }
 
-    private boolean allFilesDownloaded() {
+    private boolean allFilesDownloaded(Repository repository) {
         // Use chunk counts to speed things up if we can
         if (this.localChunkCount != null && this.totalChunkCount != null &&
                 this.localChunkCount >= this.totalChunkCount) {
@@ -216,7 +222,7 @@ public class ArbitraryDataResource {
         }
 
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 return false;
             }
@@ -236,9 +242,14 @@ public class ArbitraryDataResource {
         }
     }
 
-    private void calculateChunkCounts() {
+    /**
+     * Calculate chunk counts of a resource
+     *
+     * @param repository optional - a new instance will be created if null
+     */
+    private void calculateChunkCounts(Repository repository) {
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 this.exists = false;
                 this.localChunkCount = 0;
@@ -263,9 +274,9 @@ public class ArbitraryDataResource {
         } catch (DataException e) {}
     }
 
-    private boolean isRateLimited() {
+    private boolean isRateLimited(Repository repository) {
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 return true;
             }
@@ -289,9 +300,9 @@ public class ArbitraryDataResource {
      * This is only used to give an indication to the user of progress
      * @return - whether data might be available on the network
      */
-    private boolean isDataPotentiallyAvailable() {
+    private boolean isDataPotentiallyAvailable(Repository repository) {
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 return false;
             }
@@ -324,9 +335,9 @@ public class ArbitraryDataResource {
      * This is only used to give an indication to the user of progress
      * @return - whether we are trying to download the resource
      */
-    private boolean isDownloading() {
+    private boolean isDownloading(Repository repository) {
         try {
-            this.fetchTransactions();
+            this.fetchTransactions(repository);
             if (this.transactions == null) {
                 return false;
             }
@@ -357,15 +368,19 @@ public class ArbitraryDataResource {
     }
 
 
-
-    private void fetchTransactions() throws DataException {
+    /**
+     * Fetch relevant arbitrary transactions for resource
+     *
+     * @param repository
+     * @throws DataException
+     */
+    private void fetchTransactions(Repository repository) throws DataException {
         if (this.transactions != null && !this.transactions.isEmpty()) {
             // Already fetched
             return;
         }
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-
+        try {
             // Get the most recent PUT
             ArbitraryTransactionData latestPut = repository.getArbitraryRepository()
                     .getLatestTransaction(this.resourceId, this.service, ArbitraryTransactionData.Method.PUT, this.identifier);
