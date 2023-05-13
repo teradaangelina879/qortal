@@ -233,14 +233,12 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getDefaultResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-															@PathParam("service") Service service,
+	public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
 															@PathParam("name") String name,
 															@QueryParam("build") Boolean build) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, null);
 
 		return ArbitraryTransactionUtils.getStatus(service, name, null, build, true);
 	}
@@ -256,14 +254,12 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public FileProperties getResourceProperties(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-											  @PathParam("service") Service service,
-											  @PathParam("name") String name,
-											  @PathParam("identifier") String identifier) {
+	public FileProperties getResourceProperties(@PathParam("service") Service service,
+											    @PathParam("name") String name,
+											    @PathParam("identifier") String identifier) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, null);
 
 		return this.getFileProperties(service, name, identifier);
 	}
@@ -279,15 +275,13 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-													 @PathParam("service") Service service,
+	public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
 													 @PathParam("name") String name,
 													 @PathParam("identifier") String identifier,
 													 @QueryParam("build") Boolean build) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, null);
 
 		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build, true);
 	}
@@ -630,9 +624,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-								   @PathParam("service") Service service,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("encoding") String encoding,
@@ -665,9 +657,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-								   @PathParam("service") Service service,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
@@ -678,7 +668,7 @@ public class ArbitraryResource {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
-			Security.checkApiCallAllowed(request, apiKey);
+			Security.checkApiCallAllowed(request, null);
 		}
 
 		return this.download(service, name, identifier, filepath, encoding, rebuild, async, attempts);
@@ -703,7 +693,6 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
 	public ArbitraryResourceMetadata getMetadata(@PathParam("service") Service service,
 							  					 @PathParam("name") String name,
 							  					 @PathParam("identifier") String identifier) {
