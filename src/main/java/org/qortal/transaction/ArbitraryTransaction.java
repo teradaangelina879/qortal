@@ -390,8 +390,8 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Check for existing cached data
 		if (existingArbitraryResourceData == null) {
-			// Nothing exists yet, so set everything from the newest transaction
-			arbitraryResourceData.created = latestTransactionData.getTimestamp();
+			// Nothing exists yet, so set creation date from the current transaction (it will be reduced later if needed)
+			arbitraryResourceData.created = arbitraryTransactionData.getTimestamp();
 			arbitraryResourceData.updated = null;
 		}
 		else {
