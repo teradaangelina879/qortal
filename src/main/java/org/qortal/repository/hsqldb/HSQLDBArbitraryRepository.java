@@ -922,7 +922,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 		// Trim metadata values if they are too long to fit in the db
 		String title = ArbitraryDataTransactionMetadata.limitTitle(metadata.getTitle());
-		String description = ArbitraryDataTransactionMetadata.limitTitle(metadata.getDescription());
+		String description = ArbitraryDataTransactionMetadata.limitDescription(metadata.getDescription());
 		List<String> tags = ArbitraryDataTransactionMetadata.limitTags(metadata.getTags());
 
 		String tag1 = null;
