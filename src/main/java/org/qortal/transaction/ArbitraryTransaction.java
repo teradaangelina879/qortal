@@ -250,17 +250,8 @@ public class ArbitraryTransaction extends Transaction {
 		// We may need to move files from the misc_ folder
 		ArbitraryTransactionUtils.checkAndRelocateMiscFiles(arbitraryTransactionData);
 
-		// If the data is local, we need to perform a few actions
-		if (isDataLocal()) {
-
-			// We have the data for this transaction, so invalidate the cache
-			if (arbitraryTransactionData.getName() != null) {
-				ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
-			}
-		}
-
-		// Add to queue for cache updates
-		ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
+		// Update caches
+		updateCaches();
 	}
 
 	@Override
@@ -296,8 +287,9 @@ public class ArbitraryTransaction extends Transaction {
 				}
 			}
 
-			// Add to queue for cache updates
-			ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
+			// Add/update arbitrary resource caches
+			this.updateArbitraryResourceCache();
+			this.updateArbitraryMetadataCache();
 
 		} catch (Exception e) {
 			// Log and ignore all exceptions. The cache is updated from other places too, and can be rebuilt if needed.
