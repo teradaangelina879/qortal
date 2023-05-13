@@ -50,6 +50,9 @@ public class ArbitraryDataCacheManager extends Thread {
         } catch (InterruptedException e) {
             // Fall through to exit thread
         }
+
+        // Clear queue before terminating thread
+        processResourceQueue();
     }
 
     public void shutdown() {
