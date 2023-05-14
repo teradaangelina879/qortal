@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
-	<version>3.8.9</version>
+	<version>4.0.3</version>
 	<packaging>jar</packaging>
 	<properties>
 		<skipTests>true</skipTests>
@@ -36,6 +36,7 @@
 		<java-diff-utils.version>4.10</java-diff-utils.version>
 		<grpc.version>1.45.1</grpc.version>
 		<protobuf.version>3.19.4</protobuf.version>
+		<simplemagic.version>1.17</simplemagic.version>
 	</properties>
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
@@ -147,6 +148,7 @@
 										tagsSorter: "alpha",
 										operationsSorter:
 										"alpha",
+										validatorUrl: false,
 									</value>
 								</replacement>
 							</replacements>
@@ -727,6 +729,11 @@
 			<groupId>com.google.protobuf</groupId>
 			<artifactId>protobuf-java</artifactId>
 			<version>${protobuf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.j256.simplemagic</groupId>
+			<artifactId>simplemagic</artifactId>
+			<version>${simplemagic.version}</version>
 		</dependency>
 	</dependencies>
 </project>

@@ -432,6 +432,10 @@ public class BlockMinter extends Thread {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly minted block?", e);
 							newBlocks.clear();
+						} catch (ArithmeticException e) {
+							// Unable to process block - report and discard
+							LOGGER.error("Unable to process newly minted block?", e);
+							newBlocks.clear();
 						}
 					} finally {
 						blockchainLock.unlock();

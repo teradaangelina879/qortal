@@ -1,4 +1,4 @@
-package org.qortal.api.resource;
+package org.qortal.api.restricted.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -31,10 +32,13 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.*;
@@ -42,6 +46,7 @@ import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
+import org.qortal.controller.AutoUpdate;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
@@ -154,6 +159,53 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/settings")
+	@Operation(
+		summary = "Fetch node settings",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Settings.class))
+			)
+		}
+	)
+	public Settings settings() {
+		Settings nodeSettings = Settings.getInstance();
+
+		return nodeSettings;
+	}
+
+	@GET
+	@Path("/settings/{setting}")
+	@Operation(
+			summary = "Fetch a single node setting",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	public String setting(@PathParam("setting") String setting) {
+		try {
+			Object settingValue = FieldUtils.readField(Settings.getInstance(), setting, true);
+			if (settingValue == null) {
+				return "null";
+			}
+			else if (settingValue instanceof String[]) {
+				JSONArray array = new JSONArray(settingValue);
+				return array.toString(4);
+			}
+			else if (settingValue instanceof List) {
+				JSONArray array = new JSONArray((List<Object>) settingValue);
+				return array.toString(4);
+			}
+
+			return settingValue.toString();
+		} catch (IllegalAccessException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+		}
+	}
+
+	@GET
 	@Path("/stop")
 	@Operation(
 		summary = "Shutdown",
@@ -178,6 +230,37 @@ public class AdminResource {
 			}
 
 			Controller.getInstance().shutdownAndExit();
+		}).start();
+
+		return "true";
+	}
+
+	@GET
+	@Path("/restart")
+	@Operation(
+		summary = "Restart",
+		description = "Restart",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String restart(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		new Thread(() -> {
+			// Short sleep to allow HTTP response body to be emitted
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// Not important
+			}
+
+			AutoUpdate.attemptRestart();
+
 		}).start();
 
 		return "true";

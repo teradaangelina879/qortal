@@ -9,7 +9,6 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
-import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
@@ -19,10 +18,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
 import org.qortal.transform.Transformer;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.ZipUtils;
+import org.qortal.utils.*;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
@@ -38,6 +34,9 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ArbitraryDataReader {
 
@@ -62,6 +61,10 @@ public class ArbitraryDataReader {
 
     // The resource being read
     ArbitraryDataResource arbitraryDataResource = null;
+
+    // Track resources that are currently being loaded, to avoid duplicate concurrent builds
+    // TODO: all builds could be handled by the build queue (even synchronous ones), to avoid the need for this
+    private static Map<String, Long> inProgress = Collections.synchronizedMap(new HashMap<>());
 
     public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         // Ensure names are always lowercase
@@ -157,9 +160,6 @@ public class ArbitraryDataReader {
      * If no exception is thrown, you can then use getFilePath() to access the data immediately after returning
      *
      * @param overwrite - set to true to force rebuild an existing cache
-     * @throws IOException
-     * @throws DataException
-     * @throws MissingDataException
      */
     public void loadSynchronously(boolean overwrite) throws DataException, IOException, MissingDataException {
         try {
@@ -172,6 +172,12 @@ public class ArbitraryDataReader {
             }
 
             this.arbitraryDataResource = this.createArbitraryDataResource();
+
+            // Don't allow duplicate loads
+            if (!this.canStartLoading()) {
+                LOGGER.debug("Skipping duplicate load of {}", this.arbitraryDataResource);
+                return;
+            }
 
             this.preExecute();
             this.deleteExistingFiles();
@@ -200,6 +206,7 @@ public class ArbitraryDataReader {
 
     private void preExecute() throws DataException {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(true);
+
         this.checkEnabled();
         this.createWorkingDirectory();
         this.createUncompressedDirectory();
@@ -207,12 +214,26 @@ public class ArbitraryDataReader {
 
     private void postExecute() {
         ArbitraryDataBuildManager.getInstance().setBuildInProgress(false);
+
+        this.arbitraryDataResource = this.createArbitraryDataResource();
+        ArbitraryDataReader.inProgress.remove(this.arbitraryDataResource.getUniqueKey());
     }
 
     private void checkEnabled() throws DataException {
         if (!Settings.getInstance().isQdnEnabled()) {
             throw new DataException("QDN is disabled in settings");
         }
+    }
+
+    private boolean canStartLoading() {
+        // Avoid duplicate builds if we're already loading this resource
+        String uniqueKey = this.arbitraryDataResource.getUniqueKey();
+        if (ArbitraryDataReader.inProgress.containsKey(uniqueKey)) {
+            return false;
+        }
+        ArbitraryDataReader.inProgress.put(uniqueKey, NTP.getTime());
+
+        return true;
     }
 
     private void createWorkingDirectory() throws DataException {
@@ -226,7 +247,6 @@ public class ArbitraryDataReader {
     /**
      * Working directory should only be deleted on failure, since it is currently used to
      * serve a cached version of the resource for subsequent requests.
-     * @throws IOException
      */
     private void deleteWorkingDirectory() {
         try {
@@ -306,7 +326,7 @@ public class ArbitraryDataReader {
                 break;
 
             default:
-                throw new DataException(String.format("Unknown resource ID type specified: %s", resourceIdType.toString()));
+                throw new DataException(String.format("Unknown resource ID type specified: %s", resourceIdType));
         }
     }
 
@@ -362,11 +382,6 @@ public class ArbitraryDataReader {
             throw new DataException(String.format("Transaction data not found for signature %s", this.resourceId));
         }
 
-        // Load hashes
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
         // Load secret
         byte[] secret = transactionData.getSecret();
         if (secret != null) {
@@ -374,16 +389,17 @@ public class ArbitraryDataReader {
         }
 
         // Load data file(s)
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
         ArbitraryTransactionUtils.checkAndRelocateMiscFiles(transactionData);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        if (arbitraryDataFile == null) {
+            throw new DataException(String.format("arbitraryDataFile is null"));
+        }
 
         if (!arbitraryDataFile.allFilesExist()) {
-            if (ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName())) {
+            if (ListUtils.isNameBlocked(transactionData.getName())) {
                 throw new DataException(
                         String.format("Unable to request missing data for file %s because the name is blocked", arbitraryDataFile));
-            }
-            else {
+            } else {
                 // Ask the arbitrary data manager to fetch data for this transaction
                 String message;
                 if (this.canRequestMissingFiles) {
@@ -394,8 +410,7 @@ public class ArbitraryDataReader {
                     } else {
                         message = String.format("Unable to reissue request for missing file %s for signature %s due to rate limit. Please try again later.", arbitraryDataFile, Base58.encode(transactionData.getSignature()));
                     }
-                }
-                else {
+                } else {
                     message = String.format("Missing data for file %s", arbitraryDataFile);
                 }
 
@@ -405,21 +420,25 @@ public class ArbitraryDataReader {
             }
         }
 
-        if (arbitraryDataFile.allChunksExist() && !arbitraryDataFile.exists()) {
-            // We have all the chunks but not the complete file, so join them
-            arbitraryDataFile.join();
+        // Data hashes need some extra processing
+        if (transactionData.getDataType() == DataType.DATA_HASH) {
+            if (arbitraryDataFile.allChunksExist() && !arbitraryDataFile.exists()) {
+                // We have all the chunks but not the complete file, so join them
+                arbitraryDataFile.join();
+            }
+
+            // If the complete file still doesn't exist then something went wrong
+            if (!arbitraryDataFile.exists()) {
+                throw new IOException(String.format("File doesn't exist: %s", arbitraryDataFile));
+            }
+            // Ensure the complete hash matches the joined chunks
+            if (!Arrays.equals(arbitraryDataFile.digest(), transactionData.getData())) {
+                // Delete the invalid file
+                arbitraryDataFile.delete();
+                throw new DataException("Unable to validate complete file hash");
+            }
         }
 
-        // If the complete file still doesn't exist then something went wrong
-        if (!arbitraryDataFile.exists()) {
-            throw new IOException(String.format("File doesn't exist: %s", arbitraryDataFile));
-        }
-        // Ensure the complete hash matches the joined chunks
-        if (!Arrays.equals(arbitraryDataFile.digest(), digest)) {
-            // Delete the invalid file
-            arbitraryDataFile.delete();
-            throw new DataException("Unable to validate complete file hash");
-        }
         // Ensure the file's size matches the size reported by the transaction (throws a DataException if not)
         arbitraryDataFile.validateFileSize(transactionData.getSize());
 
@@ -450,6 +469,7 @@ public class ArbitraryDataReader {
                 Path unencryptedPath = Paths.get(this.workingPath.toString(), "zipped.zip");
                 SecretKey aesKey = new SecretKeySpec(secret, 0, secret.length, "AES");
                 AES.decryptFile(algorithm, aesKey, this.filePath.toString(), unencryptedPath.toString());
+                LOGGER.debug("Finished decrypting {} using algorithm {}", this.arbitraryDataResource, algorithm);
 
                 // Replace filePath pointer with the encrypted file path
                 // Don't delete the original ArbitraryDataFile, as this is handled in the cleanup phase
@@ -484,7 +504,9 @@ public class ArbitraryDataReader {
 
             // Handle each type of compression
             if (compression == Compression.ZIP) {
+                LOGGER.debug("Unzipping {}...", this.arbitraryDataResource);
                 ZipUtils.unzip(this.filePath.toString(), this.uncompressedPath.getParent().toString());
+                LOGGER.debug("Finished unzipping {}", this.arbitraryDataResource);
             }
             else if (compression == Compression.NONE) {
                 Files.createDirectories(this.uncompressedPath);
@@ -520,10 +542,12 @@ public class ArbitraryDataReader {
 
     private void validate() throws IOException, DataException {
         if (this.service.isValidationRequired()) {
+            LOGGER.debug("Validating {}...", this.arbitraryDataResource);
             Service.ValidationResult result = this.service.validate(this.filePath);
             if (result != Service.ValidationResult.OK) {
                 throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
             }
+            LOGGER.debug("Finished validating {}", this.arbitraryDataResource);
         }
     }
 

@@ -91,8 +91,8 @@ public class ArbitraryTransactionMetadataTests extends Common {
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
             Service service = Service.ARBITRARY_DATA;
-            int chunkSize = 1000;
-            int dataLength = 10; // Actual data length will be longer due to encryption
+            int chunkSize = 10000;
+            int dataLength = 1000; // Actual data length will be longer due to encryption
 
             String title = "Test title";
             String description = "Test description";
@@ -118,6 +118,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -141,8 +142,8 @@ public class ArbitraryTransactionMetadataTests extends Common {
             String name = "TEST"; // Can be anything for this test
             String identifier = null; // Not used for this test
             Service service = Service.ARBITRARY_DATA;
-            int chunkSize = 1000;
-            int dataLength = 10; // Actual data length will be longer due to encryption
+            int chunkSize = 10000;
+            int dataLength = 1000; // Actual data length will be longer due to encryption
 
             String title = "Test title";
             String description = "Test description";
@@ -168,6 +169,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Delete the file, to simulate that it hasn't been fetched from the network yet
             arbitraryDataFile.delete();
@@ -230,6 +232,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
             assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
             assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
@@ -242,6 +245,47 @@ public class ArbitraryTransactionMetadataTests extends Common {
             ArbitraryDataDigest path1Digest = new ArbitraryDataDigest(path1);
             path1Digest.compute();
             assertEquals(path1Digest.getHash58(), initialLayerDigest.getHash58());
+        }
+    }
+
+    @Test
+    public void testUTF8Metadata() throws DataException, IOException, MissingDataException {
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+            String publicKey58 = Base58.encode(alice.getPublicKey());
+            String name = "TEST"; // Can be anything for this test
+            String identifier = null; // Not used for this test
+            Service service = Service.ARBITRARY_DATA;
+            int chunkSize = 100;
+            int dataLength = 900; // Actual data length will be longer due to encryption
+
+            // Example (modified) strings from real world content
+            String title = "Доля юаня в трансграничных Доля юаня в трансграничных";
+            String description = "Когда рыночек порешал";
+            List<String> tags = Arrays.asList("Доля", "юаня", "трансграничных");
+            Category category = Category.OTHER;
+
+            // Register the name to Alice
+            RegisterNameTransactionData transactionData = new RegisterNameTransactionData(TestTransaction.generateBase(alice), name, "");
+            transactionData.setFee(new RegisterNameTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
+            TransactionUtils.signAndMint(repository, transactionData, alice);
+
+            // Create PUT transaction
+            Path path1 = ArbitraryUtils.generateRandomDataPath(dataLength);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name,
+                    identifier, ArbitraryTransactionData.Method.PUT, service, alice, chunkSize, 0L, true,
+                    title, description, tags, category);
+
+            // Check the chunk count is correct
+            assertEquals(10, arbitraryDataFile.chunkCount());
+
+            // Check the metadata is correct
+            String expectedTrimmedTitle = "Доля юаня в трансграничных Доля юаня в тран";
+            assertEquals(expectedTrimmedTitle, arbitraryDataFile.getMetadata().getTitle());
+            assertEquals(description, arbitraryDataFile.getMetadata().getDescription());
+            assertEquals(tags, arbitraryDataFile.getMetadata().getTags());
+            assertEquals(category, arbitraryDataFile.getMetadata().getCategory());
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
         }
     }
 
@@ -262,7 +306,7 @@ public class ArbitraryTransactionMetadataTests extends Common {
             Category category = Category.CRYPTOCURRENCY;
 
             String expectedTitle = "title Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat "; // 80 chars
-            String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque. Nulla condimentum eget dolor a egestas. Vestibulum vel tincidunt ex. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Cras congue lacus in risus mattis suscipit. Quisque nisl eros, facilisis a lorem quis, vehicula biben"; // 500 chars
+            String expectedDescription = "description Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent feugiat pretium massa, non pulvinar mi pretium id. Ut gravida sapien vitae dui posuere tincidunt. Quisque in nibh est. Curabitur at blandit nunc, id aliquet neque"; // 240 chars
             List<String> expectedTags = Arrays.asList("tag 1", "tag 2", "tag 4", "tag 5", "tag 6");
 
             // Register the name to Alice
@@ -318,9 +362,11 @@ public class ArbitraryTransactionMetadataTests extends Common {
             assertTrue(resourceMetadata.getFiles().contains("file.txt"));
 
             // Ensure it's not returned when specified to be excluded
-            // The entire object will be null because there is no metadata
             ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
-            assertNull(resourceMetadataSimple);
+            assertNull(resourceMetadataSimple.getFiles());
+
+            // Single-file resources should have a MIME type
+            assertEquals("text/plain", arbitraryDataFile.getMetadata().getMimeType());
         }
     }
 
@@ -369,6 +415,9 @@ public class ArbitraryTransactionMetadataTests extends Common {
             // The entire object will be null because there is no metadata
             ArbitraryResourceMetadata resourceMetadataSimple = ArbitraryResourceMetadata.fromTransactionMetadata(arbitraryDataFile.getMetadata(), false);
             assertNull(resourceMetadataSimple);
+
+            // Multi-file resources won't have a MIME type
+            assertEquals(null, arbitraryDataFile.getMetadata().getMimeType());
         }
     }
 

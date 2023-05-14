@@ -8,11 +8,11 @@ if [ -z "$*" ]; then
 	echo "Usage:"
 	echo
 	echo "Host/update data:"
-	echo "qdata POST [service] [name] PATH [dirpath] <identifier>"
-	echo "qdata POST [service] [name] STRING [data-string] <identifier>"
+	echo "qdn POST [service] [name] PATH [dirpath] <identifier>"
+	echo "qdn POST [service] [name] STRING [data-string] <identifier>"
 	echo
 	echo "Fetch data:"
-	echo "qdata GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
+	echo "qdn GET [service] [name] <identifier-or-default> <filepath-or-default> <rebuild>"
 	echo
 	echo "Notes:"
 	echo "- When requesting a resource, please use 'default' to indicate a file with no identifier."

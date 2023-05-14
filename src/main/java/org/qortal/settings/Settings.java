@@ -61,6 +61,7 @@ public class Settings {
 
 	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
+	private String bindAddressFallback = "0.0.0.0"; // Some systems are unable to bind using IPv6
 
 	// UI servers
 	private int uiPort = 12388;
@@ -104,6 +105,7 @@ public class Settings {
 	private Integer gatewayPort;
 	private boolean gatewayEnabled = false;
 	private boolean gatewayLoggingEnabled = false;
+	private boolean gatewayLoopbackEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -251,6 +253,9 @@ public class Settings {
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
 
+	/** Maximum buy attempts for each trade offer before it is considered failed, and hidden from the list */
+	private int maxTradeOfferAttempts = 3;
+
 	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
 	private String walletsPath = "wallets";
 
@@ -353,7 +358,7 @@ public class Settings {
 	private Long maxStorageCapacity = null;
 
 	/** Whether to serve QDN data without authentication */
-	private boolean qdnAuthBypassEnabled = false;
+	private boolean qdnAuthBypassEnabled = true;
 
 	// Domain mapping
 	public static class DomainMap {
@@ -636,6 +641,10 @@ public class Settings {
 		return this.gatewayLoggingEnabled;
 	}
 
+	public boolean isGatewayLoopbackEnabled() {
+		return this.gatewayLoopbackEnabled;
+	}
+
 
 	public boolean getWipeUnconfirmedOnStart() {
 		return this.wipeUnconfirmedOnStart;
@@ -682,6 +691,10 @@ public class Settings {
 
 	public String getBindAddress() {
 		return this.bindAddress;
+	}
+
+	public String getBindAddressFallback() {
+		return this.bindAddressFallback;
 	}
 
 	public boolean isUPnPEnabled() {
@@ -759,6 +772,10 @@ public class Settings {
 
 	public PirateChainNet getPirateChainNet() {
 		return this.pirateChainNet;
+	}
+
+	public int getMaxTradeOfferAttempts() {
+		return this.maxTradeOfferAttempts;
 	}
 
 	public String getWalletsPath() {
@@ -1001,6 +1018,10 @@ public class Settings {
 	}
 
 	public boolean isQDNAuthBypassEnabled() {
+		if (this.gatewayEnabled) {
+			// We must always bypass QDN authentication in gateway mode, in order for it to function properly
+			return true;
+		}
 		return this.qdnAuthBypassEnabled;
 	}
 }

@@ -15,6 +15,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.qortal.api.resource.AnnotationPostProcessor;
 import org.qortal.api.resource.ApiDefinition;
+import org.qortal.network.Network;
 import org.qortal.settings.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -37,7 +38,7 @@ public class GatewayService {
 
 	private GatewayService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.gateway.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.gateway.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
@@ -98,13 +99,13 @@ public class GatewayService {
 				ServerConnector portUnifiedConnector = new ServerConnector(this.server,
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
-				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
+				portUnifiedConnector.setHost(Network.getInstance().getBindAddress());
 				portUnifiedConnector.setPort(Settings.getInstance().getGatewayPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
-				InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
+				InetAddress bindAddr = InetAddress.getByName(Network.getInstance().getBindAddress());
 				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getGatewayPort());
 				this.server = new Server(endpoint);
 			}

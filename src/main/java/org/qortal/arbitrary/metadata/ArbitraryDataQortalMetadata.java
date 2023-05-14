@@ -2,12 +2,14 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -46,20 +48,6 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
         return null;
     }
 
-    protected void readJson() throws DataException {
-        // To be overridden
-    }
-
-    protected void buildJson() {
-        // To be overridden
-    }
-
-
-    @Override
-    public void read() throws IOException, DataException {
-        this.loadJson();
-        this.readJson();
-    }
 
     @Override
     public void write() throws IOException, DataException {
@@ -82,7 +70,7 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
             throw new IOException(String.format("Patch file doesn't exist: %s", path.toString()));
         }
 
-        this.jsonString = new String(Files.readAllBytes(path));
+        this.jsonString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
     }
 
 
@@ -92,11 +80,6 @@ public class ArbitraryDataQortalMetadata extends ArbitraryDataMetadata {
         } catch (IOException e) {
             throw new DataException("Unable to create .qortal directory");
         }
-    }
-
-
-    public String getJsonString() {
-        return this.jsonString;
     }
 
 }

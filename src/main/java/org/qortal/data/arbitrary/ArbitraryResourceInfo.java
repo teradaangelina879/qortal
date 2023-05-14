@@ -16,8 +16,15 @@ public class ArbitraryResourceInfo {
 	public ArbitraryResourceMetadata metadata;
 
 	public Long size;
+	public Long created;
+	public Long updated;
 
 	public ArbitraryResourceInfo() {
+	}
+
+	@Override
+	public String toString() {
+		return String.format("%s %s %s", name, service, identifier);
 	}
 
 	@Override

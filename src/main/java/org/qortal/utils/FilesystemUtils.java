@@ -228,12 +228,18 @@ public class FilesystemUtils {
      * @throws IOException
      */
     public static byte[] getSingleFileContents(Path path) throws IOException {
+        return getSingleFileContents(path, null);
+    }
+
+    public static byte[] getSingleFileContents(Path path, Integer maxLength) throws IOException {
         byte[] data = null;
         // TODO: limit the file size that can be loaded into memory
 
         // If the path is a file, read the contents directly
         if (path.toFile().isFile()) {
-            data = Files.readAllBytes(path);
+            int fileSize = (int)path.toFile().length();
+            maxLength = maxLength != null ? Math.min(maxLength, fileSize) : fileSize;
+            data = FilesystemUtils.readFromFile(path.toString(), 0, maxLength);
         }
 
         // Or if it's a directory, only load file contents if there is a single file inside it
@@ -241,11 +247,48 @@ public class FilesystemUtils {
             String[] files = ArrayUtils.removeElement(path.toFile().list(), ".qortal");
             if (files.length == 1) {
                 Path filePath = Paths.get(path.toString(), files[0]);
-                data = Files.readAllBytes(filePath);
+                if (filePath.toFile().isFile()) {
+                    int fileSize = (int)filePath.toFile().length();
+                    maxLength = maxLength != null ? Math.min(maxLength, fileSize) : fileSize;
+                    data = FilesystemUtils.readFromFile(filePath.toString(), 0, maxLength);
+                }
             }
         }
 
         return data;
+    }
+
+    /**
+     * isSingleFileResource
+     * Returns true if the path points to a file, or a
+     * directory containing a single file only.
+     *
+     * @param path to file or directory
+     * @param excludeQortalDirectory - if true, a directory containing a single file and a .qortal directory is considered a single file resource
+     * @return
+     * @throws IOException
+     */
+    public static boolean isSingleFileResource(Path path, boolean excludeQortalDirectory) {
+        // If the path is a file, read the contents directly
+        if (path.toFile().isFile()) {
+            return true;
+        }
+
+        // Or if it's a directory, only load file contents if there is a single file inside it
+        else if (path.toFile().isDirectory()) {
+            String[] files = path.toFile().list();
+            if (excludeQortalDirectory) {
+                files = ArrayUtils.removeElement(files, ".qortal");
+            }
+            if (files.length == 1) {
+                Path filePath = Paths.get(path.toString(), files[0]);
+                if (filePath.toFile().isFile()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public static byte[] readFromFile(String filePath, long position, int size) throws IOException {

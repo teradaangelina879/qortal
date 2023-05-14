@@ -33,7 +33,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		final byte[] metadataHash = new byte[32];
 		random.nextBytes(metadataHash);
 
-		byte[] data = new byte[1024];
+		byte[] data = new byte[256];
 		random.nextBytes(data);
 
 		DataType dataType = DataType.RAW_DATA;
@@ -45,7 +45,7 @@ public class ArbitraryTestTransaction extends TestTransaction {
 		List<PaymentData> payments = new ArrayList<>();
 		payments.add(new PaymentData(recipient, assetId, amount));
 
-		return new ArbitraryTransactionData(generateBase(account), version, service, nonce, size,name, identifier,
+		return new ArbitraryTransactionData(generateBase(account), version, service.value, nonce, size,name, identifier,
 				method, secret, compression, data, dataType, metadataHash, payments);
 	}
 

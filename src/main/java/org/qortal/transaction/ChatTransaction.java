@@ -8,6 +8,7 @@ import java.util.function.Predicate;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
+import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.naming.NameData;
@@ -22,6 +23,7 @@ import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 public class ChatTransaction extends Transaction {
@@ -156,8 +158,7 @@ public class ChatTransaction extends Transaction {
 		}
 
 		// Check for blocked author by address
-		ResourceListManager listManager = ResourceListManager.getInstance();
-		if (listManager.listContains("blockedAddresses", this.chatTransactionData.getSender(), true)) {
+		if (ListUtils.isAddressBlocked(this.chatTransactionData.getSender())) {
 			return ValidationResult.ADDRESS_BLOCKED;
 		}
 
@@ -166,7 +167,7 @@ public class ChatTransaction extends Transaction {
 		if (names != null && names.size() > 0) {
 			for (NameData nameData : names) {
 				if (nameData != null && nameData.getName() != null) {
-					if (listManager.listContains("blockedNames", nameData.getName(), false)) {
+					if (ListUtils.isNameBlocked(nameData.getName())) {
 						return ValidationResult.NAME_BLOCKED;
 					}
 				}

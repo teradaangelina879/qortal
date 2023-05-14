@@ -22,11 +22,14 @@ import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Base58;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Random;
 
 import static org.junit.Assert.*;
@@ -317,17 +320,15 @@ public class ArbitraryServiceTests extends Common {
         // Write the data to several files in a temp path
         Path path = Files.createTempDirectory("testValidateMultiLayerQChatAttachment");
         path.toFile().deleteOnExit();
-        Files.write(Paths.get(path.toString(), "file1.txt"), data, StandardOpenOption.CREATE);
 
         Path subdirectory = Paths.get(path.toString(), "subdirectory");
         Files.createDirectories(subdirectory);
-        Files.write(Paths.get(subdirectory.toString(), "file2.txt"), data, StandardOpenOption.CREATE);
-        Files.write(Paths.get(subdirectory.toString(), "file3.txt"), data, StandardOpenOption.CREATE);
+        Files.write(Paths.get(subdirectory.toString(), "file.txt"), data, StandardOpenOption.CREATE);
 
         Service service = Service.QCHAT_ATTACHMENT;
         assertTrue(service.isValidationRequired());
 
-        assertEquals(ValidationResult.DIRECTORIES_NOT_ALLOWED, service.validate(path));
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
     }
 
     @Test
@@ -386,6 +387,136 @@ public class ArbitraryServiceTests extends Common {
             // Build the latest data state for this name, and no exceptions should be thrown because validation passes
             ArbitraryDataReader arbitraryDataReader1a = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
             arbitraryDataReader1a.loadSynchronously(true);
+        }
+    }
+
+    @Test
+    public void testValidateValidJson() throws IOException {
+        String invalidJsonString = "{\"test\": true, \"test2\": \"valid\"}";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateValidJson");
+        Path filePath = Paths.get(path.toString(), "test.json");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(invalidJsonString);
+        writer.close();
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+    @Test
+    public void testValidateInvalidJson() throws IOException {
+        String invalidJsonString = "{\"test\": true, \"test2\": invalid}";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidateInvalidJson");
+        Path filePath = Paths.get(path.toString(), "test.json");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(invalidJsonString);
+        writer.close();
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_CONTENT, service.validate(filePath));
+    }
+
+    @Test
+    public void testValidateEmptyJson() throws IOException {
+        Path path = Files.createTempDirectory("testValidateEmptyJson");
+
+        Service service = Service.JSON;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.INVALID_FILE_COUNT, service.validate(path));
+    }
+
+    @Test
+    public void testValidPrivateData() throws IOException {
+        String dataString = "qortalEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
+    public void testEncryptedData() throws IOException {
+        String dataString = "qortalEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        // Validate a private service
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+
+        // Validate a regular service
+        service = Service.FILE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.DATA_ENCRYPTED, service.validate(filePath));
+    }
+
+    @Test
+    public void testPlainTextData() throws IOException {
+        String dataString = "plaintext";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testInvalidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        // Validate a private service
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.DATA_NOT_ENCRYPTED, service.validate(filePath));
+
+        // Validate a regular service
+        service = Service.FILE;
+        assertTrue(service.isValidationRequired());
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
+    public void testGetPrivateServices() {
+        List<Service> privateServices = Service.privateServices();
+        for (Service service : privateServices) {
+            assertTrue(service.isPrivate());
+        }
+    }
+
+    @Test
+    public void testGetPublicServices() {
+        List<Service> publicServices = Service.publicServices();
+        for (Service service : publicServices) {
+            assertFalse(service.isPrivate());
         }
     }
 

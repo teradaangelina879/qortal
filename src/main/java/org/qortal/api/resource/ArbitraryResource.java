@@ -1,6 +1,8 @@
 package org.qortal.api.resource;
 
 import com.google.common.primitives.Bytes;
+import com.j256.simplemagic.ContentInfo;
+import com.j256.simplemagic.ContentInfoUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -12,11 +14,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.*;
+import java.net.FileNameMap;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -25,11 +30,13 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.util.encoders.Base64;
 import org.qortal.api.*;
+import org.qortal.api.model.FileProperties;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.*;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -38,6 +45,7 @@ import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
@@ -57,10 +65,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.NTP;
-import org.qortal.utils.ZipUtils;
+import org.qortal.utils.*;
 
 @Path("/arbitrary")
 @Tag(name = "Arbitrary")
@@ -88,12 +93,15 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> getResources(
 			@QueryParam("service") Service service,
+			@QueryParam("name") String name,
 			@QueryParam("identifier") String identifier,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameFilter,
+			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
+			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
+			@Parameter(description = "Filter names by list") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
 
@@ -110,28 +118,33 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
 			}
 
-			// Load filter from list if needed
+			// Set up name filters if supplied
 			List<String> names = null;
-			if (nameFilter != null) {
-				names = ResourceListManager.getInstance().getStringsInList(nameFilter);
+			if (name != null) {
+				// Filter using single name
+				names = Arrays.asList(name);
+			}
+			else if (nameListFilter != null) {
+				// Filter using supplied list of names
+				names = ResourceListManager.getInstance().getStringsInList(nameListFilter);
 				if (names.isEmpty()) {
-					// List doesn't exist or is empty - so there will be no matches
+					// If list is empty (or doesn't exist) we can shortcut with empty response
 					return new ArrayList<>();
 				}
 			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, names, defaultRes, limit, offset, reverse);
+					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -155,94 +168,59 @@ public class ArbitraryResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ArbitraryResourceInfo> searchResources(
 			@QueryParam("service") Service service,
-			@QueryParam("query") String query,
+			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
+			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
+			@Parameter(description = "Name (searches name field only)") @QueryParam("name") List<String> names,
+			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
+			@Parameter(description = "Exact match names only (if true, partial name matches are excluded)") @QueryParam("exactmatchnames") Boolean exactMatchNamesOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
+			@Parameter(description = "Filter names by list (exact matches only)") @QueryParam("namefilter") String nameListFilter,
+			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
+			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
+			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
+			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
+			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 
 			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
+			boolean usePrefixOnly = Boolean.TRUE.equals(prefixOnly);
+
+			List<String> exactMatchNames = new ArrayList<>();
+
+			if (nameListFilter != null) {
+				// Load names from supplied list of names
+				exactMatchNames.addAll(ResourceListManager.getInstance().getStringsInList(nameListFilter));
+
+				// If list is empty (or doesn't exist) we can shortcut with empty response
+				if (exactMatchNames.isEmpty()) {
+					return new ArrayList<>();
+				}
+			}
+
+			// Move names to exact match list, if requested
+			if (exactMatchNamesOnly != null && exactMatchNamesOnly && names != null) {
+				exactMatchNames.addAll(names);
+				names = null;
+			}
 
 			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, defaultRes, limit, offset, reverse);
+					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
-
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
-	@Path("/resources/names")
-	@Operation(
-			summary = "List arbitrary resources available on chain, grouped by creator's name",
-			responses = {
-					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
-					)
-			}
-	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceNameInfo> getResourcesGroupedByName(
-			@QueryParam("service") Service service,
-			@QueryParam("identifier") String identifier,
-			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
-			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
-			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata) {
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-
-			// Treat empty identifier as null
-			if (identifier != null && identifier.isEmpty()) {
-				identifier = null;
-			}
-
-			// Ensure that "default" and "identifier" parameters cannot coexist
-			boolean defaultRes = Boolean.TRUE.equals(defaultResource);
-			if (defaultRes == true && identifier != null) {
-				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "identifier cannot be specified when requesting a default resource");
-			}
-
-			List<ArbitraryResourceNameInfo> creatorNames = repository.getArbitraryRepository()
-					.getArbitraryResourceCreatorNames(service, identifier, defaultRes, limit, offset, reverse);
-
-			for (ArbitraryResourceNameInfo creatorName : creatorNames) {
-				String name = creatorName.name;
-				if (name != null) {
-					List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-							.getArbitraryResources(service, identifier, Arrays.asList(name), defaultRes, null, null, reverse);
-
-					if (includeStatus != null && includeStatus) {
-						resources = this.addStatusToResources(resources);
-					}
-					if (includeMetadata != null && includeMetadata) {
-						resources = this.addMetadataToResources(resources);
-					}
-
-					creatorName.resources = resources;
-				}
-			}
-
-			return creatorNames;
 
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
@@ -266,8 +244,33 @@ public class ArbitraryResource {
 															@PathParam("name") String name,
 															@QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, null);
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
+
 		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
+	}
+
+	@GET
+	@Path("/resource/properties/{service}/{name}/{identifier}")
+	@Operation(
+			summary = "Get properties of a QDN resource",
+			description = "This attempts a download of the data if it's not available locally. A filename will only be returned for single file resources. mimeType is only returned when it can be determined.",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = FileProperties.class))
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public FileProperties getResourceProperties(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
+											  @PathParam("service") Service service,
+											  @PathParam("name") String name,
+											  @PathParam("identifier") String identifier) {
+
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+
+		return this.getFileProperties(service, name, identifier);
 	}
 
 	@GET
@@ -288,7 +291,9 @@ public class ArbitraryResource {
 													 @PathParam("identifier") String identifier,
 													 @QueryParam("build") Boolean build) {
 
-		Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier);
+		if (!Settings.getInstance().isQDNAuthBypassEnabled())
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+
 		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
 	}
 
@@ -501,6 +506,9 @@ public class ArbitraryResource {
 			}
 
 			for (ArbitraryTransactionData transactionData : transactionDataList) {
+				if (transactionData.getService() == null) {
+					continue;
+				}
 				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
 				arbitraryResourceInfo.name = transactionData.getName();
 				arbitraryResourceInfo.service = transactionData.getService();
@@ -511,10 +519,10 @@ public class ArbitraryResource {
 			}
 
 			if (includeStatus != null && includeStatus) {
-				resources = this.addStatusToResources(resources);
+				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
 			}
 			if (includeMetadata != null && includeMetadata) {
-				resources = this.addMetadataToResources(resources);
+				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -544,7 +552,7 @@ public class ArbitraryResource {
 
 		Security.checkApiCallAllowed(request);
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.delete();
+		return resource.delete(false);
 	}
 
 	@POST
@@ -641,6 +649,7 @@ public class ArbitraryResource {
 								   @PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
+								   @QueryParam("encoding") String encoding,
 								   @QueryParam("rebuild") boolean rebuild,
 								   @QueryParam("async") boolean async,
 								   @QueryParam("attempts") Integer attempts) {
@@ -650,7 +659,7 @@ public class ArbitraryResource {
 			Security.checkApiCallAllowed(request);
 		}
 
-		return this.download(service, name, null, filepath, rebuild, async, attempts);
+		return this.download(service, name, null, filepath, encoding, rebuild, async, attempts);
 	}
 
 	@GET
@@ -676,16 +685,17 @@ public class ArbitraryResource {
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
+								   @QueryParam("encoding") String encoding,
 								   @QueryParam("rebuild") boolean rebuild,
 								   @QueryParam("async") boolean async,
 								   @QueryParam("attempts") Integer attempts) {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
-			Security.checkApiCallAllowed(request);
+			Security.checkApiCallAllowed(request, apiKey);
 		}
 
-		return this.download(service, name, identifier, filepath, rebuild, async, attempts);
+		return this.download(service, name, identifier, filepath, encoding, rebuild, async, attempts);
 	}
 
 
@@ -708,12 +718,9 @@ public class ArbitraryResource {
 			}
 	)
 	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceMetadata getMetadata(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-							  @PathParam("service") Service service,
-							  @PathParam("name") String name,
-							  @PathParam("identifier") String identifier) {
-		Security.checkApiCallAllowed(request);
-
+	public ArbitraryResourceMetadata getMetadata(@PathParam("service") Service service,
+							  					 @PathParam("name") String name,
+							  					 @PathParam("identifier") String identifier) {
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
 
 		try {
@@ -733,7 +740,7 @@ public class ArbitraryResource {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
 
-		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FILE_NOT_FOUND);
 	}
 
 
@@ -774,6 +781,7 @@ public class ArbitraryResource {
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
 					   @QueryParam("fee") Long fee,
+					   @QueryParam("preview") Boolean preview,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -782,7 +790,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, path, null, null, false,
-				fee, title, description, tags, category);
+				fee, null, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -820,6 +828,7 @@ public class ArbitraryResource {
 					   @QueryParam("tags") List<String> tags,
 					   @QueryParam("category") Category category,
 					   @QueryParam("fee") Long fee,
+					   @QueryParam("preview") Boolean preview,
 					   String path) {
 		Security.checkApiCallAllowed(request);
 
@@ -828,7 +837,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, path, null, null, false,
-				fee, title, description, tags, category);
+				fee, null, title, description, tags, category, preview);
 	}
 
 
@@ -866,7 +875,9 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("filename") String filename,
 										@QueryParam("fee") Long fee,
+										@QueryParam("preview") Boolean preview,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -875,7 +886,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64, false,
-				fee, title, description, tags, category);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -910,7 +921,9 @@ public class ArbitraryResource {
 										@QueryParam("description") String description,
 										@QueryParam("tags") List<String> tags,
 										@QueryParam("category") Category category,
+										@QueryParam("filename") String filename,
 										@QueryParam("fee") Long fee,
+										@QueryParam("preview") Boolean preview,
 										String base64) {
 		Security.checkApiCallAllowed(request);
 
@@ -919,7 +932,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64, false,
-				fee, title, description, tags, category);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 
@@ -957,6 +970,7 @@ public class ArbitraryResource {
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
 								 @QueryParam("fee") Long fee,
+								 @QueryParam("preview") Boolean preview,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -965,7 +979,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, null, base64Zip, true,
-				fee, title, description, tags, category);
+				fee, null, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -1001,6 +1015,7 @@ public class ArbitraryResource {
 								 @QueryParam("tags") List<String> tags,
 								 @QueryParam("category") Category category,
 								 @QueryParam("fee") Long fee,
+								 @QueryParam("preview") Boolean preview,
 								 String base64Zip) {
 		Security.checkApiCallAllowed(request);
 
@@ -1009,7 +1024,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, null, base64Zip, true,
-				fee, title, description, tags, category);
+				fee, null, title, description, tags, category, preview);
 	}
 
 
@@ -1049,7 +1064,9 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("filename") String filename,
 							 @QueryParam("fee") Long fee,
+							 @QueryParam("preview") Boolean preview,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1058,7 +1075,7 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, null, null, string, null, false,
-				fee, title, description, tags, category);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 	@POST
@@ -1095,7 +1112,9 @@ public class ArbitraryResource {
 							 @QueryParam("description") String description,
 							 @QueryParam("tags") List<String> tags,
 							 @QueryParam("category") Category category,
+							 @QueryParam("filename") String filename,
 							 @QueryParam("fee") Long fee,
+							 @QueryParam("preview") Boolean preview,
 							 String string) {
 		Security.checkApiCallAllowed(request);
 
@@ -1104,15 +1123,48 @@ public class ArbitraryResource {
 		}
 
 		return this.upload(Service.valueOf(serviceString), name, identifier, null, string, null, false,
-				fee, title, description, tags, category);
+				fee, filename, title, description, tags, category, preview);
 	}
 
 
 	// Shared methods
 
-	private String upload(Service service, String name, String identifier, String path,
-						  String string, String base64, boolean zipped, Long fee,
-						  String title, String description, List<String> tags, Category category) {
+	private String preview(String directoryPath, Service service) {
+		Security.checkApiCallAllowed(request);
+		ArbitraryTransactionData.Method method = ArbitraryTransactionData.Method.PUT;
+		ArbitraryTransactionData.Compression compression = ArbitraryTransactionData.Compression.ZIP;
+
+		ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath),
+				null, service, null, method, compression,
+				null, null, null, null);
+		try {
+			arbitraryDataWriter.save();
+		} catch (IOException | DataException | InterruptedException | MissingDataException e) {
+			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		} catch (RuntimeException e) {
+			LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
+		}
+
+		ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
+		if (arbitraryDataFile != null) {
+			String digest58 = arbitraryDataFile.digest58();
+			if (digest58 != null) {
+				// Pre-authorize resource
+				ArbitraryDataResource resource = new ArbitraryDataResource(digest58, null, null, null);
+				ArbitraryDataRenderManager.getInstance().addToAuthorizedResources(resource);
+
+				return "/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
+			}
+		}
+		return "Unable to generate preview URL";
+	}
+
+	private String upload(Service service, String name, String identifier,
+						  String path, String string, String base64, boolean zipped, Long fee, String filename,
+						  String title, String description, List<String> tags, Category category,
+						  Boolean preview) {
 		// Fetch public key from registered name
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData = repository.getNameRepository().fromName(name);
@@ -1121,7 +1173,11 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, error);
 			}
 
-			final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
+			final Long now = NTP.getTime();
+			if (now == null) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NO_TIME_SYNC);
+			}
+			final Long minLatestBlockTimestamp = now - (60 * 60 * 1000L);
 			if (!Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
 			}
@@ -1136,7 +1192,12 @@ public class ArbitraryResource {
 			if (path == null) {
 				// See if we have a string instead
 				if (string != null) {
-					File tempFile = File.createTempFile("qortal-", "");
+					if (filename == null) {
+						// Use current time as filename
+						filename = String.format("qortal-%d", NTP.getTime());
+					}
+					java.nio.file.Path tempDirectory = Files.createTempDirectory("qortal-");
+					File tempFile = Paths.get(tempDirectory.toString(), filename).toFile();
 					tempFile.deleteOnExit();
 					BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile.toPath().toString()));
 					writer.write(string);
@@ -1146,7 +1207,12 @@ public class ArbitraryResource {
 				}
 				// ... or base64 encoded raw data
 				else if (base64 != null) {
-					File tempFile = File.createTempFile("qortal-", "");
+					if (filename == null) {
+						// Use current time as filename
+						filename = String.format("qortal-%d", NTP.getTime());
+					}
+					java.nio.file.Path tempDirectory = Files.createTempDirectory("qortal-");
+					File tempFile = Paths.get(tempDirectory.toString(), filename).toFile();
 					tempFile.deleteOnExit();
 					Files.write(tempFile.toPath(), Base64.decode(base64));
 					path = tempFile.toPath().toString();
@@ -1169,10 +1235,15 @@ public class ArbitraryResource {
 					// The actual data will be in a randomly-named subfolder of tempDirectory
 					// Remove hidden folders, i.e. starting with "_", as some systems can add them, e.g. "__MACOSX"
 					String[] files = tempDirectory.toFile().list((parent, child) -> !child.startsWith("_"));
-					if (files.length == 1) { // Single directory or file only
+					if (files != null && files.length == 1) { // Single directory or file only
 						path = Paths.get(tempDirectory.toString(), files[0]).toString();
 					}
 				}
+			}
+
+			// Finish here if user has requested a preview
+			if (preview != null && preview == true) {
+				return this.preview(path, service);
 			}
 
 			// Default to zero fee if not specified
@@ -1196,12 +1267,13 @@ public class ArbitraryResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_DATA, e.getMessage());
 			}
 
-		} catch (DataException | IOException e) {
+		} catch (Exception e) {
+			LOGGER.info("Exception when publishing data: ", e);
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
 		}
 	}
 
-	private HttpServletResponse download(Service service, String name, String identifier, String filepath, boolean rebuild, boolean async, Integer maxAttempts) {
+	private HttpServletResponse download(Service service, String name, String identifier, String filepath, String encoding, boolean rebuild, boolean async, Integer maxAttempts) {
 
 		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
@@ -1244,7 +1316,7 @@ public class ArbitraryResource {
 			if (filepath == null || filepath.isEmpty()) {
 				// No file path supplied - so check if this is a single file resource
 				String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
-				if (files.length == 1) {
+				if (files != null && files.length == 1) {
 					// This is a single file resource
 					filepath = files[0];
 				}
@@ -1254,13 +1326,50 @@ public class ArbitraryResource {
 				}
 			}
 
-			// TODO: limit file size that can be read into memory
 			java.nio.file.Path path = Paths.get(outputPath.toString(), filepath);
 			if (!Files.exists(path)) {
 				String message = String.format("No file exists at filepath: %s", filepath);
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, message);
 			}
-			byte[] data = Files.readAllBytes(path);
+
+			byte[] data;
+			int fileSize = (int)path.toFile().length();
+			int length = fileSize;
+
+			// Parse "Range" header
+			Integer rangeStart = null;
+			Integer rangeEnd = null;
+			String range = request.getHeader("Range");
+			if (range != null) {
+				range = range.replace("bytes=", "");
+				String[] parts = range.split("-");
+				rangeStart = (parts != null && parts.length > 0) ? Integer.parseInt(parts[0]) : null;
+				rangeEnd = (parts != null && parts.length > 1) ? Integer.parseInt(parts[1]) : fileSize;
+			}
+
+			if (rangeStart != null && rangeEnd != null) {
+				// We have a range, so update the requested length
+				length = rangeEnd - rangeStart;
+			}
+
+			if (length < fileSize && encoding == null) {
+				// Partial content requested, and not encoding the data
+				response.setStatus(206);
+				response.addHeader("Content-Range", String.format("bytes %d-%d/%d", rangeStart, rangeEnd-1, fileSize));
+				data = FilesystemUtils.readFromFile(path.toString(), rangeStart, length);
+			}
+			else {
+				// Full content requested (or encoded data)
+				response.setStatus(200);
+				data = Files.readAllBytes(path); // TODO: limit file size that can be read into memory
+			}
+
+			// Encode the data if requested
+			if (encoding != null && Objects.equals(encoding.toLowerCase(), "base64")) {
+				data = Base64.encode(data);
+			}
+
+			response.addHeader("Accept-Ranges", "bytes");
 			response.setContentType(context.getMimeType(path.toString()));
 			response.setContentLength(data.length);
 			response.getOutputStream().write(data);
@@ -1272,41 +1381,44 @@ public class ArbitraryResource {
 		}
 	}
 
+	private FileProperties getFileProperties(Service service, String name, String identifier) {
+		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+		try {
+			arbitraryDataReader.loadSynchronously(false);
+			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
+			if (outputPath == null) {
+				// Assume the resource doesn't exist
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, "File not found");
+			}
 
-	private List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
-		// Determine and add the status of each resource
-		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-		for (ArbitraryResourceInfo resourceInfo : resources) {
-			try {
-				ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-						resourceInfo.service, resourceInfo.identifier);
-				ArbitraryResourceStatus status = resource.getStatus(true);
-				if (status != null) {
-					resourceInfo.status = status;
+			FileProperties fileProperties = new FileProperties();
+			fileProperties.size = FileUtils.sizeOfDirectory(outputPath.toFile());
+
+			String[] files = ArrayUtils.removeElement(outputPath.toFile().list(), ".qortal");
+			if (files.length == 1) {
+				String filename = files[0];
+				java.nio.file.Path filePath = Paths.get(outputPath.toString(), files[0]);
+				ContentInfoUtil util = new ContentInfoUtil();
+				ContentInfo info = util.findMatch(filePath.toFile());
+				String mimeType;
+				if (info != null) {
+					// Attempt to extract MIME type from file contents
+					mimeType = info.getMimeType();
 				}
-				updatedResources.add(resourceInfo);
-
-			} catch (Exception e) {
-				// Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
-				LOGGER.info("Caught exception when adding status to resource %s: %s", resourceInfo, e.toString());
+				else {
+					// Fall back to using the filename
+					FileNameMap fileNameMap = URLConnection.getFileNameMap();
+					mimeType = fileNameMap.getContentTypeFor(filename);
+				}
+				fileProperties.filename = filename;
+				fileProperties.mimeType = mimeType;
 			}
-		}
-		return updatedResources;
-	}
 
-	private List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
-		// Add metadata fields to each resource if they exist
-		List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-		for (ArbitraryResourceInfo resourceInfo : resources) {
-			ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ResourceIdType.NAME,
-					resourceInfo.service, resourceInfo.identifier);
-			ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-			ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
-			if (resourceMetadata != null) {
-				resourceInfo.metadata = resourceMetadata;
-			}
-			updatedResources.add(resourceInfo);
+			return fileProperties;
+
+		} catch (Exception e) {
+			LOGGER.debug(String.format("Unable to load %s %s: %s", service, name, e.getMessage()));
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FILE_NOT_FOUND, e.getMessage());
 		}
-		return updatedResources;
 	}
 }

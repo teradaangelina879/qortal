@@ -18,7 +18,7 @@ public class ArbitraryDataFileChunk extends ArbitraryDataFile {
     }
 
     public ArbitraryDataFileChunk(byte[] fileContent, byte[] signature) throws DataException {
-        super(fileContent, signature);
+        super(fileContent, signature, false);
     }
 
     public static ArbitraryDataFileChunk fromHash58(String hash58, byte[] signature) throws DataException {

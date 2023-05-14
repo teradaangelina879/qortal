@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.crypto.Crypto;
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
@@ -15,7 +16,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
-import java.util.stream.Stream;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -79,17 +79,31 @@ public class ArbitraryDataFile {
         this.signature = signature;
     }
 
-    public ArbitraryDataFile(byte[] fileContent, byte[] signature) throws DataException {
+    public ArbitraryDataFile(byte[] fileContent, byte[] signature, boolean useTemporaryFile) throws DataException {
         if (fileContent == null) {
             LOGGER.error("fileContent is null");
             return;
         }
 
+        this.chunks = new ArrayList<>();
         this.hash58 = Base58.encode(Crypto.digest(fileContent));
         this.signature = signature;
         LOGGER.trace(String.format("File digest: %s, size: %d bytes", this.hash58, fileContent.length));
 
-        Path outputFilePath = getOutputFilePath(this.hash58, signature, true);
+        Path outputFilePath;
+        if (useTemporaryFile) {
+            try {
+                outputFilePath = Files.createTempFile("qortalRawData", null);
+                outputFilePath.toFile().deleteOnExit();
+            }
+            catch (IOException e) {
+                throw new DataException(String.format("Unable to write data with hash %s to temporary file: %s", this.hash58, e.getMessage()));
+            }
+        }
+        else {
+            outputFilePath = getOutputFilePath(this.hash58, signature, true);
+        }
+
         File outputFile = outputFilePath.toFile();
         try (FileOutputStream outputStream = new FileOutputStream(outputFile)) {
             outputStream.write(fileContent);
@@ -109,6 +123,41 @@ public class ArbitraryDataFile {
             return null;
         }
         return ArbitraryDataFile.fromHash58(Base58.encode(hash), signature);
+    }
+
+    public static ArbitraryDataFile fromRawData(byte[] data, byte[] signature) throws DataException {
+        if (data == null) {
+            return null;
+        }
+        return new ArbitraryDataFile(data, signature, true);
+    }
+
+    public static ArbitraryDataFile fromTransactionData(ArbitraryTransactionData transactionData) throws DataException {
+        ArbitraryDataFile arbitraryDataFile = null;
+        byte[] signature = transactionData.getSignature();
+        byte[] data = transactionData.getData();
+
+        if (data == null) {
+            return null;
+        }
+
+        // Create data file
+        switch (transactionData.getDataType()) {
+            case DATA_HASH:
+                arbitraryDataFile = ArbitraryDataFile.fromHash(data, signature);
+                break;
+
+            case RAW_DATA:
+                arbitraryDataFile = ArbitraryDataFile.fromRawData(data, signature);
+                break;
+        }
+
+        // Set metadata hash
+        if (arbitraryDataFile != null) {
+            arbitraryDataFile.setMetadataHash(transactionData.getMetadataHash());
+        }
+
+        return arbitraryDataFile;
     }
 
     public static ArbitraryDataFile fromPath(Path path, byte[] signature) {
@@ -260,6 +309,11 @@ public class ArbitraryDataFile {
             this.chunks = new ArrayList<>();
 
             if (file != null) {
+                if (file.exists() && file.length() <= chunkSize) {
+                    // No need to split into chunks if we're already below the chunk size
+                    return 0;
+                }
+
                 try (FileInputStream fileInputStream = new FileInputStream(file);
                      BufferedInputStream bis = new BufferedInputStream(fileInputStream)) {
 
@@ -388,12 +442,15 @@ public class ArbitraryDataFile {
         return false;
     }
 
-    public boolean deleteAll() {
+    public boolean deleteAll(boolean deleteMetadata) {
         // Delete the complete file
         boolean fileDeleted = this.delete();
 
-        // Delete the metadata file
-        boolean metadataDeleted = this.deleteMetadata();
+        // Delete the metadata file if requested
+        boolean metadataDeleted = false;
+        if (deleteMetadata) {
+            metadataDeleted = this.deleteMetadata();
+        }
 
         // Delete the individual chunks
         boolean chunksDeleted = this.deleteAllChunks();
@@ -610,6 +667,22 @@ public class ArbitraryDataFile {
 
     public int chunkCount() {
         return this.chunks.size();
+    }
+
+    public int fileCount() {
+        int fileCount = this.chunkCount();
+        
+        if (fileCount == 0) {
+            // Transactions without any chunks can already be treated as a complete file
+            fileCount++;
+        }
+
+        if (this.getMetadataHash() != null) {
+            // Add the metadata file
+            fileCount++;
+        }
+
+        return fileCount;
     }
 
     public List<ArbitraryDataFileChunk> getChunks() {

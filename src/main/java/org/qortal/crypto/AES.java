@@ -202,4 +202,12 @@ public class AES {
                 .decode(cipherText)));
     }
 
+    public static long getEncryptedFileSize(long inFileSize) {
+        // To calculate the resulting file size, add 16 (for the IV), then round up to the nearest multiple of 16
+        final int ivSize = 16;
+        final int chunkSize = 16;
+        final int expectedSize = Math.round((inFileSize + ivSize) / chunkSize) * chunkSize + chunkSize;
+        return expectedSize;
+    }
+
 }

@@ -111,8 +111,8 @@ public class ArbitraryDataTests extends Common {
                 fail("Creating transaction should fail due to nonexistent PUT transaction");
 
             } catch (DataException expectedException) {
-                assertEquals(String.format("Couldn't find PUT transaction for " +
-                        "name %s, service %s and identifier ", name, service), expectedException.getMessage());
+                assertTrue(expectedException.getMessage().contains(String.format("Couldn't find PUT transaction for " +
+                        "name %s, service %s and identifier ", name, service)));
             }
 
         }
@@ -358,7 +358,7 @@ public class ArbitraryDataTests extends Common {
             byte[] path1FileDigest = Crypto.digest(path1.toFile());
             ArbitraryDataDigest path1DirectoryDigest = new ArbitraryDataDigest(path1.getParent());
             path1DirectoryDigest.compute();
-            ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryUtils.createAndMintTxn(repository, publicKey58, path1, name, identifier, Method.PUT, service, alice);
 
             // Now build the latest data state for this name
             ArbitraryDataReader arbitraryDataReader1 = new ArbitraryDataReader(name, ResourceIdType.NAME, service, identifier);
