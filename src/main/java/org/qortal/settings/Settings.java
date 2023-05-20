@@ -508,6 +508,9 @@ public class Settings {
 		if (this.minBlockchainPeers < 1 && !singleNodeTestnet)
 			throwValidationError("minBlockchainPeers must be at least 1");
 
+		if (this.topOnly)
+			throwValidationError("topOnly mode is no longer supported");
+
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
 			throwValidationError("apiKey must be at least 8 characters");
 
