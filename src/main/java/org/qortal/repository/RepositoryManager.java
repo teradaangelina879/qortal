@@ -3,17 +3,21 @@ package org.qortal.repository;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.block.Block;
+import org.qortal.crypto.Crypto;
+import org.qortal.data.at.ATData;
 import org.qortal.data.block.BlockData;
+import org.qortal.data.transaction.ATTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.block.BlockTransformation;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+
+import static org.qortal.transaction.Transaction.TransactionType.AT;
 
 public abstract class RepositoryManager {
 	private static final Logger LOGGER = LogManager.getLogger(RepositoryManager.class);
@@ -91,23 +95,95 @@ public abstract class RepositoryManager {
 			int totalTransactionCount = 0;
 
 			for (int height = 1; height < blockchainHeight; height++) {
-				List<TransactionData> transactions = new ArrayList<>();
+				List<TransactionData> inputTransactions = new ArrayList<>();
 
 				// Fetch block and transactions
 				BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				boolean loadedFromArchive = false;
 				if (blockData == null) {
-					// Try the archive
+					// Get (non-AT) transactions from the archive
 					BlockTransformation blockTransformation = BlockArchiveReader.getInstance().fetchBlockAtHeight(height);
-					transactions = blockTransformation.getTransactions();
+					blockData = blockTransformation.getBlockData();
+					inputTransactions = blockTransformation.getTransactions(); // This doesn't include AT transactions
+					loadedFromArchive = true;
 				}
 				else {
 					// Get transactions from db
 					Block block = new Block(repository, blockData);
 					for (Transaction transaction : block.getTransactions()) {
-						transactions.add(transaction.getTransactionData());
+						inputTransactions.add(transaction.getTransactionData());
 					}
 				}
 
+				if (blockData == null) {
+					throw new DataException("Missing block data");
+				}
+
+				List<TransactionData> transactions = new ArrayList<>();
+
+				if (loadedFromArchive) {
+					List<TransactionData> transactionDataList = new ArrayList<>(blockData.getTransactionCount());
+					// Fetch any AT transactions in this block
+					List<byte[]> atSignatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, height, height);
+					for (byte[] s : atSignatures) {
+						TransactionData transactionData = repository.getTransactionRepository().fromSignature(s);
+						if (transactionData.getType() == AT) {
+							transactionDataList.add(transactionData);
+						}
+					}
+
+					List<ATTransactionData> atTransactions = new ArrayList<>();
+					for (TransactionData transactionData : transactionDataList) {
+						ATTransactionData atTransactionData = (ATTransactionData) transactionData;
+						atTransactions.add(atTransactionData);
+					}
+
+					// Create sorted list of ATs by creation time
+					List<ATData> ats = new ArrayList<>();
+
+					for (ATTransactionData atTransactionData : atTransactions) {
+						ATData atData = repository.getATRepository().fromATAddress(atTransactionData.getATAddress());
+						if (!ats.contains(atData)) {
+							ats.add(atData);
+						}
+					}
+
+					// Sort list of ATs by creation date
+					ats.sort(Comparator.comparingLong(ATData::getCreation));
+
+					// Loop through unique ATs
+					for (ATData atData : ats) {
+						List<ATTransactionData> thisAtTransactions = atTransactions.stream()
+								.filter(t -> Objects.equals(t.getATAddress(), atData.getATAddress()))
+								.collect(Collectors.toList());
+
+						int count = thisAtTransactions.size();
+
+						if (count == 1) {
+							ATTransactionData atTransactionData = thisAtTransactions.get(0);
+							transactions.add(atTransactionData);
+						}
+						else if (count == 2) {
+							String atCreatorAddress = Crypto.toAddress(atData.getCreatorPublicKey());
+
+							ATTransactionData atTransactionData1 = thisAtTransactions.stream()
+									.filter(t -> !Objects.equals(t.getRecipient(), atCreatorAddress))
+									.findFirst().orElse(null);
+							transactions.add(atTransactionData1);
+
+							ATTransactionData atTransactionData2 = thisAtTransactions.stream()
+									.filter(t -> Objects.equals(t.getRecipient(), atCreatorAddress))
+									.findFirst().orElse(null);
+							transactions.add(atTransactionData2);
+						}
+						else if (count > 2) {
+							LOGGER.info("Error: AT has more than 2 output transactions");
+						}
+					}
+				}
+
+				// Add all the regular transactions now that AT transactions have been handled
+				transactions.addAll(inputTransactions);
 				totalTransactionCount += transactions.size();
 
 				// Loop through and update sequences
