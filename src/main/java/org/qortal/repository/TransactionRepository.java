@@ -126,6 +126,23 @@ public interface TransactionRepository {
 															List<Object> bindParams) throws DataException;
 
 	/**
+	 * Returns signatures for transactions that match search criteria, with optional limit.
+	 * <p>
+	 * Alternate version that allows for custom where clauses and bind params.
+	 * Only use for very specific use cases, such as the names integrity check.
+	 * Not advised to be used otherwise, given that it could be possible for
+	 * unsanitized inputs to be passed in if not careful.
+	 *
+	 * @param txType
+	 * @param whereClauses
+	 * @param bindParams
+	 * @return
+	 * @throws DataException
+	 */
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams, Integer limit) throws DataException;
+
+	/**
 	 * Returns signature for latest auto-update transaction.
 	 * <p>
 	 * Transaction must be <tt>CONFIRMED</tt> and <tt>APPROVED</tt>
