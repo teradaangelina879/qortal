@@ -201,11 +201,11 @@ public class Settings {
 	/** Whether to attempt to open the listen port via UPnP */
 	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
-	private int minBlockchainPeers = 5;
+	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 36;
+	private int maxPeers = 40;
 	/** Number of slots to reserve for short-lived QDN data transfers */
 	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
@@ -216,10 +216,10 @@ public class Settings {
 	private int maxRetries = 2;
 
 	/** The number of seconds of no activity before recovery mode begins */
-	public long recoveryModeTimeout = 10 * 60 * 1000L;
+	public long recoveryModeTimeout = 24 * 60 * 60 * 1000L;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.8.7";
+	private String minPeerVersion = "4.0.0";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
