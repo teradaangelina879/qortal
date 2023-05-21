@@ -91,6 +91,8 @@ public abstract class RepositoryManager {
 
 			LOGGER.info("Rebuilding transaction sequences - this will take a while...");
 
+			SplashFrame.getInstance().updateStatus("Rebuilding transactions - please wait...");
+
 			int blockchainHeight = repository.getBlockRepository().getBlockchainHeight();
 			int totalTransactionCount = 0;
 
