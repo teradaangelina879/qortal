@@ -71,11 +71,11 @@ public abstract class RepositoryManager {
 	}
 
 	public static boolean needsTransactionSequenceRebuild(Repository repository) throws DataException {
-		// Check if we have any unpopulated block_sequence values for the first 1000 blocks
+		// Check if we have any transactions without a block_sequence
 		List<byte[]> testSignatures = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
-				null, Arrays.asList("block_height < 1000 AND block_sequence IS NULL"), new ArrayList<>());
+				null, Arrays.asList("block_height IS NOT NULL AND block_sequence IS NULL"), new ArrayList<>());
 		if (testSignatures.isEmpty()) {
-			// block_sequence already populated for the first 1000 blocks, so assume complete.
+			// block_sequence intact, so assume complete
 			return false;
 		}
 
