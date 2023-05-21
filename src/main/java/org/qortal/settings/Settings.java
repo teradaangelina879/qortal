@@ -216,7 +216,7 @@ public class Settings {
 	private int maxRetries = 2;
 
 	/** The number of seconds of no activity before recovery mode begins */
-	public long recoveryModeTimeout = 10 * 60 * 1000L;
+	public long recoveryModeTimeout = 24 * 60 * 60 * 1000L;
 
 	/** Minimum peer version number required in order to sync with them */
 	private String minPeerVersion = "4.0.0";
