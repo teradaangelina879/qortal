@@ -8,6 +8,7 @@ import org.qortal.data.at.ATData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.transaction.ATTransactionData;
 import org.qortal.data.transaction.TransactionData;
+import org.qortal.gui.SplashFrame;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.block.BlockTransformation;
