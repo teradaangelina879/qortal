@@ -143,7 +143,8 @@ public abstract class RepositoryManager {
 
 					for (ATTransactionData atTransactionData : atTransactions) {
 						ATData atData = repository.getATRepository().fromATAddress(atTransactionData.getATAddress());
-						if (!ats.contains(atData)) {
+						boolean hasExistingEntry = ats.stream().anyMatch(a -> Objects.equals(a.getATAddress(), atTransactionData.getATAddress()));
+						if (!hasExistingEntry) {
 							ats.add(atData);
 						}
 					}
