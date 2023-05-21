@@ -444,6 +444,7 @@ public class Controller extends Thread {
 			if (RepositoryManager.needsTransactionSequenceRebuild(repository)) {
 				// Don't allow the node to start if transaction sequences haven't been built yet
 				// This is needed to handle a case when bootstrapping
+				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
 				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
 				return;
 			}
