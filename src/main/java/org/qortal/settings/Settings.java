@@ -201,7 +201,7 @@ public class Settings {
 	/** Whether to attempt to open the listen port via UPnP */
 	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
-	private int minBlockchainPeers = 5;
+	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
