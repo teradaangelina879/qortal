@@ -108,7 +108,7 @@ public abstract class RepositoryManager {
 			int blockchainHeight = repository.getBlockRepository().getBlockchainHeight();
 			int totalTransactionCount = 0;
 
-			for (int height = 1; height < blockchainHeight; ++height) {
+			for (int height = 1; height <= blockchainHeight; ++height) {
 				List<TransactionData> inputTransactions = new ArrayList<>();
 
 				// Fetch block and transactions
