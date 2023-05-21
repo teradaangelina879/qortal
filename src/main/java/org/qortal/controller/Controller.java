@@ -440,6 +440,18 @@ public class Controller extends Thread {
 			}
 		}
 
+		try (Repository repository = RepositoryManager.getRepository()) {
+			if (RepositoryManager.needsTransactionSequenceRebuild(repository)) {
+				// Don't allow the node to start if transaction sequences haven't been built yet
+				// This is needed to handle a case when bootstrapping
+				Gui.getInstance().fatalError("Database upgrade needed", "Please start the core again to complete the process.");
+				return;
+			}
+		} catch (DataException e) {
+			LOGGER.error("Error checking transaction sequences in repository", e);
+			return;
+		}
+
 		// Import current trade bot states and minting accounts if they exist
 		Controller.importRepositoryData();
 

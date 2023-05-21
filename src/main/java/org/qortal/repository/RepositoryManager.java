@@ -69,6 +69,19 @@ public abstract class RepositoryManager {
 			// Backup is best-effort so don't complain
 		}
 	}
+
+	public static boolean needsTransactionSequenceRebuild(Repository repository) throws DataException {
+		// Check if we have any unpopulated block_sequence values for the first 1000 blocks
+		List<byte[]> testSignatures = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
+				null, Arrays.asList("block_height < 1000 AND block_sequence IS NULL"), new ArrayList<>());
+		if (testSignatures.isEmpty()) {
+			// block_sequence already populated for the first 1000 blocks, so assume complete.
+			return false;
+		}
+
+		return true;
+	}
+
 	public static boolean rebuildTransactionSequences(Repository repository) throws DataException {
 		if (Settings.getInstance().isLite()) {
 			// Lite nodes have no blockchain
@@ -81,9 +94,7 @@ public abstract class RepositoryManager {
 
 		try {
 			// Check if we have any unpopulated block_sequence values for the first 1000 blocks
-			List<byte[]> testSignatures = repository.getTransactionRepository().getSignaturesMatchingCustomCriteria(
-					null, Arrays.asList("block_height < 1000 AND block_sequence IS NULL"), new ArrayList<>());
-			if (testSignatures.isEmpty()) {
+			if (!needsTransactionSequenceRebuild(repository)) {
 				// block_sequence already populated for the first 1000 blocks, so assume complete.
 				// We avoid checkpointing and prevent the node from starting up in the case of a rebuild failure, so
 				// we shouldn't ever be left in a partially rebuilt state.
