@@ -267,7 +267,7 @@ public class Settings {
 	/** Repository storage path. */
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
-	private int repositoryConnectionPoolSize = 100;
+	private int repositoryConnectionPoolSize = 240;
 	private List<String> fixedNetwork;
 
 	// Export/import
