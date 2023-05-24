@@ -181,7 +181,7 @@ public class Settings {
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
 	/** Serialization version to use when building an archive */
-	private int defaultArchiveVersion = 1;
+	private int defaultArchiveVersion = 2;
 
 
 	/** Whether to automatically bootstrap instead of syncing from genesis */
