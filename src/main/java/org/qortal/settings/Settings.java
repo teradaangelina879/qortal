@@ -209,7 +209,7 @@ public class Settings {
 	/** Number of slots to reserve for short-lived QDN data transfers */
 	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 32;
+	private int maxNetworkThreadPoolSize = 120;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
