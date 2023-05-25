@@ -584,7 +584,7 @@ let res = await qortalRequest({
     coin: "LTC",
     destinationAddress: "LSdTvMHRm8sScqwCi6x9wzYQae8JeZhx6y",
     amount: 1.00000000, // 1 LTC
-    fee: 20 // Optional sats per byte (default fee used if omitted, recommended) - not used for QORT or ARRR
+    fee: 0.00000020 // Optional fee per byte (default fee used if omitted, recommended) - not used for QORT or ARRR
 });
 ```
 
