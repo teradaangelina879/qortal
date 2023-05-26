@@ -1686,11 +1686,13 @@ public class Block {
 					transactionData.getSignature());
 			this.repository.getBlockRepository().save(blockTransactionData);
 
-			// Update transaction's height in repository
+			// Update transaction's height in repository and local transactionData
 			transactionRepository.updateBlockHeight(transactionData.getSignature(), this.blockData.getHeight());
-
-			// Update local transactionData's height too
 			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
+
+			// Update transaction's sequence in repository and local transactionData
+			transactionRepository.updateBlockSequence(transactionData.getSignature(), sequence);
+			transaction.getTransactionData().setBlockSequence(sequence);
 
 			// No longer unconfirmed
 			transactionRepository.confirmTransaction(transactionData.getSignature());
@@ -1778,6 +1780,9 @@ public class Block {
 
 				// Unset height
 				transactionRepository.updateBlockHeight(transactionData.getSignature(), null);
+
+				// Unset sequence
+				transactionRepository.updateBlockSequence(transactionData.getSignature(), null);
 			}
 
 			transactionRepository.deleteParticipants(transactionData);

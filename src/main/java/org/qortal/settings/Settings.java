@@ -181,7 +181,7 @@ public class Settings {
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
 	/** Serialization version to use when building an archive */
-	private int defaultArchiveVersion = 1;
+	private int defaultArchiveVersion = 2;
 
 
 	/** Whether to automatically bootstrap instead of syncing from genesis */
@@ -201,25 +201,25 @@ public class Settings {
 	/** Whether to attempt to open the listen port via UPnP */
 	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
-	private int minBlockchainPeers = 5;
+	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 36;
+	private int maxPeers = 40;
 	/** Number of slots to reserve for short-lived QDN data transfers */
 	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 32;
+	private int maxNetworkThreadPoolSize = 120;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
 
 	/** The number of seconds of no activity before recovery mode begins */
-	public long recoveryModeTimeout = 10 * 60 * 1000L;
+	public long recoveryModeTimeout = 24 * 60 * 60 * 1000L;
 
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.8.7";
+	private String minPeerVersion = "4.1.1";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
@@ -267,7 +267,7 @@ public class Settings {
 	/** Repository storage path. */
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
-	private int repositoryConnectionPoolSize = 100;
+	private int repositoryConnectionPoolSize = 240;
 	private List<String> fixedNetwork;
 
 	// Export/import
@@ -507,6 +507,9 @@ public class Settings {
 		// Validation goes here
 		if (this.minBlockchainPeers < 1 && !singleNodeTestnet)
 			throwValidationError("minBlockchainPeers must be at least 1");
+
+		if (this.topOnly)
+			throwValidationError("topOnly mode is no longer supported");
 
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
 			throwValidationError("apiKey must be at least 8 characters");

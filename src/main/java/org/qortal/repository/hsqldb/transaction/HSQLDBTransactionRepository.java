@@ -194,8 +194,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
-		String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature "
-				+ "WHERE height = ? AND sequence = ?";
+		String sql = "SELECT signature FROM Transactions WHERE block_height = ? AND block_sequence = ?";
 		
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, height, sequence)) {
 			if (resultSet == null)
@@ -657,8 +656,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 															List<Object> bindParams) throws DataException {
 		List<byte[]> signatures = new ArrayList<>();
 
+		String txTypeClassName = "";
+		if (txType != null) {
+			txTypeClassName = txType.className;
+		}
+
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append(String.format("SELECT signature FROM %sTransactions", txType.className));
+		sql.append(String.format("SELECT signature FROM %sTransactions", txTypeClassName));
 
 		if (!whereClauses.isEmpty()) {
 			sql.append(" WHERE ");
@@ -670,6 +674,53 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 				sql.append(whereClauses.get(wci));
 			}
+		}
+
+		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching transaction signatures from repository", e);
+		}
+	}
+
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams, Integer limit) throws DataException {
+		List<byte[]> signatures = new ArrayList<>();
+
+		String txTypeClassName = "";
+		if (txType != null) {
+			txTypeClassName = txType.className;
+		}
+
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append(String.format("SELECT signature FROM %sTransactions", txTypeClassName));
+
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
+
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
+
+				sql.append(whereClauses.get(wci));
+			}
+		}
+
+		if (limit != null) {
+			sql.append(" LIMIT ?");
+			bindParams.add(limit);
 		}
 
 		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
@@ -1441,6 +1492,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			saver.execute(repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to update transaction's block height in repository", e);
+		}
+	}
+
+	@Override
+	public void updateBlockSequence(byte[] signature, Integer blockSequence) throws DataException {
+		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
+
+		saver.bind("signature", signature).bind("block_sequence", blockSequence);
+
+		try {
+			saver.execute(repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to update transaction's block sequence in repository", e);
 		}
 	}
 

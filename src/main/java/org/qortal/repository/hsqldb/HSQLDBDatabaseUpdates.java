@@ -994,6 +994,17 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 47:
+					// Add `block_sequence` to the Transaction table, as the BlockTransactions table is pruned for
+					// older blocks and therefore the sequence becomes unavailable
+					LOGGER.info("Reshaping Transactions table - this can take a while...");
+					stmt.execute("ALTER TABLE Transactions ADD block_sequence INTEGER");
+
+					// For finding transactions by height and sequence
+					LOGGER.info("Adding index to Transactions table - this can take a while...");
+					stmt.execute("CREATE INDEX TransactionHeightSequenceIndex on Transactions (block_height, block_sequence)");
+					break;
+
+				case 48:
 					// We need to keep a local cache of arbitrary resources (items published to QDN), for easier searching.
 					// IMPORTANT: this is a cache of the last known state of a resource (both confirmed
 					// and valid unconfirmed). It cannot be assumed that all nodes will contain the same state at a

@@ -403,12 +403,12 @@ public class Controller extends Thread {
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
+				RepositoryManager.rebuildTransactionSequences(repository);
 				ArbitraryDataCacheManager.getInstance().buildArbitraryResourcesCache(repository, false);
 			}
-		}
-		catch (DataException e) {
-			// If exception has no cause then repository is in use by some other process.
-			if (e.getCause() == null) {
+		} catch (DataException e) {
+			// If exception has no cause or message then repository is in use by some other process.
+			if (e.getCause() == null && e.getMessage() == null) {
 				LOGGER.info("Repository in use by another process?");
 				Gui.getInstance().fatalError("Repository issue", "Repository in use by another process?");
 			} else {
@@ -440,6 +440,19 @@ public class Controller extends Thread {
 				Gui.getInstance().fatalError("Blockchain validation issue", e);
 				return; // Not System.exit() so that GUI can display error
 			}
+		}
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			if (RepositoryManager.needsTransactionSequenceRebuild(repository)) {
+				// Don't allow the node to start if transaction sequences haven't been built yet
+				// This is needed to handle a case when bootstrapping
+				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
+				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
+				return;
+			}
+		} catch (DataException e) {
+			LOGGER.error("Error checking transaction sequences in repository", e);
+			return;
 		}
 
 		// Import current trade bot states and minting accounts if they exist

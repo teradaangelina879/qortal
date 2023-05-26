@@ -80,6 +80,10 @@ public abstract class TransactionData {
 	protected Integer blockHeight;
 
 	// Not always present
+	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true, description = "sequence in block containing transaction")
+	protected Integer blockSequence;
+
+	// Not always present
 	@Schema(accessMode = AccessMode.READ_ONLY, description = "group-approval status")
 	protected ApprovalStatus approvalStatus;
 
@@ -109,6 +113,7 @@ public abstract class TransactionData {
 		this.fee = baseTransactionData.fee;
 		this.signature = baseTransactionData.signature;
 		this.blockHeight = baseTransactionData.blockHeight;
+		this.blockSequence = baseTransactionData.blockSequence;
 		this.approvalStatus = baseTransactionData.approvalStatus;
 		this.approvalHeight = baseTransactionData.approvalHeight;
 	}
@@ -175,6 +180,15 @@ public abstract class TransactionData {
 	@XmlTransient
 	public void setBlockHeight(Integer blockHeight) {
 		this.blockHeight = blockHeight;
+	}
+
+	public Integer getBlockSequence() {
+		return this.blockSequence;
+	}
+
+	@XmlTransient
+	public void setBlockSequence(Integer blockSequence) {
+		this.blockSequence = blockSequence;
 	}
 
 	public ApprovalStatus getApprovalStatus() {

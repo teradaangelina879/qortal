@@ -1,5 +1,7 @@
 package org.qortal.utils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.transaction.TransactionData;
@@ -11,6 +13,8 @@ import org.qortal.transform.block.BlockTransformation;
 import java.util.List;
 
 public class BlockArchiveUtils {
+
+    private static final Logger LOGGER = LogManager.getLogger(BlockArchiveUtils.class);
 
     /**
      * importFromArchive
@@ -87,7 +91,8 @@ public class BlockArchiveUtils {
 
             } catch (DataException e) {
                 repository.discardChanges();
-                throw new IllegalStateException("Unable to import blocks from archive");
+                LOGGER.info("Unable to import blocks from archive", e);
+                throw(e);
             }
         }
         repository.saveChanges();

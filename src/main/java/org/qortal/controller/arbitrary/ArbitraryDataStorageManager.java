@@ -57,6 +57,8 @@ public class ArbitraryDataStorageManager extends Thread {
      * This must be higher than STORAGE_FULL_THRESHOLD in order to avoid a fetch/delete loop. */
     public static final double DELETION_THRESHOLD = 0.98f; // 98%
 
+    private static final long PER_NAME_STORAGE_MULTIPLIER = 4L;
+
     public ArbitraryDataStorageManager() {
     }
 
@@ -535,7 +537,9 @@ public class ArbitraryDataStorageManager extends Thread {
         }
 
         double maxStorageCapacity = (double)this.storageCapacity * threshold;
-        long maxStoragePerName = (long)(maxStorageCapacity / (double)followedNamesCount);
+
+        // Some names won't need/use much space, so give all names a 4x multiplier to compensate
+        long maxStoragePerName = (long)(maxStorageCapacity / (double)followedNamesCount) * PER_NAME_STORAGE_MULTIPLIER;
 
         return maxStoragePerName;
     }
