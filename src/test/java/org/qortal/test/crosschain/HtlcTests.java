@@ -8,6 +8,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.Litecoin;
 import org.qortal.crypto.Crypto;
 import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.repository.DataException;
@@ -18,17 +19,19 @@ import com.google.common.primitives.Longs;
 public class HtlcTests extends Common {
 
 	private Bitcoin bitcoin;
+	private Litecoin litecoin;
 
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings(); // TestNet3
 		bitcoin = Bitcoin.getInstance();
+		litecoin = Litecoin.getInstance();
 	}
 
 	@After
 	public void afterTest() {
 		Bitcoin.resetForTesting();
-		bitcoin = null;
+		litecoin = null;
 	}
 
 	@Test
@@ -52,12 +55,12 @@ public class HtlcTests extends Common {
 		do {
 			// We need to perform fresh setup for 1st test
 			Bitcoin.resetForTesting();
-			bitcoin = Bitcoin.getInstance();
+			litecoin = Litecoin.getInstance();
 
 			long now = System.currentTimeMillis();
 			long timestampBoundary = now / 30_000L;
 
-			byte[] secret1 = BitcoinyHTLC.findHtlcSecret(bitcoin, p2shAddress);
+			byte[] secret1 = BitcoinyHTLC.findHtlcSecret(litecoin, p2shAddress);
 			long executionPeriod1 = System.currentTimeMillis() - now;
 
 			assertNotNull(secret1);
@@ -65,7 +68,7 @@ public class HtlcTests extends Common {
 
 			assertTrue("1st execution period should not be instant!", executionPeriod1 > 10);
 
-			byte[] secret2 = BitcoinyHTLC.findHtlcSecret(bitcoin, p2shAddress);
+			byte[] secret2 = BitcoinyHTLC.findHtlcSecret(litecoin, p2shAddress);
 			long executionPeriod2 = System.currentTimeMillis() - now - executionPeriod1;
 
 			assertNotNull(secret2);
@@ -86,7 +89,7 @@ public class HtlcTests extends Common {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 
-		BitcoinyHTLC.Status htlcStatus = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddress, 1L);
+		BitcoinyHTLC.Status htlcStatus = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddress, 1L);
 		assertNotNull(htlcStatus);
 
 		System.out.println(String.format("HTLC %s status: %s", p2shAddress, htlcStatus.name()));
@@ -97,21 +100,21 @@ public class HtlcTests extends Common {
 		do {
 			// We need to perform fresh setup for 1st test
 			Bitcoin.resetForTesting();
-			bitcoin = Bitcoin.getInstance();
+			litecoin = Litecoin.getInstance();
 
 			long now = System.currentTimeMillis();
 			long timestampBoundary = now / 30_000L;
 
 			// Won't ever exist
-			String p2shAddress = bitcoin.deriveP2shAddress(Crypto.hash160(Longs.toByteArray(now)));
+			String p2shAddress = litecoin.deriveP2shAddress(Crypto.hash160(Longs.toByteArray(now)));
 
-			BitcoinyHTLC.Status htlcStatus1 = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddress, 1L);
+			BitcoinyHTLC.Status htlcStatus1 = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddress, 1L);
 			long executionPeriod1 = System.currentTimeMillis() - now;
 
 			assertNotNull(htlcStatus1);
 			assertTrue("1st execution period should not be instant!", executionPeriod1 > 10);
 
-			BitcoinyHTLC.Status htlcStatus2 = BitcoinyHTLC.determineHtlcStatus(bitcoin.getBlockchainProvider(), p2shAddress, 1L);
+			BitcoinyHTLC.Status htlcStatus2 = BitcoinyHTLC.determineHtlcStatus(litecoin.getBlockchainProvider(), p2shAddress, 1L);
 			long executionPeriod2 = System.currentTimeMillis() - now - executionPeriod1;
 
 			assertNotNull(htlcStatus2);

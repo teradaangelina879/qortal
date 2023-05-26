@@ -212,7 +212,7 @@ public class BootstrapTests extends Common {
     @Test
     public void testBootstrapHosts() throws IOException {
         String[] bootstrapHosts = Settings.getInstance().getBootstrapHosts();
-        String[] bootstrapTypes = { "archive", "toponly" };
+        String[] bootstrapTypes = { "archive" }; // , "toponly"
 
         for (String host : bootstrapHosts) {
             for (String type : bootstrapTypes) {

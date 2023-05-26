@@ -8,6 +8,7 @@ import org.bitcoinj.core.Transaction;
 import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -32,6 +33,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
 	public void testGetMedianBlockTime() throws BlockStoreException, ForeignBlockchainException {
 		System.out.println(String.format("Starting BTC instance..."));
 		System.out.println(String.format("BTC instance started"));
@@ -53,6 +55,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
 	public void testFindHtlcSecret() throws ForeignBlockchainException {
 		// This actually exists on TEST3 but can take a while to fetch
 		String p2shAddress = "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
@@ -65,6 +68,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
 	public void testBuildSpend() {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
@@ -81,6 +85,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
 	public void testGetWalletBalance() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 
@@ -102,6 +107,7 @@ public class BitcoinTests extends Common {
 	}
 
 	@Test
+	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
 	public void testGetUnusedReceiveAddress() throws ForeignBlockchainException {
 		String xprv58 = "tprv8ZgxMBicQKsPdahhFSrCdvC1bsWyzHHZfTneTVqUXN6s1wEtZLwAkZXzFP6TYLg2aQMecZLXLre5bTVGajEB55L1HYJcawpdFG66STVAWPJ";
 

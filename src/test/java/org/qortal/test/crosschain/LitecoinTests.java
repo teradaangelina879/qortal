@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 import java.util.Arrays;
 
 import org.bitcoinj.core.Transaction;
-import org.bitcoinj.store.BlockStoreException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -33,12 +32,12 @@ public class LitecoinTests extends Common {
 	}
 
 	@Test
-	public void testGetMedianBlockTime() throws BlockStoreException, ForeignBlockchainException {
+	public void testGetMedianBlockTime() throws ForeignBlockchainException {
 		long before = System.currentTimeMillis();
-		System.out.println(String.format("Bitcoin median blocktime: %d", litecoin.getMedianBlockTime()));
+		System.out.println(String.format("Litecoin median blocktime: %d", litecoin.getMedianBlockTime()));
 		long afterFirst = System.currentTimeMillis();
 
-		System.out.println(String.format("Bitcoin median blocktime: %d", litecoin.getMedianBlockTime()));
+		System.out.println(String.format("Litecoin median blocktime: %d", litecoin.getMedianBlockTime()));
 		long afterSecond = System.currentTimeMillis();
 
 		long firstPeriod = afterFirst - before;
