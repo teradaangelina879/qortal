@@ -450,6 +450,13 @@ public class Controller extends Thread {
 				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
 				return;
 			}
+			if (ArbitraryDataCacheManager.getInstance().needsArbitraryResourcesCacheRebuild(repository)) {
+				// Don't allow the node to start if arbitrary resources cache hasn't been built yet
+				// This is needed to handle a case when bootstrapping
+				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
+				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
+				return;
+			}
 		} catch (DataException e) {
 			LOGGER.error("Error checking transaction sequences in repository", e);
 			return;
