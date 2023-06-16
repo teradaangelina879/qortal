@@ -68,6 +68,7 @@ public class ArbitraryDataResource {
                 // Update cache if possible
                 ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
                 ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData(this.service, this.resourceId, this.identifier);
+                repository.discardChanges();
                 repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
                 repository.saveChanges();
             }
