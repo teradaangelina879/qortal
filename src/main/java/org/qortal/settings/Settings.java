@@ -47,6 +47,9 @@ public class Settings {
 	private static final int MAINNET_GATEWAY_PORT = 80;
 	private static final int TESTNET_GATEWAY_PORT = 8080;
 
+    private static final int MAINNET_DEV_PROXY_PORT = 12393;
+    private static final int TESTNET_DEV_PROXY_PORT = 62393;
+
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
 
@@ -106,6 +109,11 @@ public class Settings {
 	private boolean gatewayEnabled = false;
 	private boolean gatewayLoggingEnabled = false;
 	private boolean gatewayLoopbackEnabled = false;
+
+    // Developer Proxy
+	private Integer devProxyPort;
+    private boolean devProxyLoggingEnabled = false;
+
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -647,6 +655,18 @@ public class Settings {
 	public boolean isGatewayLoopbackEnabled() {
 		return this.gatewayLoopbackEnabled;
 	}
+
+
+    public int getDevProxyPort() {
+        if (this.devProxyPort != null)
+            return this.devProxyPort;
+
+        return this.isTestNet ? TESTNET_DEV_PROXY_PORT : MAINNET_DEV_PROXY_PORT;
+    }
+
+    public boolean isDevProxyLoggingEnabled() {
+        return this.devProxyLoggingEnabled;
+    }
 
 
 	public boolean getWipeUnconfirmedOnStart() {
