@@ -90,7 +90,7 @@ public class GatewayResource {
     }
 
     
-    private HttpServletResponse parsePath(String inPath, String qdnContext, String secret58, boolean usePrefix, boolean async) {
+    private HttpServletResponse parsePath(String inPath, String qdnContext, String secret58, boolean includeResourceIdInPrefix, boolean async) {
 
         if (inPath == null || inPath.equals("")) {
             // Assume not a real file
@@ -157,7 +157,7 @@ public class GatewayResource {
         }
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(name, ResourceIdType.NAME, service, identifier, outPath,
-                secret58, prefix, usePrefix, async, qdnContext, request, response, context);
+                secret58, prefix, includeResourceIdInPrefix, async, qdnContext, request, response, context);
         return renderer.render();
     }
 
