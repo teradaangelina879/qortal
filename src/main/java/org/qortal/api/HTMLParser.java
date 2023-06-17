@@ -24,11 +24,11 @@ public class HTMLParser {
     private String theme;
     private boolean usingCustomRouting;
 
-    public HTMLParser(String resourceId, String inPath, String prefix, boolean usePrefix, byte[] data,
+    public HTMLParser(String resourceId, String inPath, String prefix, boolean includeResourceIdInPrefix, byte[] data,
                       String qdnContext, Service service, String identifier, String theme, boolean usingCustomRouting) {
-        String inPathWithoutFilename = inPath.contains("/") ? inPath.substring(0, inPath.lastIndexOf('/')) : "";
-        this.qdnBase = usePrefix ? String.format("%s/%s", prefix, resourceId) : "";
-        this.qdnBaseWithPath = usePrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : "";
+        String inPathWithoutFilename = inPath.contains("/") ? inPath.substring(0, inPath.lastIndexOf('/')) : String.format("/%s",inPath);
+        this.qdnBase = includeResourceIdInPrefix ? String.format("%s/%s", prefix, resourceId) : prefix;
+        this.qdnBaseWithPath = includeResourceIdInPrefix ? String.format("%s/%s%s", prefix, resourceId, inPathWithoutFilename) : String.format("%s%s", prefix, inPathWithoutFilename);
         this.data = data;
         this.qdnContext = qdnContext;
         this.resourceId = resourceId;
@@ -82,7 +82,7 @@ public class HTMLParser {
     }
 
     public static boolean isHtmlFile(String path) {
-        if (path.endsWith(".html") || path.endsWith(".htm")) {
+        if (path.endsWith(".html") || path.endsWith(".htm") || path.equals("")) {
             return true;
         }
         return false;

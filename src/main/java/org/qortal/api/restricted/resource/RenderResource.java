@@ -157,10 +157,10 @@ public class RenderResource {
 
 
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
-                                    String inPath, String secret58, String prefix, boolean usePrefix, boolean async, String theme) {
+                                    String inPath, String secret58, String prefix, boolean includeResourceIdInPrefix, boolean async, String theme) {
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
-                secret58, prefix, usePrefix, async, "render", request, response, context);
+                secret58, prefix, includeResourceIdInPrefix, async, "render", request, response, context);
 
         if (theme != null) {
             renderer.setTheme(theme);

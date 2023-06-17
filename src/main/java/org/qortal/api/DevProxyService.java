@@ -16,6 +16,7 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import org.qortal.api.resource.AnnotationPostProcessor;
 import org.qortal.api.resource.ApiDefinition;
 import org.qortal.network.Network;
+import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -29,24 +30,24 @@ import java.nio.file.Paths;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 
-public class GatewayService {
+public class DevProxyService {
 
-	private static GatewayService instance;
+	private static DevProxyService instance;
 
 	private final ResourceConfig config;
 	private Server server;
 
-	private GatewayService() {
+	private DevProxyService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.resource", "org.qortal.api.gateway.resource");
+		this.config.packages("org.qortal.api.proxy.resource", "org.qortal.api.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
 	}
 
-	public static GatewayService getInstance() {
+	public static DevProxyService getInstance() {
 		if (instance == null)
-			instance = new GatewayService();
+			instance = new DevProxyService();
 
 		return instance;
 	}
@@ -55,7 +56,7 @@ public class GatewayService {
 		return this.config.getClasses();
 	}
 
-	public void start() {
+	public void start() throws DataException {
 		try {
 			// Create API server
 
@@ -69,7 +70,7 @@ public class GatewayService {
 					throw new RuntimeException("Failed to start SSL API due to broken keystore");
 
 				// BouncyCastle-specific SSLContext build
-				SSLContext sslContext = SSLContext.getInstance("TLSv1.3", "BCJSSE");
+				SSLContext sslContext = SSLContext.getInstance("TLS", "BCJSSE");
 				KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("PKIX", "BCJSSE");
 
 				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType(), "BC");
@@ -88,7 +89,7 @@ public class GatewayService {
 
 				HttpConfiguration httpConfig = new HttpConfiguration();
 				httpConfig.setSecureScheme("https");
-				httpConfig.setSecurePort(Settings.getInstance().getGatewayPort());
+				httpConfig.setSecurePort(Settings.getInstance().getDevProxyPort());
 
 				SecureRequestCustomizer src = new SecureRequestCustomizer();
 				httpConfig.addCustomizer(src);
@@ -100,13 +101,13 @@ public class GatewayService {
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
 				portUnifiedConnector.setHost(Network.getInstance().getBindAddress());
-				portUnifiedConnector.setPort(Settings.getInstance().getGatewayPort());
+				portUnifiedConnector.setPort(Settings.getInstance().getDevProxyPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
 				InetAddress bindAddr = InetAddress.getByName(Network.getInstance().getBindAddress());
-				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getGatewayPort());
+				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getDevProxyPort());
 				this.server = new Server(endpoint);
 			}
 
@@ -115,8 +116,8 @@ public class GatewayService {
 			this.server.setErrorHandler(errorHandler);
 
 			// Request logging
-			if (Settings.getInstance().isGatewayLoggingEnabled()) {
-				RequestLogWriter logWriter = new RequestLogWriter("gateway-requests.log");
+			if (Settings.getInstance().isDevProxyLoggingEnabled()) {
+				RequestLogWriter logWriter = new RequestLogWriter("devproxy-requests.log");
 				logWriter.setAppend(true);
 				logWriter.setTimeZone("UTC");
 				RequestLog requestLog = new CustomRequestLog(logWriter, CustomRequestLog.EXTENDED_NCSA_FORMAT);
@@ -153,7 +154,7 @@ public class GatewayService {
 			this.server.start();
 		} catch (Exception e) {
 			// Failed to start
-			throw new RuntimeException("Failed to start API", e);
+			throw new DataException("Failed to start developer proxy", e);
 		}
 	}
 
@@ -166,6 +167,7 @@ public class GatewayService {
 		}
 
 		this.server = null;
+		instance = null;
 	}
 
 }

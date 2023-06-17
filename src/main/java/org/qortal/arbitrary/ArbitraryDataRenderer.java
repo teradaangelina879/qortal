@@ -40,7 +40,7 @@ public class ArbitraryDataRenderer {
     private String inPath;
     private final String secret58;
     private final String prefix;
-    private final boolean usePrefix;
+    private final boolean includeResourceIdInPrefix;
     private final boolean async;
     private final String qdnContext;
     private final HttpServletRequest request;
@@ -48,7 +48,7 @@ public class ArbitraryDataRenderer {
     private final ServletContext context;
 
     public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
-                                 String inPath, String secret58, String prefix, boolean usePrefix, boolean async, String qdnContext,
+                                 String inPath, String secret58, String prefix, boolean includeResourceIdInPrefix, boolean async, String qdnContext,
                                  HttpServletRequest request, HttpServletResponse response, ServletContext context) {
 
         this.resourceId = resourceId;
@@ -58,7 +58,7 @@ public class ArbitraryDataRenderer {
         this.inPath = inPath;
         this.secret58 = secret58;
         this.prefix = prefix;
-        this.usePrefix = usePrefix;
+        this.includeResourceIdInPrefix = includeResourceIdInPrefix;
         this.async = async;
         this.qdnContext = qdnContext;
         this.request = request;
@@ -159,7 +159,7 @@ public class ArbitraryDataRenderer {
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
                 byte[] data = Files.readAllBytes(filePath); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data, qdnContext, service, identifier, theme, usingCustomRouting);
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, includeResourceIdInPrefix, data, qdnContext, service, identifier, theme, usingCustomRouting);
                 htmlParser.addAdditionalHeaderTags();
                 response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' data: blob:; img-src 'self' data: blob:;");
                 response.setContentType(context.getMimeType(filename));

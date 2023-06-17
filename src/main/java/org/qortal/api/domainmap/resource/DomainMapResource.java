@@ -48,10 +48,10 @@ public class DomainMapResource {
     }
 
     private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
-                                    String inPath, String secret58, String prefix, boolean usePrefix, boolean async) {
+                                    String inPath, String secret58, String prefix, boolean includeResourceIdInPrefix, boolean async) {
 
         ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
-                secret58, prefix, usePrefix, async, "domainMap", request, response, context);
+                secret58, prefix, includeResourceIdInPrefix, async, "domainMap", request, response, context);
         return renderer.render();
     }
 
