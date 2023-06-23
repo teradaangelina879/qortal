@@ -172,6 +172,7 @@ public class ArbitraryResource {
 			@Parameter(description = "Exact match names only (if true, partial name matches are excluded)") @QueryParam("exactmatchnames") Boolean exactMatchNamesOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
 			@Parameter(description = "Search mode") @QueryParam("mode") SearchMode mode,
+			@Parameter(description = "Min level") @QueryParam("minlevel") Integer minLevel,
 			@Parameter(description = "Filter names by list (exact matches only)") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
 			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
@@ -208,7 +209,7 @@ public class ArbitraryResource {
 
 			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
 					.searchArbitraryResources(service, query, identifier, names, title, description, usePrefixOnly,
-							exactMatchNames, defaultRes, mode, followedOnly, excludeBlocked, includeMetadata, includeStatus,
+							exactMatchNames, defaultRes, mode, minLevel, followedOnly, excludeBlocked, includeMetadata, includeStatus,
 							before, after, limit, offset, reverse);
 
 			if (resources == null) {

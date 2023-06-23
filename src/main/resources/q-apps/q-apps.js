@@ -233,6 +233,7 @@ window.addEventListener("message", (event) => {
             if (data.exactMatchNames != null) url = url.concat("&exactmatchnames=" + new Boolean(data.exactMatchNames).toString());
             if (data.default != null) url = url.concat("&default=" + new Boolean(data.default).toString());
             if (data.mode != null) url = url.concat("&mode=" + data.mode);
+            if (data.minLevel != null) url = url.concat("&minlevel=" + data.minLevel);
             if (data.includeStatus != null) url = url.concat("&includestatus=" + new Boolean(data.includeStatus).toString());
             if (data.includeMetadata != null) url = url.concat("&includemetadata=" + new Boolean(data.includeMetadata).toString());
             if (data.nameListFilter != null) url = url.concat("&namefilter=" + data.nameListFilter);

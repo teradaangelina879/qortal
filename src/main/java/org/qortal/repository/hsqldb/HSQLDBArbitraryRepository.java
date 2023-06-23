@@ -580,8 +580,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				"WHERE name IS NOT NULL");
 
 		if (service != null) {
-			sql.append(" AND service = ");
-			sql.append(service.value);
+			sql.append(" AND service = ?");
+			bindParams.add(service.value);
 		}
 
 		if (defaultResource) {
@@ -719,7 +719,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceData> searchArbitraryResources(Service service, String query, String identifier, List<String> names, String title, String description, boolean prefixOnly,
-																List<String> exactMatchNames, boolean defaultResource, SearchMode mode, Boolean followedOnly, Boolean excludeBlocked,
+																List<String> exactMatchNames, boolean defaultResource, SearchMode mode, Integer minLevel, Boolean followedOnly, Boolean excludeBlocked,
 																Boolean includeMetadata, Boolean includeStatus, Long before, Long after, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
@@ -746,11 +746,22 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				break;
 		}
 
+		if (minLevel != null) {
+			// Join tables necessary for level filter
+			sql.append(" JOIN Names USING (name) JOIN Accounts ON Accounts.account=Names.owner");
+		}
+
 		sql.append(" LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) WHERE name IS NOT NULL");
 
+		if (minLevel != null) {
+			// Add level filter
+			sql.append(" AND Accounts.level >= ?");
+			bindParams.add(minLevel);
+		}
+
 		if (service != null) {
-			sql.append(" AND service = ");
-			sql.append(service.value);
+			sql.append(" AND service = ?");
+			bindParams.add(service.value);
 		}
 
 		// Handle general query matches

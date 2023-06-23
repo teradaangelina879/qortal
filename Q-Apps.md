@@ -376,6 +376,7 @@ let res = await qortalRequest({
     exactMatchNames: true, // Optional - if true, partial name matches are excluded
     default: false, // Optional - if true, only resources without identifiers are returned
     mode: "LATEST", // Optional - whether to return all resources or just the latest for a name/service combination. Possible values: ALL,LATEST. Default: LATEST
+    minLevel: 1, // Optional - whether to filter results by minimum account level
     includeStatus: false, // Optional - will take time to respond, so only request if necessary
     includeMetadata: false, // Optional - will take time to respond, so only request if necessary
     nameListFilter: "QApp1234Subscriptions", // Optional - will only return results if they are from a name included in supplied list
