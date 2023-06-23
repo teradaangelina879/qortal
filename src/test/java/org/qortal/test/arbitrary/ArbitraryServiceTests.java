@@ -457,6 +457,25 @@ public class ArbitraryServiceTests extends Common {
     }
 
     @Test
+    public void testValidPrivateGroupData() throws IOException {
+        String dataString = "qortalGroupEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
+
+        // Write the data a single file in a temp path
+        Path path = Files.createTempDirectory("testValidPrivateData");
+        Path filePath = Paths.get(path.toString(), "test");
+        filePath.toFile().deleteOnExit();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath.toFile()));
+        writer.write(dataString);
+        writer.close();
+
+        Service service = Service.FILE_PRIVATE;
+        assertTrue(service.isValidationRequired());
+
+        assertEquals(ValidationResult.OK, service.validate(filePath));
+    }
+
+    @Test
     public void testEncryptedData() throws IOException {
         String dataString = "qortalEncryptedDatabMx4fELNTV+ifJxmv4+GcuOIJOTo+3qAvbWKNY2L1rfla5UBoEcoxbtjgZ9G7FLPb8V/Qfr0bfKWfvMmN06U/pgUdLuv2mGL2V0D3qYd1011MUzGdNG1qERjaCDz8GAi63+KnHHjfMtPgYt6bcqjs4CNV+ZZ4dIt3xxHYyVEBNc=";
 
