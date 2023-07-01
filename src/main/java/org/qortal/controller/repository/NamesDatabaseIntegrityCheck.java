@@ -25,7 +25,8 @@ public class NamesDatabaseIntegrityCheck {
             TransactionType.REGISTER_NAME,
             TransactionType.UPDATE_NAME,
             TransactionType.BUY_NAME,
-            TransactionType.SELL_NAME
+            TransactionType.SELL_NAME,
+            TransactionType.CANCEL_SELL_NAME
     );
 
     private List<TransactionData> nameTransactions = new ArrayList<>();
