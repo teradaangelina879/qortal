@@ -28,6 +28,7 @@ import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
@@ -277,7 +278,8 @@ public class ArbitraryTransaction extends Transaction {
 	}
 
 	private void updateCaches() {
-		try {
+		// Very important to use a separate repository instance from the one being used for validation/processing
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			// If the data is local, we need to perform a few actions
 			if (isDataLocal()) {
 
@@ -288,8 +290,10 @@ public class ArbitraryTransaction extends Transaction {
 			}
 
 			// Add/update arbitrary resource caches
-			this.updateArbitraryResourceCache();
-			this.updateArbitraryMetadataCache();
+			this.updateArbitraryResourceCache(repository);
+			this.updateArbitraryMetadataCache(repository);
+
+			repository.saveChanges();
 
 		} catch (Exception e) {
 			// Log and ignore all exceptions. The cache is updated from other places too, and can be rebuilt if needed.
@@ -343,7 +347,7 @@ public class ArbitraryTransaction extends Transaction {
 	 *
 	 * @throws DataException
 	 */
-	public void updateArbitraryResourceCache() throws DataException {
+	public void updateArbitraryResourceCache(Repository repository) throws DataException {
 		// Don't cache resources without a name (such as auto updates)
 		if (arbitraryTransactionData.getName() == null) {
 			return;
@@ -412,7 +416,7 @@ public class ArbitraryTransaction extends Transaction {
 		repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
 	}
 
-	public void updateArbitraryMetadataCache() throws DataException {
+	public void updateArbitraryMetadataCache(Repository repository) throws DataException {
 		// Get the latest transaction
 		ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(arbitraryTransactionData.getName(), arbitraryTransactionData.getService(), null, arbitraryTransactionData.getIdentifier());
 		if (latestTransactionData == null) {
