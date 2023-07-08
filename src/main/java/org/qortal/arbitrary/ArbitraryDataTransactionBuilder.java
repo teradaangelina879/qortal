@@ -117,8 +117,9 @@ public class ArbitraryDataTransactionBuilder {
     }
 
     private Method determineMethodAutomatically() throws DataException {
-        ArbitraryDataReader reader = new ArbitraryDataReader(this.name, ResourceIdType.NAME, this.service, this.identifier);
+        ArbitraryDataReader reader;
         try {
+            reader = new ArbitraryDataReader(this.name, ResourceIdType.NAME, this.service, this.identifier);
             reader.loadSynchronously(true);
         } catch (Exception e) {
             // Catch all exceptions if the existing resource cannot be loaded first time

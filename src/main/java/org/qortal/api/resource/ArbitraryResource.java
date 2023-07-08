@@ -1287,8 +1287,8 @@ public class ArbitraryResource {
 
 	private HttpServletResponse download(Service service, String name, String identifier, String filepath, String encoding, boolean rebuild, boolean async, Integer maxAttempts) {
 
-		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
+			ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 
 			int attempts = 0;
 			if (maxAttempts == null) {
@@ -1394,8 +1394,8 @@ public class ArbitraryResource {
 	}
 
 	private FileProperties getFileProperties(Service service, String name, String identifier) {
-		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
+			ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 			arbitraryDataReader.loadSynchronously(false);
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
 			if (outputPath == null) {

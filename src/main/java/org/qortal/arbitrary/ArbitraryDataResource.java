@@ -111,10 +111,15 @@ public class ArbitraryDataResource {
         }
 
         // Firstly check the cache to see if it's already built
-        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(
-                resourceId, resourceIdType, service, identifier);
-        if (arbitraryDataReader.isCachedDataAvailable()) {
-            return new ArbitraryResourceStatus(Status.READY, this.localChunkCount, this.totalChunkCount);
+        try {
+            ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(
+                    resourceId, resourceIdType, service, identifier);
+            if (arbitraryDataReader.isCachedDataAvailable()) {
+                return new ArbitraryResourceStatus(Status.READY, this.localChunkCount, this.totalChunkCount);
+            }
+        } catch (DataException e) {
+            // Assume no usable data
+            return new ArbitraryResourceStatus(Status.PUBLISHED, this.localChunkCount, this.totalChunkCount);
         }
 
         // Check if we have all data locally for this resource
