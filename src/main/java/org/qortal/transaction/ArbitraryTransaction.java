@@ -289,7 +289,9 @@ public class ArbitraryTransaction extends Transaction {
 				}
 			}
 
-			// Add/update arbitrary resource caches
+			// Add/update arbitrary resource caches, but don't update the status as this involves time-consuming
+			// disk reads, and is more prone to failure. The status will be updated on metadata retrieval, or when
+			// accessing the resource.
 			this.updateArbitraryResourceCache(repository);
 			this.updateArbitraryMetadataCache(repository);
 
@@ -408,6 +410,32 @@ public class ArbitraryTransaction extends Transaction {
 
 		// Save
 		repository.getArbitraryRepository().save(arbitraryResourceData);
+	}
+
+	public void updateArbitraryResourceStatus(Repository repository) throws DataException {
+		// Don't cache resources without a name (such as auto updates)
+		if (arbitraryTransactionData.getName() == null) {
+			return;
+		}
+
+		Service service = arbitraryTransactionData.getService();
+		String name = arbitraryTransactionData.getName();
+		String identifier = arbitraryTransactionData.getIdentifier();
+
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
+
+		// In the cache we store null identifiers as "default", as it is part of the primary key
+		if (identifier == null) {
+			identifier = "default";
+		}
+
+		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+		arbitraryResourceData.service = service;
+		arbitraryResourceData.name = name;
+		arbitraryResourceData.identifier = identifier;
 
 		// Update status
 		ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);

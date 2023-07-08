@@ -86,6 +86,10 @@ public class ArbitraryDataCacheManager extends Thread {
                     arbitraryTransaction.updateArbitraryMetadataCache(repository);
                     repository.saveChanges();
 
+                    // Update status as separate commit, as this is more prone to failure
+                    arbitraryTransaction.updateArbitraryResourceStatus(repository);
+                    repository.saveChanges();
+
                     LOGGER.debug(() -> String.format("Finished processing transaction %.8s in arbitrary resource queue...", Base58.encode(transactionData.getSignature())));
 
                 } catch (DataException e) {
@@ -168,11 +172,15 @@ public class ArbitraryDataCacheManager extends Thread {
                     ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, transactionData);
                     arbitraryTransaction.updateArbitraryResourceCache(repository);
                     arbitraryTransaction.updateArbitraryMetadataCache(repository);
+                    repository.saveChanges();
+
+                    // Update status as separate commit, as this is more prone to failure
+                    arbitraryTransaction.updateArbitraryResourceStatus(repository);
+                    repository.saveChanges();
                 }
                 offset += batchSize;
             }
 
-            repository.saveChanges();
             LOGGER.info("Completed build of arbitrary resources cache.");
             return true;
         }
