@@ -743,8 +743,14 @@ public class OnlineAccountsManager {
         if (onlineAccounts == null)
             onlineAccounts = this.latestBlocksOnlineAccounts.get(timestamp);
 
-        if (onlineAccounts != null)
-            blocksOnlineAccounts.removeAll(onlineAccounts);
+        if (onlineAccounts != null) {
+            // Remove accounts with matching timestamp, nonce, and public key
+            final Set<OnlineAccountData> finalOnlineAccounts = onlineAccounts;
+            blocksOnlineAccounts.removeIf(a1 -> finalOnlineAccounts.stream()
+                    .anyMatch(a2 -> a2.getTimestamp() == a1.getTimestamp() &&
+                            Objects.equals(a2.getNonce(), a1.getNonce()) &&
+                            Arrays.equals(a2.getPublicKey(), a1.getPublicKey())));
+        }
     }
 
     /**
