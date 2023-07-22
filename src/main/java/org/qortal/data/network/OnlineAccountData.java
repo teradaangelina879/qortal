@@ -1,6 +1,7 @@
 package org.qortal.data.network;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -32,10 +33,6 @@ public class OnlineAccountData {
 		this.signature = signature;
 		this.publicKey = publicKey;
 		this.nonce = nonce;
-	}
-
-	public OnlineAccountData(long timestamp, byte[] signature, byte[] publicKey) {
-		this(timestamp, signature, publicKey, null);
 	}
 
 	public long getTimestamp() {
@@ -76,6 +73,10 @@ public class OnlineAccountData {
 		if (otherOnlineAccountData.timestamp != this.timestamp)
 			return false;
 
+		// Almost as quick
+		if (!Objects.equals(otherOnlineAccountData.nonce, this.nonce))
+			return false;
+
 		if (!Arrays.equals(otherOnlineAccountData.publicKey, this.publicKey))
 			return false;
 
@@ -88,9 +89,10 @@ public class OnlineAccountData {
 	public int hashCode() {
 		int h = this.hash;
 		if (h == 0) {
-			this.hash = h = Long.hashCode(this.timestamp)
-					^ Arrays.hashCode(this.publicKey);
+			h = Objects.hash(timestamp, nonce);
+			h = 31 * h + Arrays.hashCode(publicKey);
 			// We don't use signature because newer aggregate signatures use random nonces
+			this.hash = h;
 		}
 		return h;
 	}

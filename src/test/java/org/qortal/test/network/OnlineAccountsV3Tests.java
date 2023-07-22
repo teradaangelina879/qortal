@@ -165,7 +165,9 @@ public class OnlineAccountsV3Tests {
                 byte[] pubkey = new byte[Transformer.PUBLIC_KEY_LENGTH];
                 RANDOM.nextBytes(pubkey);
 
-                onlineAccounts.add(new OnlineAccountData(timestamp, sig, pubkey));
+                Integer nonce = RANDOM.nextInt();
+
+                onlineAccounts.add(new OnlineAccountData(timestamp, sig, pubkey, nonce));
             }
         }
 
