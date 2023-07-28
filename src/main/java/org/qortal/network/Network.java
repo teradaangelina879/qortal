@@ -187,7 +187,7 @@ public class Network {
 
                 this.bindAddress = bindAddress; // Store the selected address, so that it can be used by other parts of the app
                 break; // We don't want to bind to more than one address
-            } catch (UnknownHostException e) {
+            } catch (UnknownHostException | UnsupportedAddressTypeException e) {
                 LOGGER.error("Can't bind listen socket to address {}", Settings.getInstance().getBindAddress());
                 if (i == bindAddresses.size()-1) { // Only throw an exception if all addresses have been tried
                     throw new IOException("Can't bind listen socket to address", e);
