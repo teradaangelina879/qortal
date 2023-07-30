@@ -99,9 +99,10 @@ public class OnlineAccountsV3Message extends Message {
 				bytes.get(publicKey);
 
 				// Nonce is optional - will be -1 if missing
+				// ... but we should skip/ignore an online account if it has no nonce
 				Integer nonce = bytes.getInt();
 				if (nonce < 0) {
-					nonce = null;
+					continue;
 				}
 
 				onlineAccounts.add(new OnlineAccountData(timestamp, signature, publicKey, nonce));

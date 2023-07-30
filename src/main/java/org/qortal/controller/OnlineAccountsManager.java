@@ -414,7 +414,7 @@ public class OnlineAccountsManager {
         boolean isSuperiorEntry = isOnlineAccountsDataSuperior(onlineAccountData);
         if (isSuperiorEntry)
             // Remove existing inferior entry so it can be re-added below (it's likely the existing copy is missing a nonce value)
-            onlineAccounts.remove(onlineAccountData);
+            onlineAccounts.removeIf(a -> Objects.equals(a.getPublicKey(), onlineAccountData.getPublicKey()));
 
         boolean isNewEntry = onlineAccounts.add(onlineAccountData);
 
@@ -743,14 +743,8 @@ public class OnlineAccountsManager {
         if (onlineAccounts == null)
             onlineAccounts = this.latestBlocksOnlineAccounts.get(timestamp);
 
-        if (onlineAccounts != null) {
-            // Remove accounts with matching timestamp, nonce, and public key
-            final Set<OnlineAccountData> finalOnlineAccounts = onlineAccounts;
-            blocksOnlineAccounts.removeIf(a1 -> finalOnlineAccounts.stream()
-                    .anyMatch(a2 -> a2.getTimestamp() == a1.getTimestamp() &&
-                            Objects.equals(a2.getNonce(), a1.getNonce()) &&
-                            Arrays.equals(a2.getPublicKey(), a1.getPublicKey())));
-        }
+        if (onlineAccounts != null)
+            blocksOnlineAccounts.removeAll(onlineAccounts);
     }
 
     /**
