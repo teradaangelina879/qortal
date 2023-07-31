@@ -314,7 +314,7 @@ public interface TransactionRepository {
 	 * @return list of transactions, or empty if none.
 	 * @throws DataException
 	 */
-	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException;
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes, Integer limit) throws DataException;
 
 	/**
 	 * Remove transaction from unconfirmed transactions pile.
