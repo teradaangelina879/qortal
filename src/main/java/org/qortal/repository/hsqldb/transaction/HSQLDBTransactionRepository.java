@@ -1429,8 +1429,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException {
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes, Integer limit) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT signature FROM UnconfirmedTransactions ");
 		sql.append("JOIN Transactions USING (signature) ");
 		sql.append("WHERE type NOT IN (");
@@ -1446,12 +1448,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		sql.append(")");
-		sql.append("ORDER BY created_when, signature");
+		sql.append("ORDER BY created_when, signature ");
+
+		if (limit != null) {
+			sql.append("LIMIT ?");
+			bindParams.add(limit);
+		}
 
 		List<TransactionData> transactions = new ArrayList<>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return transactions;
 
