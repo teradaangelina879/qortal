@@ -380,8 +380,12 @@ public class BlockMinter extends Thread {
 						parentSignatureForLastLowWeightBlock = null;
 						timeOfLastLowWeightBlock = null;
 
+						Long unconfirmedStartTime = NTP.getTime();
+
 						// Add unconfirmed transactions
 						addUnconfirmedTransactions(repository, newBlock);
+
+						LOGGER.info(String.format("Adding %d unconfirmed transactions took %d ms", newBlock.getTransactions().size(), (NTP.getTime()-unconfirmedStartTime)));
 
 						// Sign to create block's signature
 						newBlock.sign();
