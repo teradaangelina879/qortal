@@ -484,6 +484,9 @@ public class BlockMinter extends Thread {
 		// Sign to create block's signature, needed by Block.isValid()
 		newBlock.sign();
 
+		// User-defined limit per block
+		int limit = Settings.getInstance().getMaxTransactionsPerBlock();
+
 		// Attempt to add transactions until block is full, or we run out
 		// If a transaction makes the block invalid then skip it and it'll either expire or be in next block.
 		for (TransactionData transactionData : unconfirmedTransactions) {
@@ -495,6 +498,12 @@ public class BlockMinter extends Thread {
 			if (validationResult != ValidationResult.OK) {
 				LOGGER.debug(() -> String.format("Skipping invalid transaction %s during block minting", Base58.encode(transactionData.getSignature())));
 				newBlock.deleteTransaction(transactionData);
+			}
+
+			// User-defined limit per block
+			List<Transaction> transactions = newBlock.getTransactions();
+			if (transactions != null && transactions.size() >= limit) {
+				break;
 			}
 		}
 	}
