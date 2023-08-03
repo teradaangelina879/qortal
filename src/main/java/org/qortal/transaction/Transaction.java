@@ -641,8 +641,7 @@ public abstract class Transaction {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
 		EnumSet<TransactionType> excludedTxTypes = EnumSet.of(TransactionType.CHAT, TransactionType.PRESENCE);
-		int limit = Settings.getInstance().getMaxTransactionsPerBlock();
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions(excludedTxTypes, limit);
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions(excludedTxTypes, null);
 
 		unconfirmedTransactions.sort(getDataComparator());
 
