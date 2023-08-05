@@ -173,13 +173,12 @@ public class ArbitraryDataCacheManager extends Thread {
                     arbitraryTransaction.updateArbitraryResourceCache(repository);
                     arbitraryTransaction.updateArbitraryMetadataCache(repository);
                     repository.saveChanges();
-
-                    // Update status as separate commit, as this is more prone to failure
-                    arbitraryTransaction.updateArbitraryResourceStatus(repository);
-                    repository.saveChanges();
                 }
                 offset += batchSize;
             }
+
+            // Now refresh all statuses
+            refreshArbitraryStatuses(repository);
 
             LOGGER.info("Completed build of arbitrary resources cache.");
             return true;
@@ -190,6 +189,47 @@ public class ArbitraryDataCacheManager extends Thread {
             // Throw an exception so that the node startup is halted, allowing for a retry next time.
             repository.discardChanges();
             throw new DataException("Build of arbitrary resources cache failed.");
+        }
+    }
+
+    private boolean refreshArbitraryStatuses(Repository repository) throws DataException {
+        try {
+            LOGGER.info("Refreshing arbitrary resource statuses for locally hosted transactions...");
+            SplashFrame.getInstance().updateStatus("Refreshing statuses - please wait...");
+
+            final int batchSize = 100;
+            int offset = 0;
+
+            // Loop through all ARBITRARY transactions, and determine latest state
+            while (!Controller.isStopping()) {
+                LOGGER.info("Fetching hosted transactions {} - {}", offset, offset+batchSize-1);
+
+                List<ArbitraryTransactionData> hostedTransactions = ArbitraryDataStorageManager.getInstance().listAllHostedTransactions(repository, batchSize, offset);
+                if (hostedTransactions.isEmpty()) {
+                    // Complete
+                    break;
+                }
+
+                // Loop through hosted transactions
+                for (ArbitraryTransactionData transactionData : hostedTransactions) {
+
+                    // Determine status and update cache
+                    ArbitraryTransaction arbitraryTransaction = new ArbitraryTransaction(repository, transactionData);
+                    arbitraryTransaction.updateArbitraryResourceStatus(repository);
+                    repository.saveChanges();
+                }
+                offset += batchSize;
+            }
+
+            LOGGER.info("Completed refresh of arbitrary resource statuses.");
+            return true;
+        }
+        catch (DataException e) {
+            LOGGER.info("Unable to refresh arbitrary resource statuses: {}. The database may have been left in an inconsistent state.", e.getMessage());
+
+            // Throw an exception so that the node startup is halted, allowing for a retry next time.
+            repository.discardChanges();
+            throw new DataException("Refresh of arbitrary resource statuses failed.");
         }
     }
 
