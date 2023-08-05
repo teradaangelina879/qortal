@@ -412,7 +412,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				"title, description, category, tag1, tag2, tag3, tag4, tag5 " +
 				"FROM ArbitraryResourcesCache " +
 				"LEFT JOIN ArbitraryMetadataCache USING (service, name, identifier) " +
-				"WHERE service = ? AND name = ?");
+				"WHERE ArbitraryResourcesCache.service = ? AND ArbitraryResourcesCache.name = ?");
 
 		bindParams.add(service.value);
 		bindParams.add(name);
