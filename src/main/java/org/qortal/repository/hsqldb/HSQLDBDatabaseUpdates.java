@@ -1040,6 +1040,11 @@ public class HSQLDBDatabaseUpdates {
 							+ "REFERENCES ArbitraryResourcesCache (service, name, identifier) ON DELETE CASCADE)");
 					// For finding metadata by title.
 					stmt.execute("CREATE INDEX ArbitraryMetadataTitleIndex ON ArbitraryMetadataCache (title)");
+
+					// For finding arbitrary transactions by service
+					stmt.execute("CREATE INDEX ArbitraryServiceIndex ON ArbitraryTransactions (service)");
+					// For finding arbitrary transactions by identifier
+					stmt.execute("CREATE INDEX ArbitraryIdentifierIndex ON ArbitraryTransactions (identifier)");
 					break;
 
 				default:
