@@ -146,6 +146,9 @@ public class Settings {
 	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
 	private int blockCacheSize = 10;
 
+	/** Maximum number of transactions for the block minter to include in a block */
+	private int maxTransactionsPerBlock = 25;
+
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds
 	/** How often to attempt AT state trimming (ms). */
@@ -691,6 +694,10 @@ public class Settings {
 
 	public int getBlockCacheSize() {
 		return this.blockCacheSize;
+	}
+
+	public int getMaxTransactionsPerBlock() {
+		return this.maxTransactionsPerBlock;
 	}
 
 	public boolean isTestNet() {

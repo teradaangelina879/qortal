@@ -16,7 +16,9 @@ import javax.ws.rs.core.Context;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.util.Enumeration;
 
@@ -44,16 +46,6 @@ public class DevProxyServerResource {
         try {
             String source = DevProxyManager.getInstance().getSourceHostAndPort();
 
-            // Convert localhost / 127.0.0.1 to IPv6 [::1]
-            if (source.startsWith("localhost") || source.startsWith("127.0.0.1")) {
-                int port = 80;
-                String[] parts = source.split(":");
-                if (parts.length > 1) {
-                    port = Integer.parseInt(parts[1]);
-                }
-                source = String.format("[::1]:%d", port);
-            }
-
             if (!inPath.startsWith("/")) {
                 inPath = "/" + inPath;
             }
@@ -61,82 +53,112 @@ public class DevProxyServerResource {
             String queryString = request.getQueryString() != null ? "?" + request.getQueryString() : "";
 
             // Open URL
-            String urlString = String.format("http://%s%s%s", source, inPath, queryString);
-            URL url = new URL(urlString);
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
-			con.setRequestMethod(request.getMethod());
+            URL url = new URL(String.format("http://%s%s%s", source, inPath, queryString));
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
-            // Proxy the request headers
-            Enumeration<String> headerNames = request.getHeaderNames();
-            while (headerNames.hasMoreElements()) {
-                String headerName = headerNames.nextElement();
-                String headerValue = request.getHeader(headerName);
-                con.setRequestProperty(headerName, headerValue);
+            // Proxy the request data
+            this.proxyRequestToConnection(request, con);
+
+            try {
+                // Make the request and proxy the response code
+                response.setStatus(con.getResponseCode());
             }
+            catch (ConnectException e) {
 
-            // TODO: proxy any POST parameters from "request" to "con"
-
-            // Proxy the response code
-            int responseCode = con.getResponseCode();
-            response.setStatus(responseCode);
-
-            // Proxy the response headers
-            for (int i = 0; ; i++) {
-                String headerKey = con.getHeaderFieldKey(i);
-                String headerValue = con.getHeaderField(i);
-                if (headerKey != null && headerValue != null) {
-                    response.addHeader(headerKey, headerValue);
-                    continue;
+                // Tey converting localhost / 127.0.0.1 to IPv6 [::1]
+                if (source.startsWith("localhost") || source.startsWith("127.0.0.1")) {
+                    int port = 80;
+                    String[] parts = source.split(":");
+                    if (parts.length > 1) {
+                        port = Integer.parseInt(parts[1]);
+                    }
+                    source = String.format("[::1]:%d", port);
                 }
-                break;
+
+                // Retry connection
+                url = new URL(String.format("http://%s%s%s", source, inPath, queryString));
+                con = (HttpURLConnection) url.openConnection();
+                this.proxyRequestToConnection(request, con);
+                response.setStatus(con.getResponseCode());
             }
 
-            // Read the response body
-            InputStream inputStream = con.getInputStream();
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                outputStream.write(buffer, 0, bytesRead);
-            }
-            byte[] data = outputStream.toByteArray(); // TODO: limit file size that can be read into memory
-
-            // Close the streams
-            outputStream.close();
-            inputStream.close();
-
-            // Extract filename
-            String filename = "";
-            if (inPath.contains("/")) {
-                String[] parts = inPath.split("/");
-                if (parts.length > 0) {
-                    filename = parts[parts.length - 1];
-                }
-            }
-
-            // Parse and modify output if needed
-            if (HTMLParser.isHtmlFile(filename)) {
-                // HTML file - needs to be parsed
-                HTMLParser htmlParser = new HTMLParser("", inPath, "", false, data, "proxy", Service.APP, null, "light", true);
-                htmlParser.addAdditionalHeaderTags();
-                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' data: blob:; img-src 'self' data: blob:; connect-src 'self' ws:; font-src 'self' data:;");
-                response.setContentType(con.getContentType());
-                response.setContentLength(htmlParser.getData().length);
-                response.getOutputStream().write(htmlParser.getData());
-            }
-            else {
-                // Regular file - can be streamed directly
-                response.addHeader("Content-Security-Policy", "default-src 'self'");
-                response.setContentType(con.getContentType());
-                response.setContentLength(data.length);
-                response.getOutputStream().write(data);
-            }
+            // Proxy the response data back to the caller
+            this.proxyConnectionToResponse(con, response, inPath);
 
         } catch (IOException e) {
             throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, e.getMessage());
         }
 
         return response;
+    }
+
+    private void proxyRequestToConnection(HttpServletRequest request, HttpURLConnection con) throws ProtocolException {
+        // Proxy the request method
+        con.setRequestMethod(request.getMethod());
+
+        // Proxy the request headers
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = request.getHeader(headerName);
+            con.setRequestProperty(headerName, headerValue);
+        }
+
+        // TODO: proxy any POST parameters from "request" to "con"
+    }
+
+    private void proxyConnectionToResponse(HttpURLConnection con, HttpServletResponse response, String inPath) throws IOException {
+        // Proxy the response headers
+        for (int i = 0; ; i++) {
+            String headerKey = con.getHeaderFieldKey(i);
+            String headerValue = con.getHeaderField(i);
+            if (headerKey != null && headerValue != null) {
+                response.addHeader(headerKey, headerValue);
+                continue;
+            }
+            break;
+        }
+
+        // Read the response body
+        InputStream inputStream = con.getInputStream();
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+        }
+        byte[] data = outputStream.toByteArray(); // TODO: limit file size that can be read into memory
+
+        // Close the streams
+        outputStream.close();
+        inputStream.close();
+
+        // Extract filename
+        String filename = "";
+        if (inPath.contains("/")) {
+            String[] parts = inPath.split("/");
+            if (parts.length > 0) {
+                filename = parts[parts.length - 1];
+            }
+        }
+
+        // Parse and modify output if needed
+        if (HTMLParser.isHtmlFile(filename)) {
+            // HTML file - needs to be parsed
+            HTMLParser htmlParser = new HTMLParser("", inPath, "", false, data, "proxy", Service.APP, null, "light", true);
+            htmlParser.addAdditionalHeaderTags();
+            response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' data: blob:; img-src 'self' data: blob:; connect-src 'self' ws:; font-src 'self' data:;");
+            response.setContentType(con.getContentType());
+            response.setContentLength(htmlParser.getData().length);
+            response.getOutputStream().write(htmlParser.getData());
+        }
+        else {
+            // Regular file - can be streamed directly
+            response.addHeader("Content-Security-Policy", "default-src 'self'");
+            response.setContentType(con.getContentType());
+            response.setContentLength(data.length);
+            response.getOutputStream().write(data);
+        }
     }
 
 }

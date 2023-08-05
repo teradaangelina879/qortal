@@ -454,6 +454,10 @@ function getDefaultTimeout(action) {
                 // User may take a long time to accept/deny the popup
                 return 60 * 60 * 1000;
 
+            case "SEARCH_QDN_RESOURCES":
+                // Searching for data can be slow, especially when metadata and statuses are also being included
+                return 30 * 1000;
+
             case "FETCH_QDN_RESOURCE":
                 // Fetching data can take a while, especially if the status hasn't been checked first
                 return 60 * 1000;

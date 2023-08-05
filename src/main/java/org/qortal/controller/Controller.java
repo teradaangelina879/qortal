@@ -1305,13 +1305,6 @@ public class Controller extends Thread {
 				TransactionImporter.getInstance().onNetworkTransactionSignaturesMessage(peer, message);
 				break;
 
-			case GET_ONLINE_ACCOUNTS:
-			case ONLINE_ACCOUNTS:
-			case GET_ONLINE_ACCOUNTS_V2:
-			case ONLINE_ACCOUNTS_V2:
-				// No longer supported - to be eventually removed
-				break;
-
 			case GET_ONLINE_ACCOUNTS_V3:
 				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV3Message(peer, message);
 				break;
