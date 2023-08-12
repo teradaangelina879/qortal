@@ -295,6 +295,11 @@ public class TransactionImporter extends Thread {
 
                         case OK: {
                             LOGGER.debug(() -> String.format("Imported %s transaction %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature())));
+
+                            // Add to the unconfirmed transactions cache
+                            if (transactionData.getType() != Transaction.TransactionType.CHAT && unconfirmedTransactionsCache != null) {
+                                unconfirmedTransactionsCache.add(transactionData);
+                            }
                             break;
                         }
 
