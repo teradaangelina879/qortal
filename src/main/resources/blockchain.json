@@ -5,7 +5,7 @@
 	"maxBytesPerUnitFee": 1024,
 	"unitFees": [
 		{ "timestamp": 0, "fee": "0.001" },
-		{ "timestamp": 9999999999999, "fee": "0.01" }
+		{ "timestamp": 1692118800000, "fee": "0.01" }
 	],
 	"nameRegistrationUnitFees": [
 		{ "timestamp": 0, "fee": "0.001" },
