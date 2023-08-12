@@ -378,7 +378,7 @@ public abstract class Transaction {
 	 * @return
 	 */
 	public long getUnitFee(Long timestamp) {
-		return BlockChain.getInstance().getUnitFee();
+		return BlockChain.getInstance().getUnitFeeAtTimestamp(timestamp);
 	}
 
 	/**

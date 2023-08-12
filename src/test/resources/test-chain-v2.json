@@ -4,9 +4,13 @@
 	"transactionExpiryPeriod": 86400000,
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "0.1",
+	"unitFees": [
+		{ "timestamp": 0, "fee": "0.1" },
+		{ "timestamp": 9999999999999, "fee": "1" }
+	],
 	"nameRegistrationUnitFees": [
-		{ "timestamp": 1645372800000, "fee": "5" }
+		{ "timestamp": 0, "fee": "0.1" },
+		{ "timestamp": 9999999999999, "fee": "5" }
 	],
 	"requireGroupForApproval": false,
 	"minAccountLevelToRewardShare": 5,
