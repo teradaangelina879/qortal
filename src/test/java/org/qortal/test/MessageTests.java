@@ -85,7 +85,7 @@ public class MessageTests extends Common {
 		byte[] randomReference = new byte[64];
 		random.nextBytes(randomReference);
 
-		long minimumFee = BlockChain.getInstance().getUnitFee();
+		long minimumFee = BlockChain.getInstance().getUnitFeeAtTimestamp(System.currentTimeMillis());
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");

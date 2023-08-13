@@ -130,6 +130,9 @@ public class Block {
 	/** Locally-generated AT fees */
 	protected long ourAtFees; // Generated locally
 
+	/** Cached online accounts validation decision, to avoid revalidating when true */
+	private boolean onlineAccountsAlreadyValid = false;
+
 	@FunctionalInterface
 	private interface BlockRewardDistributor {
 		long distribute(long amount, Map<String, Long> balanceChanges) throws DataException;
@@ -562,6 +565,13 @@ public class Block {
 		}
 	}
 
+
+	/**
+	 * Force online accounts to be revalidated, e.g. at final stage of block minting.
+	 */
+	public void clearOnlineAccountsValidationCache() {
+		this.onlineAccountsAlreadyValid = false;
+	}
 
 	// More information
 
@@ -1043,6 +1053,10 @@ public class Block {
 		if (this.blockData.getHeight() != null && this.blockData.getHeight() == 1)
 			return ValidationResult.OK;
 
+		// Don't bother revalidating if accounts have already been validated in this block
+		if (this.onlineAccountsAlreadyValid)
+			return ValidationResult.OK;
+
 		// Expand block's online accounts indexes into actual accounts
 		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
 		// We use count of online accounts to validate decoded account indexes
@@ -1129,6 +1143,9 @@ public class Block {
 
 		// All online accounts valid, so save our list of online accounts for potential later use
 		this.cachedOnlineRewardShares = onlineRewardShares;
+
+		// Remember that the accounts are valid, to speed up subsequent checks
+		this.onlineAccountsAlreadyValid = true;
 
 		return ValidationResult.OK;
 	}
