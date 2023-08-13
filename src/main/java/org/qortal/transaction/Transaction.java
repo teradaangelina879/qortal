@@ -13,6 +13,7 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.TransactionImporter;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.group.GroupApprovalData;
@@ -377,7 +378,7 @@ public abstract class Transaction {
 	 * @return
 	 */
 	public long getUnitFee(Long timestamp) {
-		return BlockChain.getInstance().getUnitFee();
+		return BlockChain.getInstance().getUnitFeeAtTimestamp(timestamp);
 	}
 
 	/**
@@ -617,7 +618,10 @@ public abstract class Transaction {
 	}
 
 	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		List<TransactionData> unconfirmedTransactions = TransactionImporter.getInstance().unconfirmedTransactionsCache;
+		if (unconfirmedTransactions == null) {
+			unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		}
 
 		// We exclude CHAT transactions as they never get included into blocks and
 		// have spam/DoS prevention by requiring proof of work
