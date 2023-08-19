@@ -248,7 +248,8 @@ public abstract class Transaction {
 		GROUP_APPROVAL_REQUIRED(98),
 		ACCOUNT_NOT_TRANSFERABLE(99),
 		INVALID_BUT_OK(999),
-		NOT_YET_RELEASED(1000);
+		NOT_YET_RELEASED(1000),
+		NOT_SUPPORTED(1001);
 
 		public final int value;
 
@@ -636,7 +637,7 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Returns sorted, unconfirmed transactions, excluding invalid.
+	 * Returns sorted, unconfirmed transactions, excluding invalid and unconfirmable.
 	 * 
 	 * @return sorted, unconfirmed transactions
 	 * @throws DataException
@@ -654,7 +655,8 @@ public abstract class Transaction {
 			TransactionData transactionData = unconfirmedTransactionsIterator.next();
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
-			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
+			// Must be confirmable and valid
+			if (!transaction.isConfirmable() || transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
 				unconfirmedTransactionsIterator.remove();
 		}
 
@@ -890,6 +892,17 @@ public abstract class Transaction {
 	 */
 	protected void onImportAsUnconfirmed() throws DataException {
 		/* To be optionally overridden */
+	}
+
+	/**
+	 * Returns whether transaction is 'confirmable' - i.e. is of a type that
+	 * can be included in a block. Some transactions are 'unconfirmable'
+	 * and therefore must remain in the mempool until they expire.
+	 * @return
+	 */
+	public boolean isConfirmable() {
+		/* To be optionally overridden */
+		return true;
 	}
 
 	/**
