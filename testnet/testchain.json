@@ -4,7 +4,9 @@
 	"transactionExpiryPeriod": 86400000,
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "0.001",
+	"unitFees": [
+		{ "timestamp": 0, "fee": "0.001" }
+	],
 	"nameRegistrationUnitFees": [
 		{ "timestamp": 0, "fee": "1.25" }
 	],

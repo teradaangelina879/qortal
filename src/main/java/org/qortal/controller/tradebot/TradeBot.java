@@ -333,7 +333,7 @@ public class TradeBot implements Listener {
 			SysTray.getInstance().showMessage("Trade-Bot", String.format("%s: %s", tradeBotData.getAtAddress(), newState), MessageType.INFO);
 
 		if (logMessageSupplier != null)
-			LOGGER.info(logMessageSupplier);
+			LOGGER.info(logMessageSupplier.get());
 
 		LOGGER.debug(() -> String.format("new state for trade-bot entry based on AT %s: %s", tradeBotData.getAtAddress(), newState));
 

@@ -209,6 +209,9 @@ public class BlockChain {
 	/** Snapshot timestamp for self sponsorship algo V1 */
 	private long selfSponsorshipAlgoV1SnapshotTimestamp;
 
+	/** Feature-trigger timestamp to modify behaviour of various transactions that support mempow */
+	private long mempowTransactionUpdatesTimestamp;
+
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
 		public long timestamp;
@@ -368,6 +371,11 @@ public class BlockChain {
 	// Self sponsorship algo
 	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
 		return this.selfSponsorshipAlgoV1SnapshotTimestamp;
+	}
+
+	// Feature-trigger timestamp to modify behaviour of various transactions that support mempow
+	public long getMemPoWTransactionUpdatesTimestamp() {
+		return this.mempowTransactionUpdatesTimestamp;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */

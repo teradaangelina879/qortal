@@ -84,6 +84,7 @@ public class Block {
 		TRANSACTION_PROCESSING_FAILED(53),
 		TRANSACTION_ALREADY_PROCESSED(54),
 		TRANSACTION_NEEDS_APPROVAL(55),
+		TRANSACTION_NOT_CONFIRMABLE(56),
 		AT_STATES_MISMATCH(61),
 		ONLINE_ACCOUNTS_INVALID(70),
 		ONLINE_ACCOUNT_UNKNOWN(71),
@@ -1250,6 +1251,13 @@ public class Block {
 				if (transactionData.getTimestamp() > this.blockData.getTimestamp()
 						|| transaction.getDeadline() <= this.blockData.getTimestamp())
 					return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
+
+				// After feature trigger, check that this transaction is confirmable
+				if (transactionData.getTimestamp() >= BlockChain.getInstance().getMemPoWTransactionUpdatesTimestamp()) {
+					if (!transaction.isConfirmable()) {
+						return ValidationResult.TRANSACTION_NOT_CONFIRMABLE;
+					}
+				}
 
 				// Check transaction isn't already included in a block
 				if (this.repository.getTransactionRepository().isConfirmed(transactionData.getSignature()))

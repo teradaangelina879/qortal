@@ -147,7 +147,7 @@ public class Settings {
 	private int blockCacheSize = 10;
 
 	/** Maximum number of transactions for the block minter to include in a block */
-	private int maxTransactionsPerBlock = 25;
+	private int maxTransactionsPerBlock = 50;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds

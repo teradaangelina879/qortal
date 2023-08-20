@@ -218,12 +218,6 @@ public class TransactionImporter extends Thread {
                 LOGGER.debug("Finished validating signatures in incoming transactions queue (valid this round: {}, total pending import: {})...", validatedCount, sigValidTransactions.size());
             }
 
-            if (!newlyValidSignatures.isEmpty()) {
-                LOGGER.debug("Broadcasting {} newly valid signatures ahead of import", newlyValidSignatures.size());
-                Message newTransactionSignatureMessage = new TransactionSignaturesMessage(newlyValidSignatures);
-                Network.getInstance().broadcast(broadcastPeer -> newTransactionSignatureMessage);
-            }
-
         } catch (DataException e) {
             LOGGER.error("Repository issue while processing incoming transactions", e);
         }
@@ -263,6 +257,9 @@ public class TransactionImporter extends Thread {
             unconfirmedTransactions.removeIf(t -> t.getType() == Transaction.TransactionType.CHAT);
             unconfirmedTransactionsCache = unconfirmedTransactions;
 
+            // A list of signatures were imported in this round
+            List<byte[]> newlyImportedSignatures = new ArrayList<>();
+
             // Import transactions with valid signatures
             try {
                 for (int i = 0; i < sigValidTransactions.size(); ++i) {
@@ -300,6 +297,10 @@ public class TransactionImporter extends Thread {
                             if (transactionData.getType() != Transaction.TransactionType.CHAT && unconfirmedTransactionsCache != null) {
                                 unconfirmedTransactionsCache.add(transactionData);
                             }
+
+                            // Signature imported in this round
+                            newlyImportedSignatures.add(transactionData.getSignature());
+
                             break;
                         }
 
@@ -327,6 +328,12 @@ public class TransactionImporter extends Thread {
 
                     // Transaction has been processed, even if only to reject it
                     removeIncomingTransaction(transactionData.getSignature());
+                }
+
+                if (!newlyImportedSignatures.isEmpty()) {
+                    LOGGER.debug("Broadcasting {} newly imported signatures", newlyImportedSignatures.size());
+                    Message newTransactionSignatureMessage = new TransactionSignaturesMessage(newlyImportedSignatures);
+                    Network.getInstance().broadcast(broadcastPeer -> newTransactionSignatureMessage);
                 }
             } finally {
                 LOGGER.debug("Finished importing {} incoming transaction{}", processedCount, (processedCount == 1 ? "" : "s"));

@@ -444,6 +444,7 @@ public class MiscTests extends Common {
 			// Payment
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+			PrivateKeyAccount chloe = Common.getTestAccount(repository, "chloe");
 
 			PaymentTransactionData transactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), bob.getAddress(), 100000);
 			transactionData.setFee(new PaymentTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
@@ -473,16 +474,16 @@ public class MiscTests extends Common {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 			ValidationResult result = transaction.importAsUnconfirmed();
-			assertTrue("Transaction should be valid", ValidationResult.OK == result);
+			assertEquals("Transaction should be valid", ValidationResult.OK, result);
 
 			// Now try fetching and setting fee manually
-			transactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), bob.getAddress(), 50000);
+			transactionData = new PaymentTransactionData(TestTransaction.generateBase(alice), chloe.getAddress(), 50000);
 			transactionData.setFee(new PaymentTransaction(null, null).getUnitFee(transactionData.getTimestamp()));
 			assertEquals(300000000L, transactionData.getFee().longValue());
 			transaction = Transaction.fromData(repository, transactionData);
 			transaction.sign(alice);
 			result = transaction.importAsUnconfirmed();
-			assertTrue("Transaction should be valid", ValidationResult.OK == result);
+			assertEquals("Transaction should be valid", ValidationResult.OK, result);
 		}
 	}
 
