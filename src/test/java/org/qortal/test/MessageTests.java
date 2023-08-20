@@ -29,6 +29,7 @@ import org.qortal.utils.NTP;
 
 import static org.junit.Assert.*;
 
+import java.util.List;
 import java.util.Random;
 
 public class MessageTests extends Common {
@@ -173,6 +174,10 @@ public class MessageTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
 
+			// Transaction should not be present in db yet
+			List<MessageTransactionData> messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, recipient, null, null, null);
+			assertTrue(messageTransactionsData.isEmpty());
+
 			MessageTransaction transaction = testFeeNonce(repository, false, true, recipient, true);
 
 			// Transaction shouldn't be confirmable because it's not to an AT, and therefore shouldn't be present in a block
@@ -180,6 +185,10 @@ public class MessageTests extends Common {
 			TransactionUtils.signAndMint(repository, transaction.getTransactionData(), alice);
 			assertFalse(isTransactionConfirmed(repository, transaction));
 			assertEquals(12, transaction.getPoWDifficulty());
+
+			// Transaction should be found when trade bot searches for it
+			messageTransactionsData = repository.getMessageRepository().getMessagesByParticipants(null, recipient, null, null, null);
+			assertEquals(1, messageTransactionsData.size());
 
 			BlockUtils.orphanLastBlock(repository);
 		}
