@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.IOException;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -39,10 +40,13 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.Base58;
 import java.util.Base64;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 @Path("/at")
 @Tag(name = "Automated Transactions")
 public class AtResource {
+	private static final Logger logger = LoggerFactory.getLogger(AtResource.class);
 
 	@Context
 	HttpServletRequest request;
@@ -183,15 +187,27 @@ public class AtResource {
 					)
 			}
 	)
-	public byte[] createMachineState(CreationRequest request) {
-		return MachineState.toCreationBytes(
-				request.getCiyamAtVersion(),
-				request.getCodeBytes(),
-				request.getDataBytes(),
-				request.getNumCallStackPages(),
-				request.getNumUserStackPages(),
-				request.getMinActivationAmount()
-		);
+	public String createMachineState(String jsonBody) throws IOException {
+		ObjectMapper objectMapper = new ObjectMapper();
+		CreationRequest request = objectMapper.readValue(jsonBody, CreationRequest.class);
+
+			logger.info("ciyamAtVersion: {}", request.getCiyamAtVersion());
+			logger.info("codeBytes: {}", request.getCodeBytes());
+			logger.info("codeBytes: {}", request.getNumUserStackPages());
+			logger.info("codeBytes: {}", request.getDataBytes());
+			logger.info("codeBytes: {}", request.getNumCallStackPages());
+			logger.info("codeBytes: {}", request.getMinActivationAmount());
+			byte[] creationBytes =  MachineState.toCreationBytes(
+					request.getCiyamAtVersion(),
+					request.getCodeBytes(),
+					request.getDataBytes(),
+					request.getNumCallStackPages(),
+					request.getNumUserStackPages(),
+					request.getMinActivationAmount()
+			);
+			return Base58.encode(creationBytes);
+
+
 	}
 	@POST
 	@Operation(

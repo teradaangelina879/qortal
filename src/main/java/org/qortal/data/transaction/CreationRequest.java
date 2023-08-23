@@ -1,10 +1,11 @@
 package org.qortal.data.transaction;
 
 import java.util.Base64;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 public class CreationRequest {
 
     private short ciyamAtVersion;
+    @JsonProperty("codeBytesBase64")
     private String codeBytesBase64;
     private String dataBytesBase64;
     private short numCallStackPages;
@@ -24,15 +25,27 @@ public class CreationRequest {
     }
 
     public byte[] getCodeBytes() {
-        return Base64.getDecoder().decode(this.codeBytesBase64);
+        if (this.codeBytesBase64 != null) {
+            return Base64.getDecoder().decode(this.codeBytesBase64);
+        }
+        return new byte[0];
     }
 
     public void setCodeBytesBase64(String codeBytesBase64) {
         this.codeBytesBase64 = codeBytesBase64;
     }
+    public String getCodeBytes2() {
+        return codeBytesBase64;
+
+    }
+
+
 
     public byte[] getDataBytes() {
-        return Base64.getDecoder().decode(this.dataBytesBase64);
+        if (this.dataBytesBase64 != null) {
+            return Base64.getDecoder().decode(this.dataBytesBase64);
+        }
+        return new byte[0];
     }
 
     public void setDataBytesBase64(String dataBytesBase64) {
