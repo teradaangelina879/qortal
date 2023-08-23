@@ -27,6 +27,7 @@ import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
+import org.qortal.data.transaction.CreationRequest;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -156,6 +157,41 @@ public class AtResource {
 		}
 	}
 
+	@POST
+	@Path("/createMachineState")
+	@Operation(
+			summary = "Create MachineState bytes from the provided parameters",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_JSON,
+							schema = @Schema(
+									implementation = CreationRequest.class
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "MachineState bytes",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "string"
+									)
+							)
+					)
+			}
+	)
+	public byte[] createMachineState(CreationRequest request) {
+		return MachineState.toCreationBytes(
+				request.getCiyamAtVersion(),
+				request.getCodeBytes(),
+				request.getDataBytes(),
+				request.getNumCallStackPages(),
+				request.getNumUserStackPages(),
+				request.getMinActivationAmount()
+		);
+	}
 	@POST
 	@Operation(
 		summary = "Build raw, unsigned, DEPLOY_AT transaction",
