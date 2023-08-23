@@ -38,6 +38,7 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.Base58;
+import java.util.Base64;
 
 @Path("/at")
 @Tag(name = "Automated Transactions")

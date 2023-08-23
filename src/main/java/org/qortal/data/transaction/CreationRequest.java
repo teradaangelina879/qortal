@@ -1,10 +1,12 @@
 package org.qortal.data.transaction;
 
-public class CreationRequest  {
+import java.util.Base64;
+
+public class CreationRequest {
 
     private short ciyamAtVersion;
-    private byte[] codeBytes;
-    private byte[] dataBytes;
+    private String codeBytesBase64;
+    private String dataBytesBase64;
     private short numCallStackPages;
     private short numUserStackPages;
     private long minActivationAmount;
@@ -22,19 +24,19 @@ public class CreationRequest  {
     }
 
     public byte[] getCodeBytes() {
-        return codeBytes;
+        return Base64.getDecoder().decode(this.codeBytesBase64);
     }
 
-    public void setCodeBytes(byte[] codeBytes) {
-        this.codeBytes = codeBytes;
+    public void setCodeBytesBase64(String codeBytesBase64) {
+        this.codeBytesBase64 = codeBytesBase64;
     }
 
     public byte[] getDataBytes() {
-        return dataBytes;
+        return Base64.getDecoder().decode(this.dataBytesBase64);
     }
 
-    public void setDataBytes(byte[] dataBytes) {
-        this.dataBytes = dataBytes;
+    public void setDataBytesBase64(String dataBytesBase64) {
+        this.dataBytesBase64 = dataBytesBase64;
     }
 
     public short getNumCallStackPages() {
