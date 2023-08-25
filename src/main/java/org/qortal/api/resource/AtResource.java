@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.io.IOException;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -28,7 +27,7 @@ import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
-import org.qortal.data.transaction.CreationRequest;
+import org.qortal.api.model.AtCreationRequest;
 import org.qortal.data.transaction.DeployAtTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -39,10 +38,11 @@ import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.Base58;
-import java.util.Base64;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
+
 @Path("/at")
 @Tag(name = "Automated Transactions")
 public class AtResource {
@@ -163,21 +163,21 @@ public class AtResource {
 	}
 
 	@POST
-	@Path("/createMachineState")
+	@Path("/create")
 	@Operation(
-			summary = "Create MachineState bytes from the provided parameters",
+			summary = "Create base58-encoded AT creation bytes from the provided parameters",
 			requestBody = @RequestBody(
 					required = true,
 					content = @Content(
 							mediaType = MediaType.APPLICATION_JSON,
 							schema = @Schema(
-									implementation = CreationRequest.class
+									implementation = AtCreationRequest.class
 							)
 					)
 			),
 			responses = {
 					@ApiResponse(
-							description = "MachineState bytes",
+							description = "AT creation bytes suitable for use in a DEPLOY_AT transaction",
 							content = @Content(
 									mediaType = MediaType.TEXT_PLAIN,
 									schema = @Schema(
@@ -187,27 +187,26 @@ public class AtResource {
 					)
 			}
 	)
-	public String createMachineState(String jsonBody) throws IOException {
-		ObjectMapper objectMapper = new ObjectMapper();
-		CreationRequest request = objectMapper.readValue(jsonBody, CreationRequest.class);
+	public String create(AtCreationRequest atCreationRequest) {
+		if (atCreationRequest.getCiyamAtVersion() < 2) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "ciyamAtVersion must be at least 2");
+		}
+		if (atCreationRequest.getCodeBytes() == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Valid codeBytesBase64 must be supplied");
+		}
+		if (atCreationRequest.getDataBytes() == null) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Valid dataBytesBase64 must be supplied");
+		}
 
-			logger.info("ciyamAtVersion: {}", request.getCiyamAtVersion());
-			logger.info("codeBytes: {}", request.getCodeBytes());
-			logger.info("codeBytes: {}", request.getNumUserStackPages());
-			logger.info("codeBytes: {}", request.getDataBytes());
-			logger.info("codeBytes: {}", request.getNumCallStackPages());
-			logger.info("codeBytes: {}", request.getMinActivationAmount());
-			byte[] creationBytes =  MachineState.toCreationBytes(
-					request.getCiyamAtVersion(),
-					request.getCodeBytes(),
-					request.getDataBytes(),
-					request.getNumCallStackPages(),
-					request.getNumUserStackPages(),
-					request.getMinActivationAmount()
-			);
-			return Base58.encode(creationBytes);
-
-
+		byte[] creationBytes = MachineState.toCreationBytes(
+				atCreationRequest.getCiyamAtVersion(),
+				atCreationRequest.getCodeBytes(),
+				atCreationRequest.getDataBytes(),
+				atCreationRequest.getNumCallStackPages(),
+				atCreationRequest.getNumUserStackPages(),
+				atCreationRequest.getMinActivationAmount()
+		);
+		return Base58.encode(creationBytes);
 	}
 	@POST
 	@Operation(

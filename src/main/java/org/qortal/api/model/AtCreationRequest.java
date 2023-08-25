@@ -1,19 +1,32 @@
-package org.qortal.data.transaction;
+package org.qortal.api.model;
 
-import java.util.Base64;
-import com.fasterxml.jackson.annotation.JsonProperty;
-public class CreationRequest {
+import io.swagger.v3.oas.annotations.media.Schema;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
+
+import org.bouncycastle.util.encoders.Base64;
+import org.bouncycastle.util.encoders.DecoderException;
+
+@XmlAccessorType(XmlAccessType.FIELD)
+public class AtCreationRequest {
+
+    @Schema(description = "CIYAM AT version", example = "2")
     private short ciyamAtVersion;
-    @JsonProperty("codeBytesBase64")
+
+    @Schema(description = "base64-encoded code bytes", example = "")
     private String codeBytesBase64;
+
+    @Schema(description = "base64-encoded data bytes", example = "")
     private String dataBytesBase64;
+
     private short numCallStackPages;
     private short numUserStackPages;
     private long minActivationAmount;
 
     // Default constructor for JSON deserialization
-    public CreationRequest() {}
+    public AtCreationRequest() {}
 
     // Getters and setters
     public short getCiyamAtVersion() {
@@ -24,33 +37,44 @@ public class CreationRequest {
         this.ciyamAtVersion = ciyamAtVersion;
     }
 
+
+    public String getCodeBytesBase64() {
+        return this.codeBytesBase64;
+    }
+
+    @XmlTransient
+    @Schema(hidden = true)
     public byte[] getCodeBytes() {
         if (this.codeBytesBase64 != null) {
-            return Base64.getDecoder().decode(this.codeBytesBase64);
+            try {
+                return Base64.decode(this.codeBytesBase64);
+            }
+            catch (DecoderException e) {
+                return null;
+            }
         }
-        return new byte[0];
-    }
-
-    public void setCodeBytesBase64(String codeBytesBase64) {
-        this.codeBytesBase64 = codeBytesBase64;
-    }
-    public String getCodeBytes2() {
-        return codeBytesBase64;
-
+        return null;
     }
 
 
+    public String getDataBytesBase64() {
+        return this.dataBytesBase64;
+    }
 
+    @XmlTransient
+    @Schema(hidden = true)
     public byte[] getDataBytes() {
         if (this.dataBytesBase64 != null) {
-            return Base64.getDecoder().decode(this.dataBytesBase64);
+            try {
+                return Base64.decode(this.dataBytesBase64);
+            }
+            catch (DecoderException e) {
+                return null;
+            }
         }
-        return new byte[0];
+        return null;
     }
 
-    public void setDataBytesBase64(String dataBytesBase64) {
-        this.dataBytesBase64 = dataBytesBase64;
-    }
 
     public short getNumCallStackPages() {
         return numCallStackPages;
