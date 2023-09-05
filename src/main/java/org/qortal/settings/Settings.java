@@ -47,8 +47,8 @@ public class Settings {
 	private static final int MAINNET_GATEWAY_PORT = 80;
 	private static final int TESTNET_GATEWAY_PORT = 8080;
 
-    private static final int MAINNET_DEV_PROXY_PORT = 12393;
-    private static final int TESTNET_DEV_PROXY_PORT = 62393;
+	private static final int MAINNET_DEV_PROXY_PORT = 12393;
+	private static final int TESTNET_DEV_PROXY_PORT = 62393;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -110,10 +110,9 @@ public class Settings {
 	private boolean gatewayLoggingEnabled = false;
 	private boolean gatewayLoopbackEnabled = false;
 
-    // Developer Proxy
+	// Developer Proxy
 	private Integer devProxyPort;
-    private boolean devProxyLoggingEnabled = false;
-
+	private boolean devProxyLoggingEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -186,7 +185,6 @@ public class Settings {
 	 * This has a significant effect on execution time. */
 	private int blockPruneBatchSize = 10000; // blocks
 
-
 	/** Whether we should archive old data to reduce the database size */
 	private boolean archiveEnabled = true;
 	/** How often to attempt archiving (ms). */
@@ -194,14 +192,11 @@ public class Settings {
 	/** Serialization version to use when building an archive */
 	private int defaultArchiveVersion = 2;
 
-
 	/** Whether to automatically bootstrap instead of syncing from genesis */
 	private boolean bootstrap = true;
 
-
 	/** Registered names integrity check */
 	private boolean namesIntegrityCheckEnabled = false;
-
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
@@ -289,10 +284,10 @@ public class Settings {
 
 	// Bootstrap sources
 	private String[] bootstrapHosts = new String[] {
-			"http://bootstrap.qortal.org",
-			"http://bootstrap2.qortal.org",
-			"http://bootstrap3.qortal.org",
-			"http://bootstrap.qortal.online"
+		"http://bootstrap.qortal.org",
+		"http://bootstrap2.qortal.org",
+		"http://bootstrap3.qortal.org",
+		"http://bootstrap.qortal.online"
 	};
 
 	// Auto-update sources
@@ -311,16 +306,34 @@ public class Settings {
 		"1.pool.ntp.org",
 		"2.pool.ntp.org",
 		"3.pool.ntp.org",
-		"cn.pool.ntp.org",
-		"0.cn.pool.ntp.org",
-		"1.cn.pool.ntp.org",
-		"2.cn.pool.ntp.org",
-		"3.cn.pool.ntp.org"
+		"asia.pool.ntp.org",
+		"0.asia.pool.ntp.org",
+		"1.asia.pool.ntp.org",
+		"2.asia.pool.ntp.org",
+		"3.asia.pool.ntp.org",
+		"europe.pool.ntp.org",
+		"0.europe.pool.ntp.org",
+		"1.europe.pool.ntp.org",
+		"2.europe.pool.ntp.org",
+		"3.europe.pool.ntp.org",
+		"north-america.pool.ntp.org",
+		"0.north-america.pool.ntp.org",
+		"1.north-america.pool.ntp.org",
+		"2.north-america.pool.ntp.org",
+		"3.north-america.pool.ntp.org",
+		"oceania.pool.ntp.org",
+		"0.oceania.pool.ntp.org",
+		"1.oceania.pool.ntp.org",
+		"2.oceania.pool.ntp.org",
+		"3.oceania.pool.ntp.org",
+		"south-america.pool.ntp.org",
+		"0.south-america.pool.ntp.org",
+		"1.south-america.pool.ntp.org",
+		"2.south-america.pool.ntp.org",
+		"3.south-america.pool.ntp.org"
 	};
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
-
-
 
 	/* Foreign chains */
 
@@ -329,8 +342,6 @@ public class Settings {
 
 	/** How many wallet keys to generate when using bitcoinj as the blockchain interface (e.g. when sending coins) */
 	private int bitcoinjLookaheadSize = 50;
-
-
 
 	// Data storage (QDN)
 
@@ -395,7 +406,6 @@ public class Settings {
 			this.name = name;
 		}
 	}
-
 
 	// Constructors
 
@@ -660,17 +670,16 @@ public class Settings {
 	}
 
 
-    public int getDevProxyPort() {
-        if (this.devProxyPort != null)
-            return this.devProxyPort;
+	public int getDevProxyPort() {
+		if (this.devProxyPort != null)
+			return this.devProxyPort;
 
-        return this.isTestNet ? TESTNET_DEV_PROXY_PORT : MAINNET_DEV_PROXY_PORT;
-    }
+		return this.isTestNet ? TESTNET_DEV_PROXY_PORT : MAINNET_DEV_PROXY_PORT;
+	}
 
-    public boolean isDevProxyLoggingEnabled() {
-        return this.devProxyLoggingEnabled;
-    }
-
+	public boolean isDevProxyLoggingEnabled() {
+		return this.devProxyLoggingEnabled;
+	}
 
 	public boolean getWipeUnconfirmedOnStart() {
 		return this.wipeUnconfirmedOnStart;
