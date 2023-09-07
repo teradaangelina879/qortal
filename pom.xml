@@ -32,7 +32,7 @@
 		<swagger-api.version>2.0.10</swagger-api.version>
 		<swagger-ui.version>3.23.11</swagger-ui.version>
 		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
-		<jsoup.version>1.13.1</jsoup.version>
+		<jsoup.version>1.16.1</jsoup.version>
 		<java-diff-utils.version>4.12</java-diff-utils.version>
 		<grpc.version>1.57.2</grpc.version>
 		<protobuf.version>3.24.2</protobuf.version>
@@ -462,7 +462,7 @@
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20210307</version>
+			<version>20230618</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
