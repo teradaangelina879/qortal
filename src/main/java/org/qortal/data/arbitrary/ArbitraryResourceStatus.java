@@ -8,6 +8,7 @@ public class ArbitraryResourceStatus {
 
     public enum Status {
         PUBLISHED("Published", "Published but not yet downloaded"),
+        NOT_PUBLISHED("Not published", "Resource does not exist"),
         DOWNLOADING("Downloading", "Locating and downloading files..."),
         DOWNLOADED("Downloaded", "Files downloaded"),
         BUILDING("Building", "Building..."),
@@ -33,6 +34,7 @@ public class ArbitraryResourceStatus {
 
     private Integer localChunkCount;
     private Integer totalChunkCount;
+    private Float percentLoaded;
 
     public ArbitraryResourceStatus() {
     }
@@ -44,6 +46,7 @@ public class ArbitraryResourceStatus {
         this.description = status.description;
         this.localChunkCount = localChunkCount;
         this.totalChunkCount = totalChunkCount;
+        this.percentLoaded = (this.localChunkCount != null && this.totalChunkCount != null && this.totalChunkCount > 0) ? this.localChunkCount / (float)this.totalChunkCount * 100.0f : null;
     }
 
     public ArbitraryResourceStatus(Status status) {

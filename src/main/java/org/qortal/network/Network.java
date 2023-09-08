@@ -124,6 +124,8 @@ public class Network {
 
     private final List<PeerAddress> selfPeers = new ArrayList<>();
 
+    private String bindAddress = null;
+
     private final ExecuteProduceConsume networkEPC;
     private Selector channelSelector;
     private ServerSocketChannel serverChannel;
@@ -159,25 +161,43 @@ public class Network {
         // Grab P2P port from settings
         int listenPort = Settings.getInstance().getListenPort();
 
-        // Grab P2P bind address from settings
-        try {
-            InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
-            InetSocketAddress endpoint = new InetSocketAddress(bindAddr, listenPort);
+        // Grab P2P bind addresses from settings
+        List<String> bindAddresses = new ArrayList<>();
+        if (Settings.getInstance().getBindAddress() != null) {
+            bindAddresses.add(Settings.getInstance().getBindAddress());
+        }
+        if (Settings.getInstance().getBindAddressFallback() != null) {
+            bindAddresses.add(Settings.getInstance().getBindAddressFallback());
+        }
 
-            channelSelector = Selector.open();
+        for (int i=0; i<bindAddresses.size(); i++) {
+            try {
+                String bindAddress = bindAddresses.get(i);
+                InetAddress bindAddr = InetAddress.getByName(bindAddress);
+                InetSocketAddress endpoint = new InetSocketAddress(bindAddr, listenPort);
 
-            // Set up listen socket
-            serverChannel = ServerSocketChannel.open();
-            serverChannel.configureBlocking(false);
-            serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-            serverChannel.bind(endpoint, LISTEN_BACKLOG);
-            serverSelectionKey = serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
-        } catch (UnknownHostException e) {
-            LOGGER.error("Can't bind listen socket to address {}", Settings.getInstance().getBindAddress());
-            throw new IOException("Can't bind listen socket to address", e);
-        } catch (IOException e) {
-            LOGGER.error("Can't create listen socket: {}", e.getMessage());
-            throw new IOException("Can't create listen socket", e);
+                channelSelector = Selector.open();
+
+                // Set up listen socket
+                serverChannel = ServerSocketChannel.open();
+                serverChannel.configureBlocking(false);
+                serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+                serverChannel.bind(endpoint, LISTEN_BACKLOG);
+                serverSelectionKey = serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
+
+                this.bindAddress = bindAddress; // Store the selected address, so that it can be used by other parts of the app
+                break; // We don't want to bind to more than one address
+            } catch (UnknownHostException | UnsupportedAddressTypeException e) {
+                LOGGER.error("Can't bind listen socket to address {}", Settings.getInstance().getBindAddress());
+                if (i == bindAddresses.size()-1) { // Only throw an exception if all addresses have been tried
+                    throw new IOException("Can't bind listen socket to address", e);
+                }
+            } catch (IOException e) {
+                LOGGER.error("Can't create listen socket: {}", e.getMessage());
+                if (i == bindAddresses.size()-1) { // Only throw an exception if all addresses have been tried
+                    throw new IOException("Can't create listen socket", e);
+                }
+            }
         }
 
         // Load all known peers from repository
@@ -226,6 +246,10 @@ public class Network {
 
     public int getMaxPeers() {
         return this.maxPeers;
+    }
+
+    public String getBindAddress() {
+        return this.bindAddress;
     }
 
     public byte[] getMessageMagic() {
@@ -339,7 +363,7 @@ public class Network {
                 try {
                     if (!isConnected) {
                         // Add this signature to the list of pending requests for this peer
-                        LOGGER.info("Making connection to peer {} to request files for signature {}...", peerAddressString, Base58.encode(signature));
+                        LOGGER.debug("Making connection to peer {} to request files for signature {}...", peerAddressString, Base58.encode(signature));
                         Peer peer = new Peer(peerData);
                         peer.setIsDataPeer(true);
                         peer.addPendingSignatureRequest(signature);
@@ -1556,7 +1580,7 @@ public class Network {
         this.isShuttingDown = true;
 
         // Close listen socket to prevent more incoming connections
-        if (this.serverChannel.isOpen()) {
+        if (this.serverChannel != null && this.serverChannel.isOpen()) {
             try {
                 this.serverChannel.close();
             } catch (IOException e) {

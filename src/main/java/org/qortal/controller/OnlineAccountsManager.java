@@ -64,9 +64,19 @@ public class OnlineAccountsManager {
 
     private static final long ONLINE_ACCOUNTS_COMPUTE_INITIAL_SLEEP_INTERVAL = 30 * 1000L; // ms
 
-    // MemoryPoW
-    public final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
-    public int POW_DIFFICULTY = 18; // leading zero bits
+    // MemoryPoW - mainnet
+    public static final int POW_BUFFER_SIZE = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_V1 = 18; // leading zero bits
+    public static final int POW_DIFFICULTY_V2 = 19; // leading zero bits
+
+    // MemoryPoW - testnet
+    public static final int POW_BUFFER_SIZE_TESTNET = 1 * 1024 * 1024; // bytes
+    public static final int POW_DIFFICULTY_TESTNET = 5; // leading zero bits
+
+    // IMPORTANT: if we ever need to dynamically modify the buffer size using a feature trigger, the
+    // pre-allocated buffer below will NOT work, and we should instead use a dynamically allocated
+    // one for the transition period.
+    private static long[] POW_VERIFY_WORK_BUFFER = new long[getPoWBufferSize() / 8];
 
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(4, new NamedThreadFactory("OnlineAccounts"));
     private volatile boolean isStopping = false;
@@ -110,6 +120,23 @@ public class OnlineAccountsManager {
 
     public static long toOnlineAccountTimestamp(long timestamp) {
         return (timestamp / getOnlineTimestampModulus()) * getOnlineTimestampModulus();
+    }
+
+    private static int getPoWBufferSize() {
+        if (Settings.getInstance().isTestNet())
+            return POW_BUFFER_SIZE_TESTNET;
+
+        return POW_BUFFER_SIZE;
+    }
+
+    private static int getPoWDifficulty(long timestamp) {
+        if (Settings.getInstance().isTestNet())
+            return POW_DIFFICULTY_TESTNET;
+
+        if (timestamp >= BlockChain.getInstance().getIncreaseOnlineAccountsDifficultyTimestamp())
+            return POW_DIFFICULTY_V2;
+
+        return POW_DIFFICULTY_V1;
     }
 
     private OnlineAccountsManager() {
@@ -156,7 +183,6 @@ public class OnlineAccountsManager {
             return;
 
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        final boolean mempowActive = onlineAccountsTimestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
 
         Set<OnlineAccountData> replacementAccounts = new HashSet<>();
         for (PrivateKeyAccount onlineAccount : onlineAccounts) {
@@ -165,7 +191,7 @@ public class OnlineAccountsManager {
             byte[] signature = Qortal25519Extras.signForAggregation(onlineAccount.getPrivateKey(), timestampBytes);
             byte[] publicKey = onlineAccount.getPublicKey();
 
-            Integer nonce = mempowActive ? new Random().nextInt(500000) : null;
+            Integer nonce = new Random().nextInt(500000);
 
             OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
             replacementAccounts.add(ourOnlineAccountData);
@@ -192,8 +218,8 @@ public class OnlineAccountsManager {
                     return;
 
                 // Skip this account if it's already validated
-                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountData.getTimestamp(), k -> ConcurrentHashMap.newKeySet());
-                if (onlineAccounts.contains(onlineAccountData)) {
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.get(onlineAccountData.getTimestamp());
+                if (onlineAccounts != null && onlineAccounts.contains(onlineAccountData)) {
                     // We have already validated this online account
                     onlineAccountsImportQueue.remove(onlineAccountData);
                     continue;
@@ -214,8 +240,8 @@ public class OnlineAccountsManager {
             if (!onlineAccountsToAdd.isEmpty()) {
                 LOGGER.debug("Merging {} validated online accounts from import queue", onlineAccountsToAdd.size());
                 addAccounts(onlineAccountsToAdd);
-                onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
             }
+            onlineAccountsImportQueue.removeAll(onlineAccountsToRemove);
         }
     }
 
@@ -321,13 +347,10 @@ public class OnlineAccountsManager {
             return false;
         }
 
-        // Validate mempow if feature trigger is active (or if online account's timestamp is past the trigger timestamp)
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (now >= memoryPoWStartTimestamp || onlineAccountTimestamp >= memoryPoWStartTimestamp) {
-            if (!getInstance().verifyMemoryPoW(onlineAccountData, now)) {
-                LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
-                return false;
-            }
+        // Validate mempow
+        if (!getInstance().verifyMemoryPoW(onlineAccountData, POW_VERIFY_WORK_BUFFER)) {
+            LOGGER.trace(() -> String.format("Rejecting online reward-share for account %s due to invalid PoW nonce", mintingAccount.getAddress()));
+            return false;
         }
 
         return true;
@@ -391,7 +414,7 @@ public class OnlineAccountsManager {
         boolean isSuperiorEntry = isOnlineAccountsDataSuperior(onlineAccountData);
         if (isSuperiorEntry)
             // Remove existing inferior entry so it can be re-added below (it's likely the existing copy is missing a nonce value)
-            onlineAccounts.remove(onlineAccountData);
+            onlineAccounts.removeIf(a -> Objects.equals(a.getPublicKey(), onlineAccountData.getPublicKey()));
 
         boolean isNewEntry = onlineAccounts.add(onlineAccountData);
 
@@ -471,89 +494,91 @@ public class OnlineAccountsManager {
 
         // 'next' timestamp (prioritize this as it's the most important, if mempow active)
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(now) + getOnlineTimestampModulus();
-        if (isMemoryPoWActive(now)) {
-            boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
-            if (!success) {
-                // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
-                return;
-            }
+        boolean success = computeOurAccountsForTimestamp(nextOnlineAccountsTimestamp);
+        if (!success) {
+            // We didn't compute the required nonce value(s), and so can't proceed until they have been retried
+            return;
         }
 
         // 'current' timestamp
         computeOurAccountsForTimestamp(onlineAccountsTimestamp);
     }
 
-    private boolean computeOurAccountsForTimestamp(long onlineAccountsTimestamp) {
-        List<MintingAccountData> mintingAccounts;
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            mintingAccounts = repository.getAccountRepository().getMintingAccounts();
+    private boolean computeOurAccountsForTimestamp(Long onlineAccountsTimestamp) {
+        if (onlineAccountsTimestamp != null) {
+            List<MintingAccountData> mintingAccounts;
+            try (final Repository repository = RepositoryManager.getRepository()) {
+                mintingAccounts = repository.getAccountRepository().getMintingAccounts();
 
-            // We have no accounts to send
-            if (mintingAccounts.isEmpty())
+                // We have no accounts to send
+                if (mintingAccounts.isEmpty())
+                    return false;
+
+                // Only active reward-shares allowed
+                Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
+                int i = 0;
+                while (iterator.hasNext()) {
+                    MintingAccountData mintingAccountData = iterator.next();
+
+                    RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
+                    if (rewardShareData == null) {
+                        // Reward-share doesn't even exist - probably not a good sign
+                        iterator.remove();
+                        continue;
+                    }
+
+                    Account mintingAccount = new Account(repository, rewardShareData.getMinter());
+                    if (!mintingAccount.canMint()) {
+                        // Minting-account component of reward-share can no longer mint - disregard
+                        iterator.remove();
+                        continue;
+                    }
+
+                    if (++i > 1 + 1) {
+                        iterator.remove();
+                        continue;
+                    }
+                }
+            } catch (DataException e) {
+                LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
                 return false;
+            }
 
-            // Only active reward-shares allowed
-            Iterator<MintingAccountData> iterator = mintingAccounts.iterator();
-            while (iterator.hasNext()) {
-                MintingAccountData mintingAccountData = iterator.next();
+            byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
+            List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
 
-                RewardShareData rewardShareData = repository.getAccountRepository().getRewardShare(mintingAccountData.getPublicKey());
-                if (rewardShareData == null) {
-                    // Reward-share doesn't even exist - probably not a good sign
-                    iterator.remove();
+            int remaining = mintingAccounts.size();
+            for (MintingAccountData mintingAccountData : mintingAccounts) {
+                remaining--;
+                byte[] privateKey = mintingAccountData.getPrivateKey();
+                byte[] publicKey = Crypto.toPublicKey(privateKey);
+
+                // We don't want to compute the online account nonce and signature again if it already exists
+                Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountsTimestamp, k -> ConcurrentHashMap.newKeySet());
+                boolean alreadyExists = onlineAccounts.stream().anyMatch(a -> Arrays.equals(a.getPublicKey(), publicKey));
+                if (alreadyExists) {
+                    this.hasOurOnlineAccounts = true;
+
+                    if (remaining > 0) {
+                        // Move on to next account
+                        continue;
+                    } else {
+                        // Everything exists, so return true
+                        return true;
+                    }
+                }
+
+                // Generate bytes for mempow
+                byte[] mempowBytes;
+                try {
+                    mempowBytes = this.getMemoryPoWBytes(publicKey, onlineAccountsTimestamp);
+                } catch (IOException e) {
+                    LOGGER.info("Unable to create bytes for MemoryPoW. Moving on to next account...");
                     continue;
                 }
 
-                Account mintingAccount = new Account(repository, rewardShareData.getMinter());
-                if (!mintingAccount.canMint()) {
-                    // Minting-account component of reward-share can no longer mint - disregard
-                    iterator.remove();
-                    continue;
-                }
-            }
-        } catch (DataException e) {
-            LOGGER.warn(String.format("Repository issue trying to fetch minting accounts: %s", e.getMessage()));
-            return false;
-        }
-
-        byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
-        List<OnlineAccountData> ourOnlineAccounts = new ArrayList<>();
-
-        int remaining = mintingAccounts.size();
-        for (MintingAccountData mintingAccountData : mintingAccounts) {
-            remaining--;
-            byte[] privateKey = mintingAccountData.getPrivateKey();
-            byte[] publicKey = Crypto.toPublicKey(privateKey);
-
-            // We don't want to compute the online account nonce and signature again if it already exists
-            Set<OnlineAccountData> onlineAccounts = this.currentOnlineAccounts.computeIfAbsent(onlineAccountsTimestamp, k -> ConcurrentHashMap.newKeySet());
-            boolean alreadyExists = onlineAccounts.stream().anyMatch(a -> Arrays.equals(a.getPublicKey(), publicKey));
-            if (alreadyExists) {
-                this.hasOurOnlineAccounts = true;
-
-                if (remaining > 0) {
-                    // Move on to next account
-                    continue;
-                }
-                else {
-                    // Everything exists, so return true
-                    return true;
-                }
-            }
-
-            // Generate bytes for mempow
-            byte[] mempowBytes;
-            try {
-                mempowBytes = this.getMemoryPoWBytes(publicKey, onlineAccountsTimestamp);
-            }
-            catch (IOException e) {
-                LOGGER.info("Unable to create bytes for MemoryPoW. Moving on to next account...");
-                continue;
-            }
-
-            // Compute nonce
-            Integer nonce;
-            if (isMemoryPoWActive(NTP.getTime())) {
+                // Compute nonce
+                Integer nonce;
                 try {
                     nonce = this.computeMemoryPoW(mempowBytes, publicKey, onlineAccountsTimestamp);
                     if (nonce == null) {
@@ -564,47 +589,39 @@ public class OnlineAccountsManager {
                     LOGGER.info(String.format("Timed out computing nonce for account %.8s", Base58.encode(publicKey)));
                     return false;
                 }
-            }
-            else {
-                // Send -1 if we haven't computed a nonce due to feature trigger timestamp
-                nonce = -1;
+
+                byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
+
+                // Our account is online
+                OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
+
+                // Make sure to verify before adding
+                if (verifyMemoryPoW(ourOnlineAccountData, null)) {
+                    ourOnlineAccounts.add(ourOnlineAccountData);
+                }
             }
 
-            byte[] signature = Qortal25519Extras.signForAggregation(privateKey, timestampBytes);
+            this.hasOurOnlineAccounts = !ourOnlineAccounts.isEmpty();
 
-            // Our account is online
-            OnlineAccountData ourOnlineAccountData = new OnlineAccountData(onlineAccountsTimestamp, signature, publicKey, nonce);
+            boolean hasInfoChanged = addAccounts(ourOnlineAccounts);
 
-            // Make sure to verify before adding
-            if (verifyMemoryPoW(ourOnlineAccountData, NTP.getTime())) {
-                ourOnlineAccounts.add(ourOnlineAccountData);
-            }
+            if (!hasInfoChanged)
+                return false;
+
+            Network.getInstance().broadcast(peer -> new OnlineAccountsV3Message(ourOnlineAccounts));
+
+            LOGGER.debug("Broadcasted {} online account{} with timestamp {}", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp);
+
+            return true;
         }
 
-        this.hasOurOnlineAccounts = !ourOnlineAccounts.isEmpty();
-
-        boolean hasInfoChanged = addAccounts(ourOnlineAccounts);
-
-        if (!hasInfoChanged)
-            return false;
-
-        Network.getInstance().broadcast(peer -> new OnlineAccountsV3Message(ourOnlineAccounts));
-
-        LOGGER.debug("Broadcasted {} online account{} with timestamp {}", ourOnlineAccounts.size(), (ourOnlineAccounts.size() != 1 ? "s" : ""), onlineAccountsTimestamp);
-
-        return true;
+        return false;
     }
 
 
 
     // MemoryPoW
 
-    private boolean isMemoryPoWActive(Long timestamp) {
-        if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp() || Settings.getInstance().isOnlineAccountsMemPoWEnabled()) {
-            return true;
-        }
-        return false;
-    }
     private byte[] getMemoryPoWBytes(byte[] publicKey, long onlineAccountsTimestamp) throws IOException {
         byte[] timestampBytes = Longs.toByteArray(onlineAccountsTimestamp);
 
@@ -616,11 +633,6 @@ public class OnlineAccountsManager {
     }
 
     private Integer computeMemoryPoW(byte[] bytes, byte[] publicKey, long onlineAccountsTimestamp) throws TimeoutException {
-        if (!isMemoryPoWActive(NTP.getTime())) {
-            LOGGER.info("Mempow start timestamp not yet reached, and onlineAccountsMemPoWEnabled not enabled in settings");
-            return null;
-        }
-
         LOGGER.info(String.format("Computing nonce for account %.8s and timestamp %d...", Base58.encode(publicKey), onlineAccountsTimestamp));
 
         // Calculate the time until the next online timestamp and use it as a timeout when computing the nonce
@@ -628,7 +640,8 @@ public class OnlineAccountsManager {
         final long nextOnlineAccountsTimestamp = toOnlineAccountTimestamp(startTime) + getOnlineTimestampModulus();
         long timeUntilNextTimestamp = nextOnlineAccountsTimestamp - startTime;
 
-        Integer nonce = MemoryPoW.compute2(bytes, POW_BUFFER_SIZE, POW_DIFFICULTY, timeUntilNextTimestamp);
+        int difficulty = getPoWDifficulty(onlineAccountsTimestamp);
+        Integer nonce = MemoryPoW.compute2(bytes, getPoWBufferSize(), difficulty, timeUntilNextTimestamp);
 
         double totalSeconds = (NTP.getTime() - startTime) / 1000.0f;
         int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -637,16 +650,15 @@ public class OnlineAccountsManager {
 
         LOGGER.info(String.format("Computed nonce for timestamp %d and account %.8s: %d. Buffer size: %d. Difficulty: %d. " +
                         "Time taken: %02d:%02d. Hashrate: %f", onlineAccountsTimestamp, Base58.encode(publicKey),
-                nonce, POW_BUFFER_SIZE, POW_DIFFICULTY, minutes, seconds, hashRate));
+                nonce, getPoWBufferSize(), difficulty, minutes, seconds, hashRate));
 
         return nonce;
     }
 
-    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, Long timestamp) {
-        long memoryPoWStartTimestamp = BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp();
-        if (timestamp < memoryPoWStartTimestamp && onlineAccountData.getTimestamp() < memoryPoWStartTimestamp) {
-            // Not active yet, so treat it as valid
-            return true;
+    public boolean verifyMemoryPoW(OnlineAccountData onlineAccountData, long[] workBuffer) {
+        // Require a valid nonce value
+        if (onlineAccountData.getNonce() == null || onlineAccountData.getNonce() < 0) {
+            return false;
         }
 
         int nonce = onlineAccountData.getNonce();
@@ -659,7 +671,7 @@ public class OnlineAccountsManager {
         }
 
         // Verify the nonce
-        return MemoryPoW.verify2(mempowBytes, POW_BUFFER_SIZE, POW_DIFFICULTY, nonce);
+        return MemoryPoW.verify2(mempowBytes, workBuffer, getPoWBufferSize(), getPoWDifficulty(onlineAccountData.getTimestamp()), nonce);
     }
 
 
@@ -697,7 +709,7 @@ public class OnlineAccountsManager {
      */
     // Block::mint() - only wants online accounts with (online) timestamp that matches block's (online) timestamp so they can be added to new block
     public List<OnlineAccountData> getOnlineAccounts(long onlineTimestamp) {
-        LOGGER.info(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
+        LOGGER.debug(String.format("caller's timestamp: %d, our timestamps: %s", onlineTimestamp, String.join(", ", this.currentOnlineAccounts.keySet().stream().map(l -> Long.toString(l)).collect(Collectors.joining(", ")))));
 
         return new ArrayList<>(Set.copyOf(this.currentOnlineAccounts.getOrDefault(onlineTimestamp, Collections.emptySet())));
     }
@@ -743,11 +755,12 @@ public class OnlineAccountsManager {
      * Typically called by {@link Block#areOnlineAccountsValid()}
      */
     public void addBlocksOnlineAccounts(Set<OnlineAccountData> blocksOnlineAccounts, Long timestamp) {
-        // We want to add to 'current' in preference if possible
-        if (this.currentOnlineAccounts.containsKey(timestamp)) {
-            addAccounts(blocksOnlineAccounts);
+        // If these are current accounts, then there is no need to cache them, and should instead rely
+        // on the more complete entries we already have in self.currentOnlineAccounts.
+        // Note: since sig-agg, we no longer have individual signatures included in blocks, so we
+        // mustn't add anything to currentOnlineAccounts from here.
+        if (this.currentOnlineAccounts.containsKey(timestamp))
             return;
-        }
 
         // Add to block cache instead
         this.latestBlocksOnlineAccounts.computeIfAbsent(timestamp, k -> ConcurrentHashMap.newKeySet())

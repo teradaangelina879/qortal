@@ -4,9 +4,13 @@
 	"transactionExpiryPeriod": 86400000,
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "0.1",
+	"unitFees": [
+		{ "timestamp": 0, "fee": "0.1" },
+		{ "timestamp": 9999999999999, "fee": "1" }
+	],
 	"nameRegistrationUnitFees": [
-		{ "timestamp": 1645372800000, "fee": "5" }
+		{ "timestamp": 0, "fee": "0.1" },
+		{ "timestamp": 9999999999999, "fee": "5" }
 	],
 	"requireGroupForApproval": false,
 	"minAccountLevelToRewardShare": 5,
@@ -19,6 +23,8 @@
 	"onlineAccountSignaturesMinLifetime": 3600000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
 	"onlineAccountsModulusV2Timestamp": 9999999999999,
+	"selfSponsorshipAlgoV1SnapshotTimestamp": 9999999999999,
+	"mempowTransactionUpdatesTimestamp": 0,
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 100 },
 		{ "height": 11, "reward": 10 },
@@ -73,7 +79,13 @@
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,
-		"disableReferenceTimestamp": 9999999999999
+		"disableReferenceTimestamp": 9999999999999,
+		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
+		"onlineAccountMinterLevelValidationHeight": 0,
+		"selfSponsorshipAlgoV1Height": 999999999,
+		"feeValidationFixTimestamp": 0,
+		"chatReferenceTimestamp": 0,
+		"arbitraryOptionalFeeTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,
@@ -89,6 +101,8 @@
 			{ "type": "GENESIS", "recipient": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "amount": "1000000" },
 
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
+
+			{ "type": "UPDATE_GROUP", "ownerPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "groupId": 1, "newOwner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "newDescription": "developer group", "newIsOpen": false, "newApprovalThreshold": "PCT40", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
 
 			{ "type": "ISSUE_ASSET", "issuerPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "assetName": "TEST", "description": "test asset", "data": "", "quantity": "1000000", "isDivisible": true, "fee": 0 },
 			{ "type": "ISSUE_ASSET", "issuerPublicKey": "C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry", "assetName": "OTHER", "description": "other test asset", "data": "", "quantity": "1000000", "isDivisible": true, "fee": 0 },

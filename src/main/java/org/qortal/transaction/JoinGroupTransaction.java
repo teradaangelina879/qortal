@@ -53,7 +53,7 @@ public class JoinGroupTransaction extends Transaction {
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
 		// Check member is not banned
-		if (this.repository.getGroupRepository().banExists(groupId, joiner.getAddress()))
+		if (this.repository.getGroupRepository().banExists(groupId, joiner.getAddress(), this.joinGroupTransactionData.getTimestamp()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check join request doesn't already exist

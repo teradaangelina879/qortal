@@ -1,4 +1,4 @@
-package org.qortal.api.resource;
+package org.qortal.api.restricted.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -31,10 +32,13 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.*;
@@ -42,9 +46,11 @@ import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
+import org.qortal.controller.AutoUpdate;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
+import org.qortal.controller.repository.BlockArchiveRebuilder;
 import org.qortal.data.account.MintingAccountData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.network.Network;
@@ -153,6 +159,53 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/settings")
+	@Operation(
+		summary = "Fetch node settings",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = Settings.class))
+			)
+		}
+	)
+	public Settings settings() {
+		Settings nodeSettings = Settings.getInstance();
+
+		return nodeSettings;
+	}
+
+	@GET
+	@Path("/settings/{setting}")
+	@Operation(
+			summary = "Fetch a single node setting",
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	public String setting(@PathParam("setting") String setting) {
+		try {
+			Object settingValue = FieldUtils.readField(Settings.getInstance(), setting, true);
+			if (settingValue == null) {
+				return "null";
+			}
+			else if (settingValue instanceof String[]) {
+				JSONArray array = new JSONArray(settingValue);
+				return array.toString(4);
+			}
+			else if (settingValue instanceof List) {
+				JSONArray array = new JSONArray((List<Object>) settingValue);
+				return array.toString(4);
+			}
+
+			return settingValue.toString();
+		} catch (IllegalAccessException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+		}
+	}
+
+	@GET
 	@Path("/stop")
 	@Operation(
 		summary = "Shutdown",
@@ -183,6 +236,37 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/restart")
+	@Operation(
+		summary = "Restart",
+		description = "Restart",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String restart(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		new Thread(() -> {
+			// Short sleep to allow HTTP response body to be emitted
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// Not important
+			}
+
+			AutoUpdate.attemptRestart();
+
+		}).start();
+
+		return "true";
+	}
+
+	@GET
 	@Path("/summary")
 	@Operation(
 		summary = "Summary of activity since midnight, UTC",
@@ -206,6 +290,42 @@ public class AdminResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int startHeight = repository.getBlockRepository().getHeightFromTimestamp(start);
+			int endHeight = repository.getBlockRepository().getBlockchainHeight();
+
+			summary.setBlockCount(endHeight - startHeight);
+
+			summary.setTransactionCountByType(repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight));
+
+			summary.setAssetsIssued(repository.getAssetRepository().getRecentAssetIds(start).size());
+
+			summary.setNamesRegistered (repository.getNameRepository().getRecentNames(start).size());
+
+			return summary;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/summary/alltime")
+	@Operation(
+			summary = "Summary of activity since genesis",
+			responses = {
+					@ApiResponse(
+							content = @Content(schema = @Schema(implementation = ActivitySummary.class))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public ActivitySummary allTimeSummary(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		ActivitySummary summary = new ActivitySummary();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int startHeight = 1;
+			long start = repository.getBlockRepository().fromHeight(startHeight).getTimestamp();
 			int endHeight = repository.getBlockRepository().getBlockchainHeight();
 
 			summary.setBlockCount(endHeight - startHeight);
@@ -692,6 +812,64 @@ public class AdminResource {
 			}
 		} catch (InterruptedException | TimeoutException e) {
 			// We couldn't lock blockchain to perform backup
+			return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/repository/archive/rebuild")
+	@Operation(
+			summary = "Rebuild archive",
+			description = "Rebuilds archive files, using the specified serialization version",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number", example = "2"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							description = "\"true\"",
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String rebuildArchive(@HeaderParam(Security.API_KEY_HEADER) String apiKey, Integer serializationVersion) {
+		Security.checkApiCallAllowed(request);
+
+		// Default serialization version to value specified in settings
+		if (serializationVersion == null) {
+			serializationVersion = Settings.getInstance().getDefaultArchiveVersion();
+		}
+
+		try {
+			// We don't actually need to lock the blockchain here, but we'll do it anyway so that
+			// the node can focus on rebuilding rather than synchronizing / minting.
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+
+			blockchainLock.lockInterruptibly();
+
+			try {
+				BlockArchiveRebuilder blockArchiveRebuilder = new BlockArchiveRebuilder(serializationVersion);
+				blockArchiveRebuilder.start();
+
+				return "true";
+
+			} catch (IOException e) {
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA, e);
+
+			} finally {
+				blockchainLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			// We couldn't lock blockchain to perform rebuild
 			return "false";
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);

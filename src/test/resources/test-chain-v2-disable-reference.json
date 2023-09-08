@@ -4,8 +4,11 @@
 	"transactionExpiryPeriod": 86400000,
 	"maxBlockSize": 2097152,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "0.1",
+	"unitFees": [
+		{ "timestamp": 0, "fee": "0.1" }
+	],
 	"nameRegistrationUnitFees": [
+		{ "timestamp": 0, "fee": "0.1" },
 		{ "timestamp": 1645372800000, "fee": "5" }
 	],
 	"requireGroupForApproval": false,
@@ -18,6 +21,8 @@
 	"founderEffectiveMintingLevel": 10,
 	"onlineAccountSignaturesMinLifetime": 3600000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
+	"selfSponsorshipAlgoV1SnapshotTimestamp": 9999999999999,
+	"mempowTransactionUpdatesTimestamp": 0,
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 100 },
 		{ "height": 11, "reward": 10 },
@@ -72,7 +77,13 @@
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,
-		"disableReferenceTimestamp": 0
+		"disableReferenceTimestamp": 0,
+		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
+		"onlineAccountMinterLevelValidationHeight": 0,
+		"selfSponsorshipAlgoV1Height": 999999999,
+		"feeValidationFixTimestamp": 0,
+		"chatReferenceTimestamp": 0,
+		"arbitraryOptionalFeeTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,

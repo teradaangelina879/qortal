@@ -47,6 +47,7 @@ import org.qortal.transform.transaction.RegisterNameTransactionTransformer;
 import org.qortal.transform.transaction.SellNameTransactionTransformer;
 import org.qortal.transform.transaction.UpdateNameTransactionTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Unicode;
 
 @Path("/names")
 @Tag(name = "Names")
@@ -63,19 +64,19 @@ public class NamesResource {
 				description = "registered name info",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					array = @ArraySchema(schema = @Schema(implementation = NameSummary.class))
+					array = @ArraySchema(schema = @Schema(implementation = NameData.class))
 				)
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<NameSummary> getAllNames(@Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
-			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
+	public List<NameData> getAllNames(@Parameter(description = "Return only names registered or updated after timestamp") @QueryParam("after") Long after,
+										 @Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+										 @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+										 @Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getAllNames(limit, offset, reverse);
 
-			// Convert to summary
-			return names.stream().map(NameSummary::new).collect(Collectors.toList());
+			return repository.getNameRepository().getAllNames(after, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -135,12 +136,13 @@ public class NamesResource {
 	public NameData getName(@PathParam("name") String name) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			NameData nameData;
+			String reducedName = Unicode.sanitize(name);
 
 			if (Settings.getInstance().isLite()) {
 				nameData = LiteNode.getInstance().fetchNameData(name);
 			}
 			else {
-				nameData = repository.getNameRepository().fromName(name);
+				nameData = repository.getNameRepository().fromReducedName(reducedName);
 			}
 
 			if (nameData == null) {
@@ -148,6 +150,41 @@ public class NamesResource {
 			}
 
 			return nameData;
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/search")
+	@Operation(
+			summary = "Search registered names",
+			responses = {
+					@ApiResponse(
+							description = "registered name info",
+							content = @Content(
+									mediaType = MediaType.APPLICATION_JSON,
+									array = @ArraySchema(schema = @Schema(implementation = NameData.class))
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.NAME_UNKNOWN, ApiError.REPOSITORY_ISSUE})
+	public List<NameData> searchNames(@QueryParam("query") String query,
+									  @Parameter(description = "Prefix only (if true, only the beginning of the name is matched)") @QueryParam("prefix") Boolean prefixOnly,
+									  @Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+									  @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+									  @Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (query == null) {
+				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Missing query");
+			}
+
+			boolean usePrefixOnly = Boolean.TRUE.equals(prefixOnly);
+
+			return repository.getNameRepository().searchNames(query, usePrefixOnly, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

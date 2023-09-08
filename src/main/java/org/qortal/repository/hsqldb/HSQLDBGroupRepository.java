@@ -777,9 +777,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public boolean banExists(int groupId, String offender) throws DataException {
+	public boolean banExists(int groupId, String offender, long timestamp) throws DataException {
 		try {
-			return this.repository.exists("GroupBans", "group_id = ? AND offender = ?", groupId, offender);
+			return this.repository.exists("GroupBans", "group_id = ? AND offender = ? AND (expires_when IS NULL OR expires_when > ?)", groupId, offender, timestamp);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group ban in repository", e);
 		}

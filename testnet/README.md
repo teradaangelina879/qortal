@@ -2,9 +2,10 @@
 
 ## Create testnet blockchain config
 
-- You can begin by copying the mainnet blockchain config `src/main/resources/blockchain.json`
+- The simplest option is to use the testchain.json included in this folder.
+- Alternatively, you can create one by copying the mainnet blockchain config `src/main/resources/blockchain.json`
 - Insert `"isTestChain": true,` after the opening `{`
-- Modify testnet genesis block
+- Modify testnet genesis block, feature triggers etc
 
 ### Testnet genesis block
 
@@ -25,6 +26,7 @@
 - Make sure to reference testnet blockchain config file: `"blockchainConfig": "testchain.json",`
 - It is a good idea to use a separate database: `"repositoryPath": "db-testnet",`
 - You might also need to add `"bitcoinNet": "TEST3",` and `"litecoinNet": "TEST3",`
+- Also make sure to use a custom `listenPort` (not 62391 or 12391) to ensure that transactions remain isolated to your testnet.
 
 ## Other nodes
 
@@ -52,14 +54,13 @@
 
 ## Single-node testnet
 
-A single-node testnet is possible with code modifications, for basic testing, or to more easily start a new testnet.
-To do so, follow these steps:
-- Comment out the `if (mintedLastBlock) { }` conditional in BlockMinter.java
-- Comment out the `minBlockchainPeers` validation in Settings.validate()
-- Set `minBlockchainPeers` to 0 in settings.json
-- Set `Synchronizer.RECOVERY_MODE_TIMEOUT` to `0`
-- All other steps should remain the same. Only a single reward share key is needed.
-- Remember to put these values back after introducing other nodes
+A single-node testnet is possible with an additional settings, or to more easily start a new testnet.
+Just add this setting:
+```
+"singleNodeTestnet": true
+```
+This will automatically allow multiple consecutive blocks to be minted, as well as setting minBlockchainPeers to 0.
+Remember to put these values back after introducing other nodes.
 
 ## Fixed network
 
@@ -93,3 +94,38 @@ Your options are:
 - `qort` tool, but prepend with one-time shell variable: `BASE_URL=some-node-hostname-or-ip:port qort ......`
 - `peer-heights`, but use `-t` option, or `BASE_URL` shell variable as above
 
+## Example settings-test.json
+```
+{
+  "isTestNet": true,
+  "bitcoinNet": "TEST3",
+  "litecoinNet": "TEST3",
+  "dogecoinNet": "TEST3",
+  "digibyteNet": "TEST3",
+  "ravencoinNet": "TEST3",
+  "repositoryPath": "db-testnet",
+  "blockchainConfig": "testchain.json",
+  "minBlockchainPeers": 1,
+  "apiDocumentationEnabled": true,
+  "apiRestricted": false,
+  "bootstrap": false,
+  "maxPeerConnectionTime": 999999999,
+  "localAuthBypassEnabled": true,
+  "singleNodeTestnet": true,
+  "recoveryModeTimeout": 0
+}
+```
+
+<a name="quick-start"></a>
+## Quick start
+Here are some steps to quickly get a single node testnet up and running with a generic minting account:
+1. Start with template `settings-test.json`, and `testchain.json` which can be found in this folder. Copy/move them to the same directory as the jar.
+2. Set a custom `listenPort` in settings-test.json (not 62391 or 12391) to ensure that transactions remain isolated to your testnet.
+3. Make sure feature triggers and other timestamp/height activations are correctly set. Generally these would be `0` so that they are enabled from the start.
+4. Set a recent genesis `timestamp` in testchain.json, and add this reward share entry:
+`{ "type": "REWARD_SHARE", "minterPublicKey": "DwcUnhxjamqppgfXCLgbYRx8H9XFPUc2qYRy3CEvQWEw", "recipient": "QbTDMss7NtRxxQaSqBZtSLSNdSYgvGaqFf", "rewardSharePublicKey": "CRvQXxFfUMfr4q3o1PcUZPA4aPCiubBsXkk47GzRo754", "sharePercent": 0 },`
+5. Start the node, passing in settings-test.json, e.g: `java -jar qortal.jar settings-test.json`
+6. Once started, add the corresponding minting key to the node:
+`curl -X POST "http://localhost:62391/admin/mintingaccounts" -d "F48mYJycFgRdqtc58kiovwbcJgVukjzRE4qRRtRsK9ix"`
+7. Alternatively you can use your own minting account instead of the generic one above.
+8. After a short while, blocks should be minted from the genesis timestamp until the current time.

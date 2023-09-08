@@ -45,6 +45,9 @@ public class Digibyte extends Bitcoiny {
 				return Arrays.asList(
 						// Servers chosen on NO BASIS WHATSOEVER from various sources!
 						// Status verified at https://1209k.com/bitcoin-eye/ele.php?chain=dgb
+						new Server("electrum.qortal.link", Server.ConnectionType.SSL, 55002),
+						new Server("electrum-dgb.qortal.online", ConnectionType.SSL, 50002),
+						new Server("electrum1-dgb.qortal.online", ConnectionType.SSL, 50002),
 						new Server("electrum1.cipig.net", ConnectionType.SSL, 20059),
 						new Server("electrum2.cipig.net", ConnectionType.SSL, 20059),
 						new Server("electrum3.cipig.net", ConnectionType.SSL, 20059));
@@ -134,6 +137,8 @@ public class Digibyte extends Bitcoiny {
 			Context bitcoinjContext = new Context(digibyteNet.getParams());
 
 			instance = new Digibyte(digibyteNet, electrumX, bitcoinjContext, CURRENCY_CODE);
+
+			electrumX.setBlockchain(instance);
 		}
 
 		return instance;

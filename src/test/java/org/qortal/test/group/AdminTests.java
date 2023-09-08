@@ -135,7 +135,8 @@ public class AdminTests extends Common {
 			assertNotSame(ValidationResult.OK, result);
 
 			// Attempt to ban Bob
-			result = groupBan(repository, alice, groupId, bob.getAddress());
+			int timeToLive = 0;
+			result = groupBan(repository, alice, groupId, bob.getAddress(), timeToLive);
 			// Should be OK
 			assertEquals(ValidationResult.OK, result);
 
@@ -158,7 +159,7 @@ public class AdminTests extends Common {
 			assertTrue(isMember(repository, bob.getAddress(), groupId));
 
 			// Attempt to ban Bob
-			result = groupBan(repository, alice, groupId, bob.getAddress());
+			result = groupBan(repository, alice, groupId, bob.getAddress(), timeToLive);
 			// Should be OK
 			assertEquals(ValidationResult.OK, result);
 
@@ -178,6 +179,144 @@ public class AdminTests extends Common {
 			// Bob attempts to rejoin
 			result = joinGroup(repository, bob, groupId);
 			// Should be OK
+			assertEquals(ValidationResult.OK, result);
+
+			// Orphan last block (Bob join)
+			BlockUtils.orphanLastBlock(repository);
+			// Delete unconfirmed join-group transaction
+			TransactionUtils.deleteUnconfirmedTransactions(repository);
+
+			// Orphan last block (Cancel Bob ban)
+			BlockUtils.orphanLastBlock(repository);
+			// Delete unconfirmed cancel-ban transaction
+			TransactionUtils.deleteUnconfirmedTransactions(repository);
+
+			// Bob attempts to rejoin
+			result = joinGroup(repository, bob, groupId);
+			// Should NOT be OK
+			assertNotSame(ValidationResult.OK, result);
+
+			// Orphan last block (Bob ban)
+			BlockUtils.orphanLastBlock(repository);
+			// Delete unconfirmed group-ban transaction
+			TransactionUtils.deleteUnconfirmedTransactions(repository);
+
+			// Confirm Bob now a member
+			assertTrue(isMember(repository, bob.getAddress(), groupId));
+		}
+	}
+
+	@Test
+	public void testGroupBanMemberWithExpiry() throws DataException, InterruptedException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount alice = Common.getTestAccount(repository, "alice");
+			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+
+			// Create group
+			int groupId = createGroup(repository, alice, "open-group", true);
+
+			// Confirm Bob is not a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Attempt to cancel non-existent Bob ban
+			ValidationResult result = cancelGroupBan(repository, alice, groupId, bob.getAddress());
+			// Should NOT be OK
+			assertNotSame(ValidationResult.OK, result);
+
+			// Attempt to ban Bob for 2 seconds
+			int timeToLive = 2;
+			result = groupBan(repository, alice, groupId, bob.getAddress(), timeToLive);
+			// Should be OK
+			assertEquals(ValidationResult.OK, result);
+
+			// Confirm Bob no longer a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Bob attempts to rejoin
+			result = joinGroup(repository, bob, groupId);
+			// Should NOT be OK
+			assertNotSame(ValidationResult.OK, result);
+
+			// Wait for 2 seconds to pass
+			Thread.sleep(2000L);
+
+			// Bob attempts to rejoin again
+			result = joinGroup(repository, bob, groupId);
+			// Should be OK, as the ban has expired
+			assertSame(ValidationResult.OK, result);
+
+			// Confirm Bob is now a member
+			assertTrue(isMember(repository, bob.getAddress(), groupId));
+
+			// Orphan last block (Bob join)
+			BlockUtils.orphanLastBlock(repository);
+
+			// Confirm Bob is not a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Orphan last block (Bob ban)
+			BlockUtils.orphanLastBlock(repository);
+			// Delete unconfirmed group-ban transaction
+			TransactionUtils.deleteUnconfirmedTransactions(repository);
+
+			// Bob to join
+			result = joinGroup(repository, bob, groupId);
+			// Should be OK
+			assertEquals(ValidationResult.OK, result);
+
+			// Confirm Bob now a member
+			assertTrue(isMember(repository, bob.getAddress(), groupId));
+
+
+			// Attempt to ban Bob for 2 seconds
+			result = groupBan(repository, alice, groupId, bob.getAddress(), 2);
+			// Should be OK
+			assertEquals(ValidationResult.OK, result);
+
+			// Confirm Bob no longer a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Wait for 2 seconds to pass
+			Thread.sleep(2000L);
+
+			// Cancel Bob's ban
+			result = cancelGroupBan(repository, alice, groupId, bob.getAddress());
+			// Should NOT be OK, as ban has already expired
+			assertNotSame(ValidationResult.OK, result);
+
+			// Confirm Bob still not a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Bob attempts to rejoin
+			result = joinGroup(repository, bob, groupId);
+			// Should be OK, as no longer banned
+			assertSame(ValidationResult.OK, result);
+
+			// Confirm Bob is now a member
+			assertTrue(isMember(repository, bob.getAddress(), groupId));
+
+
+			// Attempt to ban Bob for 10 seconds
+			result = groupBan(repository, alice, groupId, bob.getAddress(), 10);
+			// Should be OK
+			assertEquals(ValidationResult.OK, result);
+
+			// Confirm Bob no longer a member
+			assertFalse(isMember(repository, bob.getAddress(), groupId));
+
+			// Bob attempts to rejoin
+			result = joinGroup(repository, bob, groupId);
+			// Should NOT be OK, as ban still exists
+			assertNotSame(ValidationResult.OK, result);
+
+			// Cancel Bob's ban
+			result = cancelGroupBan(repository, alice, groupId, bob.getAddress());
+			// Should be OK, as ban still exists
+			assertEquals(ValidationResult.OK, result);
+
+			// Bob attempts to rejoin
+			result = joinGroup(repository, bob, groupId);
+			// Should be OK, as no longer banned
 			assertEquals(ValidationResult.OK, result);
 
 			// Orphan last block (Bob join)
@@ -226,7 +365,8 @@ public class AdminTests extends Common {
 			assertTrue(isAdmin(repository, bob.getAddress(), groupId));
 
 			// Attempt to ban Bob
-			result = groupBan(repository, alice, groupId, bob.getAddress());
+			int timeToLive = 0;
+			result = groupBan(repository, alice, groupId, bob.getAddress(), timeToLive);
 			// Should be OK
 			assertEquals(ValidationResult.OK, result);
 
@@ -272,12 +412,12 @@ public class AdminTests extends Common {
 			assertTrue(isAdmin(repository, bob.getAddress(), groupId));
 
 			// Have Alice (owner) try to ban herself!
-			result = groupBan(repository, alice, groupId, alice.getAddress());
+			result = groupBan(repository, alice, groupId, alice.getAddress(), timeToLive);
 			// Should NOT be OK
 			assertNotSame(ValidationResult.OK, result);
 
 			// Have Bob try to ban Alice (owner)
-			result = groupBan(repository, bob, groupId, alice.getAddress());
+			result = groupBan(repository, bob, groupId, alice.getAddress(), timeToLive);
 			// Should NOT be OK
 			assertNotSame(ValidationResult.OK, result);
 		}
@@ -316,8 +456,8 @@ public class AdminTests extends Common {
 		return result;
 	}
 
-	private ValidationResult groupBan(Repository repository, PrivateKeyAccount admin, int groupId, String member) throws DataException {
-		GroupBanTransactionData transactionData = new GroupBanTransactionData(TestTransaction.generateBase(admin), groupId, member, "testing", 0);
+	private ValidationResult groupBan(Repository repository, PrivateKeyAccount admin, int groupId, String member, int timeToLive) throws DataException {
+		GroupBanTransactionData transactionData = new GroupBanTransactionData(TestTransaction.generateBase(admin), groupId, member, "testing", timeToLive);
 		ValidationResult result = TransactionUtils.signAndImport(repository, transactionData, admin);
 
 		if (result == ValidationResult.OK)

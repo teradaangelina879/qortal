@@ -40,6 +40,8 @@ import org.qortal.utils.Base58;
 
 import com.google.common.primitives.Bytes;
 
+import static org.qortal.data.chat.ChatMessage.Encoding;
+
 @Path("/chat")
 @Tag(name = "Chat")
 public class ChatResource {
@@ -70,6 +72,10 @@ public class ChatResource {
 			@QueryParam("txGroupId") Integer txGroupId,
 			@QueryParam("involving") List<String> involvingAddresses,
 			@QueryParam("reference") String reference,
+			@QueryParam("chatreference") String chatReference,
+			@QueryParam("haschatreference") Boolean hasChatReference,
+			@QueryParam("sender") String sender,
+			@QueryParam("encoding") Encoding encoding,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -92,14 +98,91 @@ public class ChatResource {
 		if (reference != null)
 			referenceBytes = Base58.decode(reference);
 
+		byte[] chatReferenceBytes = null;
+		if (chatReference != null)
+			chatReferenceBytes = Base58.decode(chatReference);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getChatRepository().getMessagesMatchingCriteria(
 					before,
 					after,
 					txGroupId,
 					referenceBytes,
+					chatReferenceBytes,
+					hasChatReference,
 					involvingAddresses,
+					sender,
+					encoding,
 					limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/messages/count")
+	@Operation(
+			summary = "Count chat messages",
+			description = "Returns count of CHAT messages that match criteria. Must provide EITHER 'txGroupId' OR two 'involving' addresses.",
+			responses = {
+					@ApiResponse(
+							description = "count of messages",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "integer"
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public int countChatMessages(@QueryParam("before") Long before, @QueryParam("after") Long after,
+										@QueryParam("txGroupId") Integer txGroupId,
+										@QueryParam("involving") List<String> involvingAddresses,
+										@QueryParam("reference") String reference,
+										@QueryParam("chatreference") String chatReference,
+										@QueryParam("haschatreference") Boolean hasChatReference,
+										@QueryParam("sender") String sender,
+										@QueryParam("encoding") Encoding encoding,
+										@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
+										@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+										@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
+		// Check args meet expectations
+		if ((txGroupId == null && involvingAddresses.size() != 2)
+				|| (txGroupId != null && !involvingAddresses.isEmpty()))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		// Check any provided addresses are valid
+		if (involvingAddresses.stream().anyMatch(address -> !Crypto.isValidAddress(address)))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		if (before != null && before < 1500000000000L)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		if (after != null && after < 1500000000000L)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		byte[] referenceBytes = null;
+		if (reference != null)
+			referenceBytes = Base58.decode(reference);
+
+		byte[] chatReferenceBytes = null;
+		if (chatReference != null)
+			chatReferenceBytes = Base58.decode(chatReference);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getChatRepository().getMessagesMatchingCriteria(
+					before,
+					after,
+					txGroupId,
+					referenceBytes,
+					chatReferenceBytes,
+					hasChatReference,
+					involvingAddresses,
+					sender,
+					encoding,
+					limit, offset, reverse).size();
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -121,7 +204,7 @@ public class ChatResource {
 			}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58) {
+	public ChatMessage getMessageBySignature(@PathParam("signature") String signature58, @QueryParam("encoding") Encoding encoding) {
 		byte[] signature = Base58.decode(signature58);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -131,7 +214,7 @@ public class ChatResource {
 				throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Message not found");
 			}
 
-			return repository.getChatRepository().toChatMessage(chatTransactionData);
+			return repository.getChatRepository().toChatMessage(chatTransactionData, encoding);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -154,12 +237,12 @@ public class ChatResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public ActiveChats getActiveChats(@PathParam("address") String address) {
+	public ActiveChats getActiveChats(@PathParam("address") String address, @QueryParam("encoding") Encoding encoding) {
 		if (address == null || !Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getChatRepository().getActiveChats(address);
+			return repository.getChatRepository().getActiveChats(address, encoding);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

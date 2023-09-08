@@ -1,5 +1,6 @@
 package org.qortal.arbitrary.metadata;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
@@ -22,7 +23,7 @@ public class ArbitraryDataMetadataCache extends ArbitraryDataQortalMetadata {
     }
 
     @Override
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         if (this.jsonString == null) {
             throw new DataException("Patch JSON string is null");
         }

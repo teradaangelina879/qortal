@@ -7,11 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -198,8 +194,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
-		String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature "
-				+ "WHERE height = ? AND sequence = ?";
+		String sql = "SELECT signature FROM Transactions WHERE block_height = ? AND block_sequence = ?";
 		
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, height, sequence)) {
 			if (resultSet == null)
@@ -661,8 +656,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 															List<Object> bindParams) throws DataException {
 		List<byte[]> signatures = new ArrayList<>();
 
+		String txTypeClassName = "";
+		if (txType != null) {
+			txTypeClassName = txType.className;
+		}
+
 		StringBuilder sql = new StringBuilder(1024);
-		sql.append(String.format("SELECT signature FROM %sTransactions", txType.className));
+		sql.append(String.format("SELECT signature FROM %sTransactions", txTypeClassName));
 
 		if (!whereClauses.isEmpty()) {
 			sql.append(" WHERE ");
@@ -674,6 +674,53 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 				sql.append(whereClauses.get(wci));
 			}
+		}
+
+		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching transaction signatures from repository", e);
+		}
+	}
+
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams, Integer limit) throws DataException {
+		List<byte[]> signatures = new ArrayList<>();
+
+		String txTypeClassName = "";
+		if (txType != null) {
+			txTypeClassName = txType.className;
+		}
+
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append(String.format("SELECT signature FROM %sTransactions", txTypeClassName));
+
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
+
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
+
+				sql.append(whereClauses.get(wci));
+			}
+		}
+
+		if (limit != null) {
+			sql.append(" LIMIT ?");
+			bindParams.add(limit);
 		}
 
 		LOGGER.trace(() -> String.format("Transaction search SQL: %s", sql));
@@ -966,6 +1013,33 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return assetTransfers;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset-transfer transactions from repository", e);
+		}
+	}
+
+	public List<String> getConfirmedRewardShareCreatorsExcludingSelfShares() throws DataException {
+		List<String> rewardShareCreators = new ArrayList<>();
+
+		String sql = "SELECT account "
+				+ "FROM RewardShareTransactions "
+				+ "JOIN Accounts ON Accounts.public_key = RewardShareTransactions.minter_public_key "
+				+ "JOIN Transactions ON Transactions.signature = RewardShareTransactions.signature "
+				+ "WHERE block_height IS NOT NULL AND RewardShareTransactions.recipient != Accounts.account "
+				+ "GROUP BY account "
+				+ "ORDER BY account";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return rewardShareCreators;
+
+			do {
+				String address = resultSet.getString(1);
+
+				rewardShareCreators.add(address);
+			} while (resultSet.next());
+
+			return rewardShareCreators;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch reward share creators from repository", e);
 		}
 	}
 
@@ -1355,8 +1429,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException {
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes, Integer limit) throws DataException {
 		StringBuilder sql = new StringBuilder(1024);
+		List<Object> bindParams = new ArrayList<>();
+
 		sql.append("SELECT signature FROM UnconfirmedTransactions ");
 		sql.append("JOIN Transactions USING (signature) ");
 		sql.append("WHERE type NOT IN (");
@@ -1372,12 +1448,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		sql.append(")");
-		sql.append("ORDER BY created_when, signature");
+		sql.append("ORDER BY created_when, signature ");
+
+		if (limit != null) {
+			sql.append("LIMIT ?");
+			bindParams.add(limit);
+		}
 
 		List<TransactionData> transactions = new ArrayList<>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return transactions;
 
@@ -1418,6 +1499,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			saver.execute(repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to update transaction's block height in repository", e);
+		}
+	}
+
+	@Override
+	public void updateBlockSequence(byte[] signature, Integer blockSequence) throws DataException {
+		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
+
+		saver.bind("signature", signature).bind("block_sequence", blockSequence);
+
+		try {
+			saver.execute(repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to update transaction's block sequence in repository", e);
 		}
 	}
 

@@ -131,7 +131,14 @@ public interface GroupRepository {
 
 	public GroupBanData getBan(int groupId, String member) throws DataException;
 
-	public boolean banExists(int groupId, String offender) throws DataException;
+	/**
+	 * IMPORTANT: when using banExists() as part of validation, the timestamp must be that of the transaction that
+	 * is calling banExists() as part of its validation. It must NOT be the current time, unless this is being
+	 * called outside of validation, as part of an on demand check for a ban existing (such as via an API call).
+	 * This is because we need to evaluate a ban's status based on the time of the subsequent transaction, as
+	 * validation will not occur at a fixed time for every node. For some, it could be months into the future.
+	 */
+	public boolean banExists(int groupId, String offender, long timestamp) throws DataException;
 
 	public List<GroupBanData> getGroupBans(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 

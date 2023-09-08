@@ -13,8 +13,8 @@ import java.security.SecureRandom;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.servlet.http.HttpServletRequest;
 
-import org.checkerframework.checker.units.qual.A;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
@@ -41,6 +41,7 @@ import org.glassfish.jersey.servlet.ServletContainer;
 import org.qortal.api.resource.AnnotationPostProcessor;
 import org.qortal.api.resource.ApiDefinition;
 import org.qortal.api.websocket.*;
+import org.qortal.network.Network;
 import org.qortal.settings.Settings;
 
 public class ApiService {
@@ -51,9 +52,11 @@ public class ApiService {
 	private Server server;
 	private ApiKey apiKey;
 
+	public static final String API_VERSION_HEADER = "X-API-VERSION";
+
 	private ApiService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.restricted.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
@@ -93,7 +96,7 @@ public class ApiService {
 					throw new RuntimeException("Failed to start SSL API due to broken keystore");
 
 				// BouncyCastle-specific SSLContext build
-				SSLContext sslContext = SSLContext.getInstance("TLS", "BCJSSE");
+				SSLContext sslContext = SSLContext.getInstance("TLSv1.3", "BCJSSE");
 				KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("PKIX", "BCJSSE");
 
 				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType(), "BC");
@@ -123,13 +126,13 @@ public class ApiService {
 				ServerConnector portUnifiedConnector = new ServerConnector(this.server,
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
-				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
+				portUnifiedConnector.setHost(Network.getInstance().getBindAddress());
 				portUnifiedConnector.setPort(Settings.getInstance().getApiPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
-				InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
+				InetAddress bindAddr = InetAddress.getByName(Network.getInstance().getBindAddress());
 				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getApiPort());
 				this.server = new Server(endpoint);
 			}
@@ -228,6 +231,21 @@ public class ApiService {
 		}
 
 		this.server = null;
+	}
+
+	public static int getApiVersion(HttpServletRequest request) {
+		// Get API version
+		String apiVersionString = request.getHeader(API_VERSION_HEADER);
+		if (apiVersionString == null) {
+			// Try query string - this is needed to avoid a CORS preflight. See: https://stackoverflow.com/a/43881141
+			apiVersionString = request.getParameter("apiVersion");
+		}
+
+		int apiVersion = 1;
+		if (apiVersionString != null) {
+			apiVersion = Integer.parseInt(apiVersionString);
+		}
+		return apiVersion;
 	}
 
 }

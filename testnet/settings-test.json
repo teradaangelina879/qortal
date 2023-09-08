@@ -1,0 +1,18 @@
+{
+  "isTestNet": true,
+  "bitcoinNet": "TEST3",
+  "litecoinNet": "TEST3",
+  "dogecoinNet": "TEST3",
+  "digibyteNet": "TEST3",
+  "ravencoinNet": "TEST3",
+  "repositoryPath": "db-testnet",
+  "blockchainConfig": "testchain.json",
+  "minBlockchainPeers": 1,
+  "apiDocumentationEnabled": true,
+  "apiRestricted": false,
+  "bootstrap": false,
+  "maxPeerConnectionTime": 999999999,
+  "localAuthBypassEnabled": true,
+  "singleNodeTestnet": false,
+  "recoveryModeTimeout": 0
+}

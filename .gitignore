@@ -14,7 +14,6 @@
 /.mvn.classpath
 /notes*
 /settings.json
-/testnet*
 /settings*.json
 /testchain*.json
 /run-testnet*.sh

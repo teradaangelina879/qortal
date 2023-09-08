@@ -9,6 +9,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,6 +53,15 @@ public class ResourceList {
         String jsonString = ResourceList.listToJSONString(this.list);
         Path filePath = this.getFilePath();
 
+        // Don't create list if it's empty
+        if (this.list != null && this.list.isEmpty()) {
+            if (filePath != null && Files.exists(filePath)) {
+                // Delete empty list
+                Files.delete(filePath);
+            }
+            return;
+        }
+
         // Create parent directory if needed
         try {
             Files.createDirectories(filePath.getParent());
@@ -72,7 +82,7 @@ public class ResourceList {
         }
 
         try {
-            String jsonString = new String(Files.readAllBytes(path));
+            String jsonString = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
             this.list = ResourceList.listFromJSONString(jsonString);
         } catch (IOException e) {
             throw new IOException(String.format("Couldn't read contents from file %s", path.toString()));
@@ -107,6 +117,13 @@ public class ResourceList {
             return;
         }
         this.list.remove(resource);
+    }
+
+    public void clear() {
+        if (this.list == null) {
+            return;
+        }
+        this.list.clear();
     }
 
     public boolean contains(String resource, boolean caseSensitive) {

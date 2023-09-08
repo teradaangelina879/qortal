@@ -14,6 +14,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
+import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -34,6 +35,37 @@ public class CrossChainDigibyteResource {
 
 	@Context
 	HttpServletRequest request;
+
+	@GET
+	@Path("/height")
+	@Operation(
+		summary = "Returns current Digibyte block height",
+		description = "Returns the height of the most recent block in the Digibyte chain.",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					schema = @Schema(
+						type = "number"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	public String getDigibyteHeight() {
+		Digibyte digibyte = Digibyte.getInstance();
+
+		try {
+			Integer height = digibyte.getBlockchainHeight();
+			if (height == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+
+			return height.toString();
+
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
 
 	@POST
 	@Path("/walletbalance")
@@ -68,7 +100,7 @@ public class CrossChainDigibyteResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		try {
-			Long balance = digibyte.getWalletBalanceFromTransactions(key58);
+			Long balance = digibyte.getWalletBalance(key58);
 			if (balance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
@@ -113,6 +145,45 @@ public class CrossChainDigibyteResource {
 
 		try {
 			return digibyte.getWalletTransactions(key58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
+
+	@POST
+	@Path("/unusedaddress")
+	@Operation(
+		summary = "Returns first unused address for hierarchical, deterministic BIP32 wallet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpubD6NzVbkrYhZ4XTPc4btCZ6SMgn8CxmWkj6VBVZ1tfcJfMq4UwAjZbG8U74gGSypL9XBYk2R2BLbDBe8pcEyBKM1edsGQEPKXNbEskZozeZc"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(array = @ArraySchema( schema = @Schema( implementation = SimpleTransaction.class ) ) )
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String getUnusedDigibyteReceiveAddress(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
+		Security.checkApiCallAllowed(request);
+
+		Digibyte digibyte = Digibyte.getInstance();
+
+		if (!digibyte.isValidDeterministicKey(key58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		try {
+			return digibyte.getUnusedReceiveAddress(key58);
 		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 		}

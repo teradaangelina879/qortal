@@ -5,15 +5,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.NTP;
+import org.qortal.utils.*;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -48,7 +44,6 @@ public class ArbitraryDataStorageManager extends Thread {
     private List<ArbitraryTransactionData> hostedTransactions;
 
     private String searchQuery;
-    private List<ArbitraryTransactionData> searchResultsTransactions;
 
     private static final long DIRECTORY_SIZE_CHECK_INTERVAL = 10 * 60 * 1000L; // 10 minutes
 
@@ -61,6 +56,8 @@ public class ArbitraryDataStorageManager extends Thread {
     /** Start deleting files once we reach 98% usage.
      * This must be higher than STORAGE_FULL_THRESHOLD in order to avoid a fetch/delete loop. */
     public static final double DELETION_THRESHOLD = 0.98f; // 98%
+
+    private static final long PER_NAME_STORAGE_MULTIPLIER = 4L;
 
     public ArbitraryDataStorageManager() {
     }
@@ -136,11 +133,11 @@ public class ArbitraryDataStorageManager extends Thread {
             case ALL:
             case VIEWED:
                 // If the policy includes viewed data, we can host it as long as it's not blocked
-                return !this.isNameBlocked(name);
+                return !ListUtils.isNameBlocked(name);
 
             case FOLLOWED:
                 // If the policy is for followed data only, we have to be following it
-                return this.isFollowingName(name);
+                return ListUtils.isFollowingName(name);
 
                 // For NONE or all else, we shouldn't host this data
             case NONE:
@@ -189,14 +186,14 @@ public class ArbitraryDataStorageManager extends Thread {
         }
 
         // Never fetch data from blocked names, even if they are followed
-        if (this.isNameBlocked(name)) {
+        if (ListUtils.isNameBlocked(name)) {
             return false;
         }
 
         switch (Settings.getInstance().getStoragePolicy()) {
             case FOLLOWED:
             case FOLLOWED_OR_VIEWED:
-                return this.isFollowingName(name);
+                return ListUtils.isFollowingName(name);
                 
             case ALL:
                 return true;
@@ -236,7 +233,7 @@ public class ArbitraryDataStorageManager extends Thread {
      * @return boolean - whether the resource is blocked or not
      */
     public boolean isBlocked(ArbitraryTransactionData arbitraryTransactionData) {
-        return isNameBlocked(arbitraryTransactionData.getName());
+        return ListUtils.isNameBlocked(arbitraryTransactionData.getName());
     }
 
     private boolean isDataTypeAllowed(ArbitraryTransactionData arbitraryTransactionData) {
@@ -252,22 +249,6 @@ public class ArbitraryDataStorageManager extends Thread {
             return false;
         }
         return true;
-    }
-
-    public boolean isNameBlocked(String name) {
-        return ResourceListManager.getInstance().listContains("blockedNames", name, false);
-    }
-
-    private boolean isFollowingName(String name) {
-        return ResourceListManager.getInstance().listContains("followedNames", name, false);
-    }
-
-    public List<String> followedNames() {
-        return ResourceListManager.getInstance().getStringsInList("followedNames");
-    }
-
-    private int followedNamesCount() {
-        return ResourceListManager.getInstance().getItemCountForList("followedNames");
     }
 
 
@@ -344,11 +325,6 @@ public class ArbitraryDataStorageManager extends Thread {
      */
 
     public List<ArbitraryTransactionData> searchHostedTransactions(Repository repository, String query, Integer limit, Integer offset) {
-        // Load from results cache if we can (results that exists for the same query), to avoid disk reads
-        if (this.searchResultsTransactions != null && this.searchQuery.equals(query.toLowerCase())) {
-            return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
-        }
-
         // Using cache if we can, to avoid disk reads
         if (this.hostedTransactions == null) {
             this.hostedTransactions = this.loadAllHostedTransactions(repository);
@@ -376,10 +352,7 @@ public class ArbitraryDataStorageManager extends Thread {
         // Sort by newest first
         searchResultsList.sort(Comparator.comparingLong(ArbitraryTransactionData::getTimestamp).reversed());
 
-        // Update cache
-        this.searchResultsTransactions = searchResultsList;
-
-        return ArbitraryTransactionUtils.limitOffsetTransactions(this.searchResultsTransactions, limit, offset);
+        return ArbitraryTransactionUtils.limitOffsetTransactions(searchResultsList, limit, offset);
     }
 
     /**
@@ -517,12 +490,17 @@ public class ArbitraryDataStorageManager extends Thread {
             return false;
         }
 
+        if (Settings.getInstance().getStoragePolicy() == StoragePolicy.ALL) {
+            // Using storage policy ALL, so don't limit anything per name
+            return true;
+        }
+
         if (name == null) {
             // This transaction doesn't have a name, so fall back to total space limitations
             return true;
         }
 
-        int followedNamesCount = this.followedNamesCount();
+        int followedNamesCount = ListUtils.followedNamesCount();
         if (followedNamesCount == 0) {
             // Not following any names, so we have space
             return true;
@@ -552,14 +530,16 @@ public class ArbitraryDataStorageManager extends Thread {
     }
 
     public long storageCapacityPerName(double threshold) {
-        int followedNamesCount = this.followedNamesCount();
+        int followedNamesCount = ListUtils.followedNamesCount();
         if (followedNamesCount == 0) {
             // Not following any names, so we have the total space available
             return this.getStorageCapacityIncludingThreshold(threshold);
         }
 
         double maxStorageCapacity = (double)this.storageCapacity * threshold;
-        long maxStoragePerName = (long)(maxStorageCapacity / (double)followedNamesCount);
+
+        // Some names won't need/use much space, so give all names a 4x multiplier to compensate
+        long maxStoragePerName = (long)(maxStorageCapacity / (double)followedNamesCount) * PER_NAME_STORAGE_MULTIPLIER;
 
         return maxStoragePerName;
     }

@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.exception.DataNotPublishedException;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
 import org.qortal.arbitrary.misc.Service;
@@ -53,10 +54,6 @@ public class ArbitraryDataBuilder {
     /**
      * Process transactions, but do not build anything
      * This is useful for checking the status of a given resource
-     *
-     * @throws DataException
-     * @throws IOException
-     * @throws MissingDataException
      */
     public void process() throws DataException, IOException, MissingDataException {
         this.fetchTransactions();
@@ -68,10 +65,6 @@ public class ArbitraryDataBuilder {
 
     /**
      * Build the latest state of a given resource
-     *
-     * @throws DataException
-     * @throws IOException
-     * @throws MissingDataException
      */
     public void build() throws DataException, IOException, MissingDataException {
         this.process();
@@ -88,7 +81,7 @@ public class ArbitraryDataBuilder {
             if (latestPut == null) {
                 String message = String.format("Couldn't find PUT transaction for name %s, service %s and identifier %s",
                         this.name, this.service, this.identifierString());
-                throw new DataException(message);
+                throw new DataNotPublishedException(message);
             }
             this.latestPutTransaction = latestPut;
 

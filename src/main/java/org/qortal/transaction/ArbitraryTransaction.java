@@ -1,6 +1,5 @@
 package org.qortal.transaction;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -8,7 +7,7 @@ import java.util.stream.Collectors;
 import org.qortal.account.Account;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
-import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
+import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
@@ -24,6 +23,7 @@ import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ArbitraryTransactionUtils;
+import org.qortal.utils.NTP;
 
 public class ArbitraryTransaction extends Transaction {
 
@@ -31,11 +31,15 @@ public class ArbitraryTransaction extends Transaction {
 	private ArbitraryTransactionData arbitraryTransactionData;
 
 	// Other useful constants
-	public static final int MAX_DATA_SIZE = 4000;
+	public static final int MAX_DATA_SIZE = 256;
 	public static final int MAX_METADATA_LENGTH = 32;
 	public static final int HASH_LENGTH = TransactionTransformer.SHA256_LENGTH;
-	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
 	public static final int MAX_IDENTIFIER_LENGTH = 64;
+
+	/** If time difference between transaction and now is greater than this then we don't verify proof-of-work. */
+	public static final long HISTORIC_THRESHOLD = 2 * 7 * 24 * 60 * 60 * 1000L;
+	public static final int POW_BUFFER_SIZE = 8 * 1024 * 1024; // bytes
+
 
 	// Constructors
 
@@ -81,6 +85,18 @@ public class ArbitraryTransaction extends Transaction {
 	public ValidationResult isFeeValid() throws DataException {
 		if (this.transactionData.getFee() < 0)
 			return ValidationResult.NEGATIVE_FEE;
+
+		// As of the mempow transaction updates timestamp, a nonce is no longer supported, so a valid fee must be included
+		if (this.transactionData.getTimestamp() >= BlockChain.getInstance().getMemPoWTransactionUpdatesTimestamp()) {
+			// Validate the fee
+			return super.isFeeValid();
+		}
+
+		// After the earlier "optional fee" feature trigger, we required the fee to be sufficient if it wasn't 0.
+		// If the fee was zero, then the nonce was validated in isSignatureValid() as an alternative to a fee
+		if (this.arbitraryTransactionData.getTimestamp() >= BlockChain.getInstance().getArbitraryOptionalFeeTimestamp() && this.arbitraryTransactionData.getFee() != 0L) {
+			return super.isFeeValid();
+		}
 
 		return ValidationResult.OK;
 	}
@@ -202,9 +218,21 @@ public class ArbitraryTransaction extends Transaction {
 			// Clear nonce from transactionBytes
 			ArbitraryTransactionTransformer.clearNonce(transactionBytes);
 
-			// Check nonce
-			int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
-			return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+			// As of the mempow transaction updates timestamp, a nonce is no longer supported, so a fee must be included
+			if (this.transactionData.getTimestamp() >= BlockChain.getInstance().getMemPoWTransactionUpdatesTimestamp()) {
+				// Require that the fee is a positive number. Fee checking itself is performed in isFeeValid()
+				return (this.arbitraryTransactionData.getFee() > 0L);
+			}
+
+			// As of the earlier "optional fee" feature-trigger timestamp, we only required a nonce when the fee was zero
+			boolean beforeFeatureTrigger = this.arbitraryTransactionData.getTimestamp() < BlockChain.getInstance().getArbitraryOptionalFeeTimestamp();
+			if (beforeFeatureTrigger || this.arbitraryTransactionData.getFee() == 0L) {
+				// We only need to check nonce for recent transactions due to PoW verification overhead
+				if (NTP.getTime() - this.arbitraryTransactionData.getTimestamp() < HISTORIC_THRESHOLD) {
+					int difficulty = ArbitraryDataManager.getInstance().getPowDifficulty();
+					return MemoryPoW.verify2(transactionBytes, POW_BUFFER_SIZE, difficulty, nonce);
+				}
+			}
 		}
 
 		return true;
@@ -234,7 +262,15 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void preProcess() throws DataException {
-		// Nothing to do
+		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+		if (arbitraryTransactionData.getName() == null)
+			return;
+
+		// Rebuild this name in the Names table from the transaction history
+		// This is necessary because in some rare cases names can be missing from the Names table after registration
+		// but we have been unable to reproduce the issue and track down the root cause
+		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+		namesDatabaseIntegrityCheck.rebuildName(arbitraryTransactionData.getName(), this.repository);
 	}
 
 	@Override

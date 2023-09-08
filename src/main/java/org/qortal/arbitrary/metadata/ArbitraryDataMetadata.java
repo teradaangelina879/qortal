@@ -2,12 +2,14 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.JSONException;
 import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -34,7 +36,7 @@ public class ArbitraryDataMetadata {
         this.filePath = filePath;
     }
 
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         // To be overridden
     }
 
@@ -44,8 +46,13 @@ public class ArbitraryDataMetadata {
 
 
     public void read() throws IOException, DataException {
-        this.loadJson();
-        this.readJson();
+        try {
+            this.loadJson();
+            this.readJson();
+
+        } catch (JSONException e) {
+            throw new DataException(String.format("Unable to read JSON at path %s: %s", this.filePath, e.getMessage()));
+        }
     }
 
     public void write() throws IOException, DataException {
@@ -58,6 +65,10 @@ public class ArbitraryDataMetadata {
         writer.close();
     }
 
+    public void delete() throws IOException {
+        Files.delete(this.filePath);
+    }
+
 
     protected void loadJson() throws IOException {
         File metadataFile = new File(this.filePath.toString());
@@ -65,7 +76,7 @@ public class ArbitraryDataMetadata {
             throw new IOException(String.format("Metadata file doesn't exist: %s", this.filePath.toString()));
         }
 
-        this.jsonString = new String(Files.readAllBytes(this.filePath));
+        this.jsonString = new String(Files.readAllBytes(this.filePath), StandardCharsets.UTF_8);
     }
 
 

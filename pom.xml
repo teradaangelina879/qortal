@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.qortal</groupId>
 	<artifactId>qortal</artifactId>
-	<version>3.6.1</version>
+	<version>4.3.0</version>
 	<packaging>jar</packaging>
 	<properties>
 		<skipTests>true</skipTests>
@@ -11,7 +11,7 @@
 		<bitcoinj.version>0.15.10</bitcoinj.version>
 		<bouncycastle.version>1.69</bouncycastle.version>
 		<build.timestamp>${maven.build.timestamp}</build.timestamp>
-		<ciyam-at.version>1.3.8</ciyam-at.version>
+		<ciyam-at.version>1.4.0</ciyam-at.version>
 		<commons-net.version>3.6</commons-net.version>
 		<commons-text.version>1.8</commons-text.version>
 		<commons-io.version>2.6</commons-io.version>
@@ -36,6 +36,7 @@
 		<java-diff-utils.version>4.10</java-diff-utils.version>
 		<grpc.version>1.45.1</grpc.version>
 		<protobuf.version>3.19.4</protobuf.version>
+		<simplemagic.version>1.17</simplemagic.version>
 	</properties>
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
@@ -147,6 +148,7 @@
 										tagsSorter: "alpha",
 										operationsSorter:
 										"alpha",
+										validatorUrl: false,
 									</value>
 								</replacement>
 							</replacements>
@@ -304,6 +306,7 @@
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<mainClass>org.qortal.controller.Controller</mainClass>
 									<manifestEntries>
+										<Multi-Release>true</Multi-Release>
 										<Class-Path>. ..</Class-Path>
 									</manifestEntries>
 								</transformer>
@@ -726,6 +729,11 @@
 			<groupId>com.google.protobuf</groupId>
 			<artifactId>protobuf-java</artifactId>
 			<version>${protobuf.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.j256.simplemagic</groupId>
+			<artifactId>simplemagic</artifactId>
+			<version>${simplemagic.version}</version>
 		</dependency>
 	</dependencies>
 </project>

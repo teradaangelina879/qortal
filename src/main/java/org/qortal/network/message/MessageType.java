@@ -43,11 +43,7 @@ public enum MessageType {
     BLOCK_SUMMARIES(70, BlockSummariesMessage::fromByteBuffer),
     GET_BLOCK_SUMMARIES(71, GetBlockSummariesMessage::fromByteBuffer),
     BLOCK_SUMMARIES_V2(72, BlockSummariesV2Message::fromByteBuffer),
-
-    ONLINE_ACCOUNTS(80, OnlineAccountsMessage::fromByteBuffer),
-    GET_ONLINE_ACCOUNTS(81, GetOnlineAccountsMessage::fromByteBuffer),
-    ONLINE_ACCOUNTS_V2(82, OnlineAccountsV2Message::fromByteBuffer),
-    GET_ONLINE_ACCOUNTS_V2(83, GetOnlineAccountsV2Message::fromByteBuffer),
+    
     ONLINE_ACCOUNTS_V3(84, OnlineAccountsV3Message::fromByteBuffer),
     GET_ONLINE_ACCOUNTS_V3(85, GetOnlineAccountsV3Message::fromByteBuffer),
 

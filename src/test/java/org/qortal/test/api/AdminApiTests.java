@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
-import org.qortal.api.resource.AdminResource;
+import org.qortal.api.restricted.resource.AdminResource;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.ApiCommon;

@@ -11,10 +11,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
-import org.qortal.utils.ArbitraryTransactionUtils;
-import org.qortal.utils.Base58;
-import org.qortal.utils.FilesystemUtils;
-import org.qortal.utils.NTP;
+import org.qortal.utils.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -137,7 +134,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						// Fetch the transaction data
 						ArbitraryTransactionData arbitraryTransactionData = ArbitraryTransactionUtils.fetchTransactionData(repository, signature);
-						if (arbitraryTransactionData == null) {
+						if (arbitraryTransactionData == null || arbitraryTransactionData.getService() == null) {
 							continue;
 						}
 
@@ -204,7 +201,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 						if (completeFileExists && !allChunksExist) {
 							// We have the complete file but not the chunks, so let's convert it
-							LOGGER.info(String.format("Transaction %s has complete file but no chunks",
+							LOGGER.debug(String.format("Transaction %s has complete file but no chunks",
 									Base58.encode(arbitraryTransactionData.getSignature())));
 
 							ArbitraryTransactionUtils.convertFileToChunks(arbitraryTransactionData, now, STALE_FILE_TIMEOUT);
@@ -239,7 +236,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 					// Delete random data associated with name if we're over our storage limit for this name
 					// Use the DELETION_THRESHOLD, for the same reasons as above
-					for (String followedName : storageManager.followedNames()) {
+					for (String followedName : ListUtils.followedNames()) {
 						if (isStopping) {
 							return;
 						}
@@ -348,6 +345,10 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 	/**
 	 * Iteratively walk through given directory and delete a single random file
+	 *
+	 * TODO: public data should be prioritized over private data
+	 * (unless this node is part of a data market contract for that data).
+	 * See: Service.privateServices() for a list of services containing private data.
 	 *
 	 * @param directory - the base directory
 	 * @return boolean - whether a file was deleted
@@ -487,7 +488,7 @@ public class ArbitraryDataCleanupManager extends Thread {
 
 				// Delete data relating to blocked names
 				String name = directory.getName();
-				if (name != null && storageManager.isNameBlocked(name)) {
+				if (name != null && ListUtils.isNameBlocked(name)) {
 					this.safeDeleteDirectory(directory, "blocked name");
 				}
 

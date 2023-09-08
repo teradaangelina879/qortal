@@ -20,6 +20,7 @@ import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 import org.qortal.utils.Triple;
 
@@ -123,29 +124,29 @@ public class ArbitraryDataFileListManager {
             }
         }
 
-        // Then allow another 3 attempts, each 5 minutes apart
-        if (timeSinceLastAttempt > 5 * 60 * 1000L) {
-            // We haven't tried for at least 5 minutes
+        // Then allow another 5 attempts, each 1 minute apart
+        if (timeSinceLastAttempt > 60 * 1000L) {
+            // We haven't tried for at least 1 minute
 
-            if (networkBroadcastCount < 6) {
-                // We've made less than 6 total attempts
+            if (networkBroadcastCount < 8) {
+                // We've made less than 8 total attempts
                 return true;
             }
         }
 
-        // Then allow another 4 attempts, each 30 minutes apart
-        if (timeSinceLastAttempt > 30 * 60 * 1000L) {
-            // We haven't tried for at least 5 minutes
+        // Then allow another 8 attempts, each 15 minutes apart
+        if (timeSinceLastAttempt > 15 * 60 * 1000L) {
+            // We haven't tried for at least 15 minutes
 
-            if (networkBroadcastCount < 10) {
-                // We've made less than 10 total attempts
+            if (networkBroadcastCount < 16) {
+                // We've made less than 16 total attempts
                 return true;
             }
         }
 
-        // From then on, only try once every 24 hours, to reduce network spam
-        if (timeSinceLastAttempt > 24 * 60 * 60 * 1000L) {
-            // We haven't tried for at least 24 hours
+        // From then on, only try once every 6 hours, to reduce network spam
+        if (timeSinceLastAttempt > 6 * 60 * 60 * 1000L) {
+            // We haven't tried for at least 6 hours
             return true;
         }
 
@@ -258,8 +259,6 @@ public class ArbitraryDataFileListManager {
     // Lookup file lists by signature (and optionally hashes)
 
     public boolean fetchArbitraryDataFileList(ArbitraryTransactionData arbitraryTransactionData) {
-        byte[] digest = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
         byte[] signature = arbitraryTransactionData.getSignature();
         String signature58 = Base58.encode(signature);
 
@@ -286,8 +285,7 @@ public class ArbitraryDataFileListManager {
 
         // Find hashes that we are missing
         try {
-            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-            arbitraryDataFile.setMetadataHash(metadataHash);
+            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
             missingHashes = arbitraryDataFile.missingHashes();
         } catch (DataException e) {
             // Leave missingHashes as null, so that all hashes are requested
@@ -460,10 +458,9 @@ public class ArbitraryDataFileListManager {
 
             arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-            // Load data file(s)
-            ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(arbitraryTransactionData.getData(), signature);
-            arbitraryDataFile.setMetadataHash(arbitraryTransactionData.getMetadataHash());
-
+//          // Load data file(s)
+//          ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
+//
 //			// Check all hashes exist
 //			for (byte[] hash : hashes) {
 //				//LOGGER.debug("Received hash {}", Base58.encode(hash));
@@ -507,7 +504,7 @@ public class ArbitraryDataFileListManager {
 
         // Forwarding
         if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
-            boolean isBlocked = (arbitraryTransactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(arbitraryTransactionData.getName()));
+            boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
             if (!isBlocked) {
                 Peer requestingPeer = request.getB();
                 if (requestingPeer != null) {
@@ -594,12 +591,8 @@ public class ArbitraryDataFileListManager {
                 // Check if we're even allowed to serve data for this transaction
                 if (ArbitraryDataStorageManager.getInstance().canStoreData(transactionData)) {
 
-                    byte[] hash = transactionData.getData();
-                    byte[] metadataHash = transactionData.getMetadataHash();
-
                     // Load file(s) and add any that exist to the list of hashes
-                    ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-                    arbitraryDataFile.setMetadataHash(metadataHash);
+                    ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
                     // If the peer didn't supply a hash list, we need to return all hashes for this transaction
                     if (requestedHashes == null || requestedHashes.isEmpty()) {
@@ -690,7 +683,7 @@ public class ArbitraryDataFileListManager {
         }
 
         // We may need to forward this request on
-        boolean isBlocked = (transactionData == null || ArbitraryDataStorageManager.getInstance().isNameBlocked(transactionData.getName()));
+        boolean isBlocked = (transactionData == null || ListUtils.isNameBlocked(transactionData.getName()));
         if (Settings.getInstance().isRelayModeEnabled() && !isBlocked) {
             // In relay mode - so ask our other peers if they have it
 

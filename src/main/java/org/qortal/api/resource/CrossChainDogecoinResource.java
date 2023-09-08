@@ -21,6 +21,7 @@ import org.qortal.crosschain.SimpleTransaction;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
+import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -32,6 +33,37 @@ public class CrossChainDogecoinResource {
 
 	@Context
 	HttpServletRequest request;
+
+	@GET
+	@Path("/height")
+	@Operation(
+		summary = "Returns current Dogecoin block height",
+		description = "Returns the height of the most recent block in the Dogecoin chain.",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					schema = @Schema(
+						type = "number"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	public String getDogecoinHeight() {
+		Dogecoin dogecoin = Dogecoin.getInstance();
+
+		try {
+			Integer height = dogecoin.getBlockchainHeight();
+			if (height == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+
+			return height.toString();
+
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
 
 	@POST
 	@Path("/walletbalance")
@@ -66,7 +98,7 @@ public class CrossChainDogecoinResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 		try {
-			Long balance = dogecoin.getWalletBalanceFromTransactions(key58);
+			Long balance = dogecoin.getWalletBalance(key58);
 			if (balance == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 
@@ -111,6 +143,45 @@ public class CrossChainDogecoinResource {
 
 		try {
 			return dogecoin.getWalletTransactions(key58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
+
+	@POST
+	@Path("/unusedaddress")
+	@Operation(
+		summary = "Returns first unused address for hierarchical, deterministic BIP32 wallet",
+		description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "BIP32 'm' private/public key in base58",
+					example = "tpubD6NzVbkrYhZ4XTPc4btCZ6SMgn8CxmWkj6VBVZ1tfcJfMq4UwAjZbG8U74gGSypL9XBYk2R2BLbDBe8pcEyBKM1edsGQEPKXNbEskZozeZc"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				content = @Content(array = @ArraySchema( schema = @Schema( implementation = SimpleTransaction.class ) ) )
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String getUnusedDogecoinReceiveAddress(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String key58) {
+		Security.checkApiCallAllowed(request);
+
+		Dogecoin dogecoin = Dogecoin.getInstance();
+
+		if (!dogecoin.isValidDeterministicKey(key58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		try {
+			return dogecoin.getUnusedReceiveAddress(key58);
 		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 		}

@@ -8,7 +8,6 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,7 +43,7 @@ public class Synchronizer extends Thread {
 	private static final int SYNC_BATCH_SIZE = 1000; // XXX move to Settings?
 
 	/** Initial jump back of block height when searching for common block with peer */
-	private static final int INITIAL_BLOCK_STEP = 7;
+	private static final int INITIAL_BLOCK_STEP = 8;
 	/** Maximum jump back of block height when searching for common block with peer */
 	private static final int MAXIMUM_BLOCK_STEP = 128;
 
@@ -54,7 +53,8 @@ public class Synchronizer extends Thread {
 	/** Maximum number of block signatures we ask from peer in one go */
 	private static final int MAXIMUM_REQUEST_SIZE = 200; // XXX move to Settings?
 
-	private static final long RECOVERY_MODE_TIMEOUT = 10 * 60 * 1000L; // ms
+	/** Maximum number of consecutive failed sync attempts before marking peer as misbehaved */
+	private static final int MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS = 3;
 
 
 	private boolean running;
@@ -76,6 +76,8 @@ public class Synchronizer extends Thread {
 	private volatile boolean isSynchronizing = false;
 	/** Temporary estimate of synchronization progress for SysTray use. */
 	private volatile int syncPercent = 0;
+	/** Temporary estimate of blocks remaining for SysTray use. */
+	private volatile int blocksRemaining = 0;
 
 	private static volatile boolean requestSync = false;
 	private boolean syncRequestPending = false;
@@ -181,6 +183,18 @@ public class Synchronizer extends Thread {
 		}
 	}
 
+	public Integer getBlocksRemaining() {
+		synchronized (this.syncLock) {
+			// Report as 0 blocks remaining if the latest block is within the last 60 mins
+			final Long minLatestBlockTimestamp = NTP.getTime() - (60 * 60 * 1000L);
+			if (Controller.getInstance().isUpToDate(minLatestBlockTimestamp)) {
+				return 0;
+			}
+
+			return this.isSynchronizing ? this.blocksRemaining : null;
+		}
+	}
+
 	public void requestSync() {
 		requestSync = true;
 	}
@@ -215,13 +229,6 @@ public class Synchronizer extends Thread {
 		peers.removeIf(Controller.hasOldVersion);
 
 		checkRecoveryModeForPeers(peers);
-		if (recoveryMode) {
-			// Needs a mutable copy of the unmodifiableList
-			peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());
-			peers.removeIf(Controller.hasOnlyGenesisBlock);
-			peers.removeIf(Controller.hasMisbehaved);
-			peers.removeIf(Controller.hasOldVersion);
-		}
 
 		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
@@ -232,6 +239,9 @@ public class Synchronizer extends Thread {
 
 		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
 		peers.removeIf(Controller.hasInferiorChainTip);
+
+		// Disregard peers that have a block with an invalid signer
+		peers.removeIf(Controller.hasInvalidSigner);
 
 		final int peersBeforeComparison = peers.size();
 
@@ -245,10 +255,7 @@ public class Synchronizer extends Thread {
 		peers.removeIf(Controller.hasInferiorChainTip);
 
 		// Remove any peers that are no longer on a recent block since the last check
-		// Except for times when we're in recovery mode, in which case we need to keep them
-		if (!recoveryMode) {
-			peers.removeIf(Controller.hasNoRecentBlock);
-		}
+		peers.removeIf(Controller.hasNoRecentBlock);
 
 		final int peersRemoved = peersBeforeComparison - peers.size();
 		if (peersRemoved > 0 && peers.size() > 0)
@@ -397,9 +404,10 @@ public class Synchronizer extends Thread {
 					timePeersLastAvailable = NTP.getTime();
 
 				// If enough time has passed, enter recovery mode, which lifts some restrictions on who we can sync with and when we can mint
-				if (NTP.getTime() - timePeersLastAvailable > RECOVERY_MODE_TIMEOUT) {
+				long recoveryModeTimeout = Settings.getInstance().getRecoveryModeTimeout();
+				if (NTP.getTime() - timePeersLastAvailable > recoveryModeTimeout) {
 					if (recoveryMode == false) {
-						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", RECOVERY_MODE_TIMEOUT/60/1000));
+						LOGGER.info(String.format("Peers have been unavailable for %d minutes. Entering recovery mode...", recoveryModeTimeout/60/1000));
 						recoveryMode = true;
 					}
 				}
@@ -1103,6 +1111,7 @@ public class Synchronizer extends Thread {
 			// If common block is too far behind us then we're on massively different forks so give up.
 			if (!force && testHeight < ourHeight - MAXIMUM_COMMON_DELTA) {
 				LOGGER.info(String.format("Blockchain too divergent with peer %s", peer));
+				peer.setLastTooDivergentTime(NTP.getTime());
 				return SynchronizationResult.TOO_DIVERGENT;
 			}
 
@@ -1111,6 +1120,9 @@ public class Synchronizer extends Thread {
 
 			testHeight = Math.max(testHeight - step, 1);
 		}
+
+		// Peer not considered too divergent
+		peer.setLastTooDivergentTime(0L);
 
 		// Prepend test block's summary as first block summary, as summaries returned are *after* test block
 		BlockSummaryData testBlockSummary = new BlockSummaryData(testBlockData);
@@ -1318,8 +1330,8 @@ public class Synchronizer extends Thread {
 				return SynchronizationResult.INVALID_DATA;
 			}
 
-			// Final check to make sure the peer isn't out of date (except for when we're in recovery mode)
-			if (!recoveryMode && peer.getChainTipData() != null) {
+			// Final check to make sure the peer isn't out of date
+			if (peer.getChainTipData() != null) {
 				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 				final Long peerLastBlockTimestamp = peer.getChainTipData().getTimestamp();
 				if (peerLastBlockTimestamp == null || peerLastBlockTimestamp < minLatestBlockTimestamp) {
@@ -1456,6 +1468,12 @@ public class Synchronizer extends Thread {
 
 			repository.saveChanges();
 
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
+
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
@@ -1551,47 +1569,19 @@ public class Synchronizer extends Thread {
 
 			repository.saveChanges();
 
+			synchronized (this.syncLock) {
+				if (peer.getChainTipData() != null) {
+					this.blocksRemaining = peer.getChainTipData().getHeight() - newBlock.getBlockData().getHeight();
+				}
+			}
+
 			Controller.getInstance().onNewBlock(newBlock.getBlockData());
 		}
 
 		return SynchronizationResult.OK;
 	}
 
-	private List<BlockSummaryData> getBlockSummariesFromCache(Peer peer, byte[] parentSignature, int numberRequested) {
-		List<BlockSummaryData> peerSummaries = peer.getChainTipSummaries();
-		if (peerSummaries == null)
-			return null;
-
-		// Check if the requested parent block exists in peer's summaries cache
-		int parentIndex = IntStream.range(0, peerSummaries.size()).filter(i -> Arrays.equals(peerSummaries.get(i).getSignature(), parentSignature)).findFirst().orElse(-1);
-		if (parentIndex < 0)
-			return null;
-
-		// Peer's summaries contains the requested parent, so return summaries after that
-		// Make sure we have at least one block after the parent block
-		int summariesAvailable = peerSummaries.size() - parentIndex - 1;
-		if (summariesAvailable <= 0)
-			return null;
-
-		// Don't try and return more summaries than we have, or more than were requested
-		int summariesToReturn = Math.min(numberRequested, summariesAvailable);
-		int startIndex = parentIndex + 1;
-		int endIndex = startIndex + summariesToReturn - 1;
-		if (endIndex > peerSummaries.size() - 1)
-			return null;
-
-		LOGGER.trace("Serving {} block summaries from cache", summariesToReturn);
-		return peerSummaries.subList(startIndex, endIndex);
-	}
-
 	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
-		// We might be able to shortcut the response if we already have the summaries in the peer's chain tip data
-		List<BlockSummaryData> cachedSummaries = this.getBlockSummariesFromCache(peer, parentSignature, numberRequested);
-		if (cachedSummaries != null && !cachedSummaries.isEmpty())
-			return cachedSummaries;
-
-		LOGGER.trace("Requesting {} block summaries from peer {}", numberRequested, peer);
-
 		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getBlockSummariesMessage);
@@ -1626,8 +1616,20 @@ public class Synchronizer extends Thread {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);
-		if (message == null)
+		if (message == null) {
+			peer.getPeerData().incrementFailedSyncCount();
+			if (peer.getPeerData().getFailedSyncCount() >= MAX_CONSECUTIVE_FAILED_SYNC_ATTEMPTS) {
+				// Several failed attempts, so mark peer as misbehaved
+				LOGGER.info("Marking peer {} as misbehaved due to {} failed sync attempts", peer, peer.getPeerData().getFailedSyncCount());
+				Network.getInstance().peerMisbehaved(peer);
+			}
 			return null;
+		}
+
+		// Reset failed sync count now that we have a block response
+		// FUTURE: we could move this to the end of the sync process, but to reduce risk this can be done
+		// at a later stage. For now we are only defending against serialization errors or no responses.
+		peer.getPeerData().setFailedSyncCount(0);
 
 		switch (message.getType()) {
 			case BLOCK: {

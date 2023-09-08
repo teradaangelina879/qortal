@@ -73,7 +73,7 @@ public class CancelGroupBanTransaction extends Transaction {
 		Account member = getMember();
 
 		// Check ban actually exists
-		if (!this.repository.getGroupRepository().banExists(groupId, member.getAddress()))
+		if (!this.repository.getGroupRepository().banExists(groupId, member.getAddress(), this.groupUnbanTransactionData.getTimestamp()))
 			return ValidationResult.BAN_UNKNOWN;
 
 		// Check admin has enough funds

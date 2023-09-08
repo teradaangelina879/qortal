@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.CancelSellNameTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -81,7 +82,13 @@ public class CancelSellNameTransaction extends Transaction {
 
 	@Override
 	public void preProcess() throws DataException {
-		// Nothing to do
+		CancelSellNameTransactionData cancelSellNameTransactionData = (CancelSellNameTransactionData) transactionData;
+
+		// Rebuild this name in the Names table from the transaction history
+		// This is necessary because in some rare cases names can be missing from the Names table after registration
+		// but we have been unable to reproduce the issue and track down the root cause
+		NamesDatabaseIntegrityCheck namesDatabaseIntegrityCheck = new NamesDatabaseIntegrityCheck();
+		namesDatabaseIntegrityCheck.rebuildName(cancelSellNameTransactionData.getName(), this.repository);
 	}
 
 	@Override

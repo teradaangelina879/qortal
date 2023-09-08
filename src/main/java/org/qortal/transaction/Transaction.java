@@ -1,13 +1,7 @@
 package org.qortal.transaction;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -19,6 +13,7 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.Controller;
+import org.qortal.controller.TransactionImporter;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.group.GroupApprovalData;
@@ -69,8 +64,8 @@ public abstract class Transaction {
 		AT(21, false),
 		CREATE_GROUP(22, true),
 		UPDATE_GROUP(23, true),
-		ADD_GROUP_ADMIN(24, false),
-		REMOVE_GROUP_ADMIN(25, false),
+		ADD_GROUP_ADMIN(24, true),
+		REMOVE_GROUP_ADMIN(25, true),
 		GROUP_BAN(26, false),
 		CANCEL_GROUP_BAN(27, false),
 		GROUP_KICK(28, false),
@@ -250,8 +245,11 @@ public abstract class Transaction {
 		INVALID_TIMESTAMP_SIGNATURE(95),
 		ADDRESS_BLOCKED(96),
 		NAME_BLOCKED(97),
+		GROUP_APPROVAL_REQUIRED(98),
+		ACCOUNT_NOT_TRANSFERABLE(99),
 		INVALID_BUT_OK(999),
-		NOT_YET_RELEASED(1000);
+		NOT_YET_RELEASED(1000),
+		NOT_SUPPORTED(1001);
 
 		public final int value;
 
@@ -381,7 +379,7 @@ public abstract class Transaction {
 	 * @return
 	 */
 	public long getUnitFee(Long timestamp) {
-		return BlockChain.getInstance().getUnitFee();
+		return BlockChain.getInstance().getUnitFeeAtTimestamp(timestamp);
 	}
 
 	/**
@@ -621,7 +619,10 @@ public abstract class Transaction {
 	}
 
 	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		List<TransactionData> unconfirmedTransactions = TransactionImporter.getInstance().unconfirmedTransactionsCache;
+		if (unconfirmedTransactions == null) {
+			unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+		}
 
 		// We exclude CHAT transactions as they never get included into blocks and
 		// have spam/DoS prevention by requiring proof of work
@@ -636,7 +637,7 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Returns sorted, unconfirmed transactions, excluding invalid.
+	 * Returns sorted, unconfirmed transactions, excluding invalid and unconfirmable.
 	 * 
 	 * @return sorted, unconfirmed transactions
 	 * @throws DataException
@@ -645,7 +646,7 @@ public abstract class Transaction {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
 		EnumSet<TransactionType> excludedTxTypes = EnumSet.of(TransactionType.CHAT, TransactionType.PRESENCE);
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions(excludedTxTypes);
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions(excludedTxTypes, null);
 
 		unconfirmedTransactions.sort(getDataComparator());
 
@@ -654,7 +655,8 @@ public abstract class Transaction {
 			TransactionData transactionData = unconfirmedTransactionsIterator.next();
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
-			if (transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
+			// Must be confirmable and valid
+			if (!transaction.isConfirmable() || transaction.isStillValidUnconfirmed(latestBlockData.getTimestamp()) != ValidationResult.OK)
 				unconfirmedTransactionsIterator.remove();
 		}
 
@@ -760,9 +762,13 @@ public abstract class Transaction {
 			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
 			return true; // stops tx being included in block but it will eventually expire
 
+		String groupOwner = this.repository.getGroupRepository().getOwner(txGroupId);
+		boolean groupOwnedByNullAccount = Objects.equals(groupOwner, Group.NULL_OWNER_ADDRESS);
+
 		// If transaction's creator is group admin (of group with ID txGroupId) then auto-approve
+		// This is disabled for null-owned groups, since these require approval from other admins
 		PublicKeyAccount creator = this.getCreator();
-		if (groupRepository.adminExists(txGroupId, creator.getAddress()))
+		if (!groupOwnedByNullAccount && groupRepository.adminExists(txGroupId, creator.getAddress()))
 			return false;
 
 		return true;
@@ -886,6 +892,17 @@ public abstract class Transaction {
 	 */
 	protected void onImportAsUnconfirmed() throws DataException {
 		/* To be optionally overridden */
+	}
+
+	/**
+	 * Returns whether transaction is 'confirmable' - i.e. is of a type that
+	 * can be included in a block. Some transactions are 'unconfirmable'
+	 * and therefore must remain in the mempool until they expire.
+	 * @return
+	 */
+	public boolean isConfirmable() {
+		/* To be optionally overridden */
+		return true;
 	}
 
 	/**

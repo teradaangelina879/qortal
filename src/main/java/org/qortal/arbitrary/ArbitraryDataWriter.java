@@ -1,5 +1,7 @@
 package org.qortal.arbitrary;
 
+import com.j256.simplemagic.ContentInfo;
+import com.j256.simplemagic.ContentInfoUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,16 +25,15 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.net.FileNameMap;
+import java.net.URLConnection;
+import java.nio.file.*;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ArbitraryDataWriter {
 
@@ -50,6 +51,8 @@ public class ArbitraryDataWriter {
     private final String description;
     private final List<String> tags;
     private final Category category;
+    private List<String> files;
+    private String mimeType;
 
     private int chunkSize = ArbitraryDataFile.CHUNK_SIZE;
 
@@ -80,12 +83,15 @@ public class ArbitraryDataWriter {
         this.description = ArbitraryDataTransactionMetadata.limitDescription(description);
         this.tags = ArbitraryDataTransactionMetadata.limitTags(tags);
         this.category = category;
+        this.files = new ArrayList<>(); // Populated in buildFileList()
+        this.mimeType = null; // Populated in buildFileList()
     }
 
     public void save() throws IOException, DataException, InterruptedException, MissingDataException {
         try {
             this.preExecute();
             this.validateService();
+            this.buildFileList();
             this.process();
             this.compress();
             this.encrypt();
@@ -101,10 +107,9 @@ public class ArbitraryDataWriter {
     private void preExecute() throws DataException {
         this.checkEnabled();
 
-        // Enforce compression when uploading a directory
-        File file = new File(this.filePath.toString());
-        if (file.isDirectory() && compression == Compression.NONE) {
-            throw new DataException("Unable to upload a directory without compression");
+        // Enforce compression when uploading multiple files
+        if (!FilesystemUtils.isSingleFileResource(this.filePath, false) && compression == Compression.NONE) {
+            throw new DataException("Unable to publish multiple files without compression");
         }
 
         // Create temporary working directory
@@ -139,6 +144,48 @@ public class ArbitraryDataWriter {
             Service.ValidationResult result = this.service.validate(this.filePath);
             if (result != Service.ValidationResult.OK) {
                 throw new DataException(String.format("Validation of %s failed: %s", this.service, result.toString()));
+            }
+        }
+    }
+
+    private void buildFileList() throws IOException {
+        // Check if the path already points to a single file
+        boolean isSingleFile = this.filePath.toFile().isFile();
+        Path singleFilePath = null;
+        if (isSingleFile) {
+            this.files.add(this.filePath.getFileName().toString());
+            singleFilePath = this.filePath;
+        }
+        else {
+            // Multi file resources (or a single file in a directory) require a walk through the directory tree
+            try (Stream<Path> stream = Files.walk(this.filePath)) {
+                this.files = stream
+                        .filter(Files::isRegularFile)
+                        .map(p -> this.filePath.relativize(p).toString())
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toList());
+
+                if (this.files.size() == 1) {
+                    singleFilePath = Paths.get(this.filePath.toString(), this.files.get(0));
+
+                    // Update filePath to point to the single file (instead of the directory containing the file)
+                    this.filePath = singleFilePath;
+                }
+            }
+        }
+
+        if (singleFilePath != null) {
+            // Single file resource, so try and determine the MIME type
+            ContentInfoUtil util = new ContentInfoUtil();
+            ContentInfo info = util.findMatch(singleFilePath.toFile());
+            if (info != null) {
+                // Attempt to extract MIME type from file contents
+                this.mimeType = info.getMimeType();
+            }
+            else {
+                // Fall back to using the filename
+                FileNameMap fileNameMap = URLConnection.getFileNameMap();
+                this.mimeType = fileNameMap.getContentTypeFor(singleFilePath.toFile().getName());
             }
         }
     }
@@ -269,9 +316,6 @@ public class ArbitraryDataWriter {
         if (chunkCount > 0) {
             LOGGER.info(String.format("Successfully split into %d chunk%s", chunkCount, (chunkCount == 1 ? "" : "s")));
         }
-        else {
-            throw new DataException("Unable to split file into chunks");
-        }
     }
 
     private void createMetadataFile() throws IOException, DataException {
@@ -285,6 +329,8 @@ public class ArbitraryDataWriter {
             metadata.setTags(this.tags);
             metadata.setCategory(this.category);
             metadata.setChunks(this.arbitraryDataFile.chunkHashList());
+            metadata.setFiles(this.files);
+            metadata.setMimeType(this.mimeType);
             metadata.write();
 
             // Create an ArbitraryDataFile from the JSON file (we don't have a signature yet)

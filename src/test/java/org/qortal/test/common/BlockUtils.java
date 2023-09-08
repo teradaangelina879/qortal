@@ -20,6 +20,15 @@ public class BlockUtils {
 		return BlockMinter.mintTestingBlock(repository, mintingAccount);
 	}
 
+	/** Mints multiple blocks using "alice-reward-share" test account, and returns the final block. */
+	public static Block mintBlocks(Repository repository, int count) throws DataException {
+		Block block = null;
+		for (int i=0; i<count; i++) {
+			block = BlockUtils.mintBlock(repository);
+		}
+		return block;
+	}
+
 	public static Long getNextBlockReward(Repository repository) throws DataException {
 		int currentHeight = repository.getBlockRepository().getBlockchainHeight();
 

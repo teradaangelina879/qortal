@@ -64,7 +64,7 @@ public class ArbitraryMetadataMessage extends Message {
 		byteBuffer.get(data);
 
 		try {
-			ArbitraryDataFile arbitraryMetadataFile = new ArbitraryDataFile(data, signature);
+			ArbitraryDataFile arbitraryMetadataFile = new ArbitraryDataFile(data, signature, false);
 			return new ArbitraryMetadataMessage(id, signature, arbitraryMetadataFile);
 		} catch (DataException e) {
 			throw new MessageException("Unable to process arbitrary metadata message: " + e.getMessage(), e);

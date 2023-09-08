@@ -24,9 +24,9 @@ public interface ArbitraryRepository {
 	public ArbitraryTransactionData getLatestTransaction(String name, Service service, Method method, String identifier) throws DataException;
 
 
-	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly, List<String> namesFilter, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public List<ArbitraryResourceNameInfo> getArbitraryResourceCreatorNames(Service service, String identifier, boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException;
 

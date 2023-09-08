@@ -48,9 +48,6 @@ public class BlockChain {
 	/** Transaction expiry period, starting from transaction's timestamp, in milliseconds. */
 	private long transactionExpiryPeriod;
 
-	@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
-	private long unitFee;
-
 	private int maxBytesPerUnitFee;
 
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
@@ -73,7 +70,13 @@ public class BlockChain {
 		calcChainWeightTimestamp,
 		transactionV5Timestamp,
 		transactionV6Timestamp,
-		disableReferenceTimestamp;
+		disableReferenceTimestamp,
+		increaseOnlineAccountsDifficultyTimestamp,
+		onlineAccountMinterLevelValidationHeight,
+		selfSponsorshipAlgoV1Height,
+		feeValidationFixTimestamp,
+		chatReferenceTimestamp,
+		arbitraryOptionalFeeTimestamp;
 	}
 
 	// Custom transaction fees
@@ -83,6 +86,7 @@ public class BlockChain {
 		@XmlJavaTypeAdapter(value = org.qortal.api.AmountTypeAdapter.class)
 		public long fee;
 	}
+	private List<UnitFeesByTimestamp> unitFees;
 	private List<UnitFeesByTimestamp> nameRegistrationUnitFees;
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -94,6 +98,13 @@ public class BlockChain {
 
 	/** Whether only one registered name is allowed per account. */
 	private boolean oneNamePerAccount = false;
+
+	/** Checkpoints */
+	public static class Checkpoint {
+		public int height;
+		public String signature;
+	}
+	private List<Checkpoint> checkpoints;
 
 	/** Block rewards by block height */
 	public static class RewardByHeight {
@@ -195,9 +206,11 @@ public class BlockChain {
 	 * featureTriggers because unit tests need to set this value via Reflection. */
 	private long onlineAccountsModulusV2Timestamp;
 
-	/** Feature trigger timestamp for online accounts mempow verification. Can't use featureTriggers
-	 * because unit tests need to set this value via Reflection. */
-	private long onlineAccountsMemoryPoWTimestamp;
+	/** Snapshot timestamp for self sponsorship algo V1 */
+	private long selfSponsorshipAlgoV1SnapshotTimestamp;
+
+	/** Feature-trigger timestamp to modify behaviour of various transactions that support mempow */
+	private long mempowTransactionUpdatesTimestamp;
 
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
@@ -334,10 +347,6 @@ public class BlockChain {
 		return this.isTestChain;
 	}
 
-	public long getUnitFee() {
-		return this.unitFee;
-	}
-
 	public int getMaxBytesPerUnitFee() {
 		return this.maxBytesPerUnitFee;
 	}
@@ -359,8 +368,14 @@ public class BlockChain {
 		return this.onlineAccountsModulusV2Timestamp;
 	}
 
-	public long getOnlineAccountsMemoryPoWTimestamp() {
-		return this.onlineAccountsMemoryPoWTimestamp;
+	// Self sponsorship algo
+	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
+		return this.selfSponsorshipAlgoV1SnapshotTimestamp;
+	}
+
+	// Feature-trigger timestamp to modify behaviour of various transactions that support mempow
+	public long getMemPoWTransactionUpdatesTimestamp() {
+		return this.mempowTransactionUpdatesTimestamp;
 	}
 
 	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
@@ -374,6 +389,10 @@ public class BlockChain {
 
 	public boolean oneNamePerAccount() {
 		return this.oneNamePerAccount;
+	}
+
+	public List<Checkpoint> getCheckpoints() {
+		return this.checkpoints;
 	}
 
 	public List<RewardByHeight> getBlockRewardsByHeight() {
@@ -486,6 +505,30 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.disableReferenceTimestamp.name()).longValue();
 	}
 
+	public long getIncreaseOnlineAccountsDifficultyTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.increaseOnlineAccountsDifficultyTimestamp.name()).longValue();
+	}
+
+	public int getSelfSponsorshipAlgoV1Height() {
+		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV1Height.name()).intValue();
+	}
+
+	public long getOnlineAccountMinterLevelValidationHeight() {
+		return this.featureTriggers.get(FeatureTrigger.onlineAccountMinterLevelValidationHeight.name()).intValue();
+	}
+
+	public long getFeeValidationFixTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.feeValidationFixTimestamp.name()).longValue();
+	}
+
+	public long getChatReferenceTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.chatReferenceTimestamp.name()).longValue();
+	}
+
+	public long getArbitraryOptionalFeeTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.arbitraryOptionalFeeTimestamp.name()).longValue();
+	}
+
 
 	// More complex getters for aspects that change by height or timestamp
 
@@ -506,13 +549,22 @@ public class BlockChain {
 		throw new IllegalStateException(String.format("No block timing info available for height %d", ourHeight));
 	}
 
+	public long getUnitFeeAtTimestamp(long ourTimestamp) {
+		for (int i = unitFees.size() - 1; i >= 0; --i)
+			if (unitFees.get(i).timestamp <= ourTimestamp)
+				return unitFees.get(i).fee;
+
+		// Shouldn't happen, but set a sensible default just in case
+		return 100000;
+	}
+
 	public long getNameRegistrationUnitFeeAtTimestamp(long ourTimestamp) {
 		for (int i = nameRegistrationUnitFees.size() - 1; i >= 0; --i)
 			if (nameRegistrationUnitFees.get(i).timestamp <= ourTimestamp)
 				return nameRegistrationUnitFees.get(i).fee;
 
-		// Default to system-wide unit fee
-		return this.getUnitFee();
+		// Shouldn't happen, but set a sensible default just in case
+		return 100000;
 	}
 
 	public int getMaxRewardSharesAtTimestamp(long ourTimestamp) {
@@ -654,6 +706,7 @@ public class BlockChain {
 
 		boolean isTopOnly = Settings.getInstance().isTopOnly();
 		boolean archiveEnabled = Settings.getInstance().isArchiveEnabled();
+		boolean isLite = Settings.getInstance().isLite();
 		boolean canBootstrap = Settings.getInstance().getBootstrap();
 		boolean needsArchiveRebuild = false;
 		BlockData chainTip;
@@ -674,22 +727,44 @@ public class BlockChain {
 					}
 				}
 			}
+
+			// Validate checkpoints
+			// Limited to topOnly nodes for now, in order to reduce risk, and to solve a real-world problem with divergent topOnly nodes
+			// TODO: remove the isTopOnly conditional below once this feature has had more testing time
+			if (isTopOnly && !isLite) {
+				List<Checkpoint> checkpoints = BlockChain.getInstance().getCheckpoints();
+				for (Checkpoint checkpoint : checkpoints) {
+					BlockData blockData = repository.getBlockRepository().fromHeight(checkpoint.height);
+					if (blockData == null) {
+						// Try the archive
+						blockData = repository.getBlockArchiveRepository().fromHeight(checkpoint.height);
+					}
+					if (blockData == null) {
+						LOGGER.trace("Couldn't find block for height {}", checkpoint.height);
+						// This is likely due to the block being pruned, so is safe to ignore.
+						// Continue, as there might be other blocks we can check more definitively.
+						continue;
+					}
+
+					byte[] signature = Base58.decode(checkpoint.signature);
+					if (!Arrays.equals(signature, blockData.getSignature())) {
+						LOGGER.info("Error: block at height {} with signature {} doesn't match checkpoint sig: {}. Bootstrapping...", checkpoint.height, Base58.encode(blockData.getSignature()), checkpoint.signature);
+						needsArchiveRebuild = true;
+						break;
+					}
+					LOGGER.info("Block at height {} matches checkpoint signature", blockData.getHeight());
+				}
+			}
+
 		}
 
-		boolean hasBlocks = (chainTip != null && chainTip.getHeight() > 1);
+		// Check first block is Genesis Block
+		if (!isGenesisBlockValid() || needsArchiveRebuild) {
+			try {
+				rebuildBlockchain();
 
-		if (isTopOnly && hasBlocks) {
-			// Top-only mode is enabled and we have blocks, so it's possible that the genesis block has been pruned
-			// It's best not to validate it, and there's no real need to
-		} else {
-			// Check first block is Genesis Block
-			if (!isGenesisBlockValid() || needsArchiveRebuild) {
-				try {
-					rebuildBlockchain();
-
-				} catch (InterruptedException e) {
-					throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
-				}
+			} catch (InterruptedException e) {
+				throw new DataException(String.format("Interrupted when trying to rebuild blockchain: %s", e.getMessage()));
 			}
 		}
 
@@ -698,9 +773,7 @@ public class BlockChain {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.checkConsistency();
 
-			// Set the number of blocks to validate based on the pruned state of the chain
-			// If pruned, subtract an extra 10 to allow room for error
-			int blocksToValidate = (isTopOnly || archiveEnabled) ? Settings.getInstance().getPruneBlockLimit() - 10 : 1440;
+			int blocksToValidate = Math.min(Settings.getInstance().getPruneBlockLimit() - 10, 1440);
 
 			int startHeight = Math.max(repository.getBlockRepository().getBlockchainHeight() - blocksToValidate, 1);
 			BlockData detachedBlockData = repository.getBlockRepository().getDetachedBlockSignature(startHeight);
@@ -809,6 +882,9 @@ public class BlockChain {
 				BlockData orphanBlockData = repository.getBlockRepository().fromHeight(height);
 
 				while (height > targetHeight) {
+					if (Controller.isStopping()) {
+						return false;
+					}
 					LOGGER.info(String.format("Forcably orphaning block %d", height));
 
 					Block block = new Block(repository, orphanBlockData);

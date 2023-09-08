@@ -3,7 +3,6 @@ package org.qortal.api;
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-import org.eclipse.jetty.rewrite.handler.RewritePatternRule;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
@@ -16,6 +15,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.qortal.api.resource.AnnotationPostProcessor;
 import org.qortal.api.resource.ApiDefinition;
+import org.qortal.network.Network;
 import org.qortal.settings.Settings;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -38,7 +38,7 @@ public class DomainMapService {
 
 	private DomainMapService() {
 		this.config = new ResourceConfig();
-		this.config.packages("org.qortal.api.domainmap.resource");
+		this.config.packages("org.qortal.api.resource", "org.qortal.api.domainmap.resource");
 		this.config.register(OpenApiResource.class);
 		this.config.register(ApiDefinition.class);
 		this.config.register(AnnotationPostProcessor.class);
@@ -69,7 +69,7 @@ public class DomainMapService {
 					throw new RuntimeException("Failed to start SSL API due to broken keystore");
 
 				// BouncyCastle-specific SSLContext build
-				SSLContext sslContext = SSLContext.getInstance("TLS", "BCJSSE");
+				SSLContext sslContext = SSLContext.getInstance("TLSv1.3", "BCJSSE");
 				KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("PKIX", "BCJSSE");
 
 				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType(), "BC");
@@ -99,13 +99,13 @@ public class DomainMapService {
 				ServerConnector portUnifiedConnector = new ServerConnector(this.server,
 						new DetectorConnectionFactory(sslConnectionFactory),
 						httpConnectionFactory);
-				portUnifiedConnector.setHost(Settings.getInstance().getBindAddress());
+				portUnifiedConnector.setHost(Network.getInstance().getBindAddress());
 				portUnifiedConnector.setPort(Settings.getInstance().getDomainMapPort());
 
 				this.server.addConnector(portUnifiedConnector);
 			} else {
 				// Non-SSL
-				InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
+				InetAddress bindAddr = InetAddress.getByName(Network.getInstance().getBindAddress());
 				InetSocketAddress endpoint = new InetSocketAddress(bindAddr, Settings.getInstance().getDomainMapPort());
 				this.server = new Server(endpoint);
 			}

@@ -1,11 +1,13 @@
 package org.qortal.arbitrary.metadata;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,9 +21,11 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     private String description;
     private List<String> tags;
     private Category category;
+    private List<String> files;
+    private String mimeType;
 
     private static int MAX_TITLE_LENGTH = 80;
-    private static int MAX_DESCRIPTION_LENGTH = 500;
+    private static int MAX_DESCRIPTION_LENGTH = 240;
     private static int MAX_TAG_LENGTH = 20;
     private static int MAX_TAGS_COUNT = 5;
 
@@ -31,7 +35,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
     }
 
     @Override
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         if (this.jsonString == null) {
             throw new DataException("Transaction metadata JSON string is null");
         }
@@ -77,6 +81,24 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             }
             this.chunks = chunksList;
         }
+
+        List<String> filesList = new ArrayList<>();
+        if (metadata.has("files")) {
+            JSONArray files = metadata.getJSONArray("files");
+            if (files != null) {
+                for (int i=0; i<files.length(); i++) {
+                    String tag = files.getString(i);
+                    if (tag != null) {
+                        filesList.add(tag);
+                    }
+                }
+            }
+            this.files = filesList;
+        }
+
+        if (metadata.has("mimeType")) {
+            this.mimeType = metadata.getString("mimeType");
+        }
     }
 
     @Override
@@ -110,6 +132,18 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             }
         }
         outer.put("chunks", chunks);
+
+        JSONArray files = new JSONArray();
+        if (this.files != null) {
+            for (String file : this.files) {
+                files.put(file);
+            }
+        }
+        outer.put("files", files);
+
+        if (this.mimeType != null && !this.mimeType.isEmpty()) {
+            outer.put("mimeType", this.mimeType);
+        }
 
         this.jsonString = outer.toString(2);
         LOGGER.trace("Transaction metadata: {}", this.jsonString);
@@ -156,6 +190,22 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
         return this.category;
     }
 
+    public void setFiles(List<String> files) {
+        this.files = files;
+    }
+
+    public List<String> getFiles() {
+        return this.files;
+    }
+
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
+    }
+
+    public String getMimeType() {
+        return this.mimeType;
+    }
+
     public boolean containsChunk(byte[] chunk) {
         for (byte[] c : this.chunks) {
             if (Arrays.equals(c, chunk)) {
@@ -168,6 +218,25 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
 
     // Static helper methods
 
+    public static String trimUTF8String(String string, int maxLength) {
+        byte[] inputBytes = string.getBytes(StandardCharsets.UTF_8);
+        int length = Math.min(inputBytes.length, maxLength);
+        byte[] outputBytes = new byte[length];
+
+        System.arraycopy(inputBytes, 0, outputBytes, 0, length);
+        String result = new String(outputBytes, StandardCharsets.UTF_8);
+
+        // check if last character is truncated
+        int lastIndex = result.length() - 1;
+
+        if (lastIndex > 0 && result.charAt(lastIndex) != string.charAt(lastIndex)) {
+            // last character is truncated so remove the last character
+            return result.substring(0, lastIndex);
+        }
+
+        return result;
+    }
+
     public static String limitTitle(String title) {
         if (title == null) {
             return null;
@@ -176,7 +245,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             return null;
         }
 
-        return title.substring(0, Math.min(title.length(), MAX_TITLE_LENGTH));
+        return trimUTF8String(title, MAX_TITLE_LENGTH);
     }
 
     public static String limitDescription(String description) {
@@ -187,7 +256,7 @@ public class ArbitraryDataTransactionMetadata extends ArbitraryDataMetadata {
             return null;
         }
 
-        return description.substring(0, Math.min(description.length(), MAX_DESCRIPTION_LENGTH));
+        return trimUTF8String(description, MAX_DESCRIPTION_LENGTH);
     }
 
     public static List<String> limitTags(List<String> tags) {

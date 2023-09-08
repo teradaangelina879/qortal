@@ -9,6 +9,7 @@ import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.chat.ChatMessage;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -417,7 +418,7 @@ public class RepositoryTests extends Common {
 		try (final HSQLDBRepository hsqldb = (HSQLDBRepository) RepositoryManager.getRepository()) {
 			String address = Crypto.toAddress(new byte[32]);
 
-			hsqldb.getChatRepository().getActiveChats(address);
+			hsqldb.getChatRepository().getActiveChats(address, ChatMessage.Encoding.BASE58);
 		} catch (DataException e) {
 			fail("HSQLDB bug #1580");
 		}

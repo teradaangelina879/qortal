@@ -26,9 +26,6 @@ import org.qortal.data.block.CommonBlockData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
-import org.qortal.network.message.BlockSummariesV2Message;
-import org.qortal.network.message.HeightV2Message;
-import org.qortal.network.message.Message;
 import org.qortal.repository.BlockRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
@@ -37,6 +34,8 @@ import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import static org.junit.Assert.assertNotNull;
 
 // Minting new blocks
 
@@ -64,8 +63,8 @@ public class BlockMinter extends Thread {
 	public void run() {
 		Thread.currentThread().setName("BlockMinter");
 
-		if (Settings.getInstance().isLite()) {
-			// Lite nodes do not mint
+		if (Settings.getInstance().isTopOnly() || Settings.getInstance().isLite()) {
+			// Top only and lite nodes do not sign blocks
 			return;
 		}
 		if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
@@ -93,6 +92,8 @@ public class BlockMinter extends Thread {
 
 		List<Block> newBlocks = new ArrayList<>();
 
+		final boolean isSingleNodeTestnet = Settings.getInstance().isSingleNodeTestnet();
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
@@ -111,8 +112,9 @@ public class BlockMinter extends Thread {
 					// Free up any repository locks
 					repository.discardChanges();
 
-					// Sleep for a while
-					Thread.sleep(1000);
+					// Sleep for a while.
+					// It's faster on single node testnets, to allow lots of blocks to be minted quickly.
+					Thread.sleep(isSingleNodeTestnet ? 50 : 1000);
 
 					isMintingPossible = false;
 
@@ -223,9 +225,10 @@ public class BlockMinter extends Thread {
 					List<PrivateKeyAccount> newBlocksMintingAccounts = mintingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getPrivateKey())).collect(Collectors.toList());
 
 					// We might need to sit the next block out, if one of our minting accounts signed the previous one
+					// Skip this check for single node testnets, since they definitely need to mint every block
 					byte[] previousBlockMinter = previousBlockData.getMinterPublicKey();
 					boolean mintedLastBlock = mintingAccountsData.stream().anyMatch(mintingAccount -> Arrays.equals(mintingAccount.getPublicKey(), previousBlockMinter));
-					if (mintedLastBlock) {
+					if (mintedLastBlock && !isSingleNodeTestnet) {
 						LOGGER.trace(String.format("One of our keys signed the last block, so we won't sign the next one"));
 						continue;
 					}
@@ -244,7 +247,7 @@ public class BlockMinter extends Thread {
 							Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
 							if (newBlock == null) {
 								// For some reason we can't mint right now
-								moderatedLog(() -> LOGGER.error("Couldn't build a to-be-minted block"));
+								moderatedLog(() -> LOGGER.info("Couldn't build a to-be-minted block"));
 								continue;
 							}
 
@@ -377,8 +380,12 @@ public class BlockMinter extends Thread {
 						parentSignatureForLastLowWeightBlock = null;
 						timeOfLastLowWeightBlock = null;
 
+						Long unconfirmedStartTime = NTP.getTime();
+
 						// Add unconfirmed transactions
 						addUnconfirmedTransactions(repository, newBlock);
+
+						LOGGER.info(String.format("Adding %d unconfirmed transactions took %d ms", newBlock.getTransactions().size(), (NTP.getTime()-unconfirmedStartTime)));
 
 						// Sign to create block's signature
 						newBlock.sign();
@@ -426,6 +433,10 @@ public class BlockMinter extends Thread {
 							repository.discardChanges(); // clear transaction status to prevent deadlocks
 							Controller.getInstance().onNewBlock(newBlock.getBlockData());
 						} catch (DataException e) {
+							// Unable to process block - report and discard
+							LOGGER.error("Unable to process newly minted block?", e);
+							newBlocks.clear();
+						} catch (ArithmeticException e) {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly minted block?", e);
 							newBlocks.clear();
@@ -477,6 +488,9 @@ public class BlockMinter extends Thread {
 		// Sign to create block's signature, needed by Block.isValid()
 		newBlock.sign();
 
+		// User-defined limit per block
+		int limit = Settings.getInstance().getMaxTransactionsPerBlock();
+
 		// Attempt to add transactions until block is full, or we run out
 		// If a transaction makes the block invalid then skip it and it'll either expire or be in next block.
 		for (TransactionData transactionData : unconfirmedTransactions) {
@@ -488,6 +502,12 @@ public class BlockMinter extends Thread {
 			if (validationResult != ValidationResult.OK) {
 				LOGGER.debug(() -> String.format("Skipping invalid transaction %s during block minting", Base58.encode(transactionData.getSignature())));
 				newBlock.deleteTransaction(transactionData);
+			}
+
+			// User-defined limit per block
+			List<Transaction> transactions = newBlock.getTransactions();
+			if (transactions != null && transactions.size() >= limit) {
+				break;
 			}
 		}
 	}
@@ -507,6 +527,21 @@ public class BlockMinter extends Thread {
 
 		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
 
+		Block block = mintTestingBlockRetainingTimestamps(repository, mintingAccount);
+		assertNotNull("Minted block must not be null", block);
+
+		return block;
+	}
+
+	public static Block mintTestingBlockUnvalidated(Repository repository, PrivateKeyAccount... mintingAndOnlineAccounts) throws DataException {
+		if (!BlockChain.getInstance().isTestChain())
+			throw new DataException("Ignoring attempt to mint testing block for non-test chain!");
+
+		// Ensure mintingAccount is 'online' so blocks can be minted
+		OnlineAccountsManager.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
+
+		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
+
 		return mintTestingBlockRetainingTimestamps(repository, mintingAccount);
 	}
 
@@ -514,6 +549,8 @@ public class BlockMinter extends Thread {
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
 		Block newBlock = Block.mint(repository, previousBlockData, mintingAccount);
+		if (newBlock == null)
+			return null;
 
 		// Make sure we're the only thread modifying the blockchain
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
@@ -524,6 +561,9 @@ public class BlockMinter extends Thread {
 
 			// Sign to create block's signature
 			newBlock.sign();
+
+			// Ensure online accounts are fully re-validated in this final check
+			newBlock.clearOnlineAccountsValidationCache();
 
 			// Is newBlock still valid?
 			ValidationResult validationResult = newBlock.isValid();

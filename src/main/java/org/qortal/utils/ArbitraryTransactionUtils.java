@@ -3,11 +3,11 @@ package org.qortal.utils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.arbitrary.ArbitraryDataFileChunk;
-import org.qortal.arbitrary.ArbitraryDataReader;
-import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.*;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
+import org.qortal.data.arbitrary.ArbitraryResourceInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -110,13 +110,8 @@ public class ArbitraryTransactionUtils {
             return false;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         return arbitraryDataFile.allChunksExist();
     }
@@ -126,18 +121,13 @@ public class ArbitraryTransactionUtils {
             return false;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        if (metadataHash == null) {
+        if (transactionData.getMetadataHash() == null) {
             // This file doesn't have any metadata/chunks, which means none exist
             return false;
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         return arbitraryDataFile.anyChunksExist();
     }
@@ -147,12 +137,7 @@ public class ArbitraryTransactionUtils {
             return 0;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
         // Find the folder containing the files
         Path parentPath = arbitraryDataFile.getFilePath().getParent();
@@ -180,20 +165,15 @@ public class ArbitraryTransactionUtils {
             return 0;
         }
 
-        byte[] digest = transactionData.getData();
-        byte[] metadataHash = transactionData.getMetadataHash();
-        byte[] signature = transactionData.getSignature();
-
-        if (metadataHash == null) {
+        if (transactionData.getMetadataHash() == null) {
             // This file doesn't have any metadata, therefore it has a single (complete) chunk
             return 1;
         }
 
         // Load complete file and chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
-        return arbitraryDataFile.chunkCount() + 1; // +1 for the metadata file
+        return arbitraryDataFile.fileCount();
     }
 
     public static boolean isFileRecent(Path filePath, long now, long cleanupAfter) {
@@ -243,31 +223,24 @@ public class ArbitraryTransactionUtils {
     }
 
     public static void deleteCompleteFileAndChunks(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
-        byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-        byte[] signature = arbitraryTransactionData.getSignature();
-
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        arbitraryDataFile.setMetadataHash(metadataHash);
-        arbitraryDataFile.deleteAll();
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
+        arbitraryDataFile.deleteAll(true);
     }
 
     public static void convertFileToChunks(ArbitraryTransactionData arbitraryTransactionData, long now, long cleanupAfter) throws DataException {
-        byte[] completeHash = arbitraryTransactionData.getData();
-        byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-        byte[] signature = arbitraryTransactionData.getSignature();
-
         // Find the expected chunk hashes
-        ArbitraryDataFile expectedDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
-        expectedDataFile.setMetadataHash(metadataHash);
+        ArbitraryDataFile expectedDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
 
-        if (metadataHash == null || !expectedDataFile.getMetadataFile().exists()) {
+        if (arbitraryTransactionData.getMetadataHash() == null || !expectedDataFile.getMetadataFile().exists()) {
             // We don't have the metadata file, or this transaction doesn't have one - nothing to do
             return;
         }
 
+        byte[] completeHash = arbitraryTransactionData.getData();
+        byte[] signature = arbitraryTransactionData.getSignature();
+
         // Split the file into chunks
-        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(completeHash, signature);
+        ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
         int chunkCount = arbitraryDataFile.split(ArbitraryDataFile.CHUNK_SIZE);
         if (chunkCount > 1) {
             LOGGER.info(String.format("Successfully split %s into %d chunk%s",
@@ -426,7 +399,7 @@ public class ArbitraryTransactionUtils {
 
         // If "build" has been specified, build the resource before returning its status
         if (build != null && build == true) {
-            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
+            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
             try {
                 if (!reader.isBuilding()) {
                     reader.loadSynchronously(false);
@@ -438,6 +411,43 @@ public class ArbitraryTransactionUtils {
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
         return resource.getStatus(false);
+    }
+
+    public static List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
+        // Determine and add the status of each resource
+        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+        for (ArbitraryResourceInfo resourceInfo : resources) {
+            try {
+                ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
+                        resourceInfo.service, resourceInfo.identifier);
+                ArbitraryResourceStatus status = resource.getStatus(true);
+                if (status != null) {
+                    resourceInfo.status = status;
+                }
+                updatedResources.add(resourceInfo);
+
+            } catch (Exception e) {
+                // Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
+                LOGGER.info("Caught exception when adding status to resource {}: {}", resourceInfo, e.toString());
+            }
+        }
+        return updatedResources;
+    }
+
+    public static List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
+        // Add metadata fields to each resource if they exist
+        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
+        for (ArbitraryResourceInfo resourceInfo : resources) {
+            ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
+                    resourceInfo.service, resourceInfo.identifier);
+            ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
+            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
+            if (resourceMetadata != null) {
+                resourceInfo.metadata = resourceMetadata;
+            }
+            updatedResources.add(resourceInfo);
+        }
+        return updatedResources;
     }
 
 }

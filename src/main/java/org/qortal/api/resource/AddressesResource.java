@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -27,6 +28,7 @@ import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiException;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
+import org.qortal.api.model.AccountPenaltyStats;
 import org.qortal.api.model.ApiOnlineAccount;
 import org.qortal.api.model.RewardShareKeyRequest;
 import org.qortal.asset.Asset;
@@ -34,6 +36,7 @@ import org.qortal.controller.LiteNode;
 import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
+import org.qortal.data.account.AccountPenaltyData;
 import org.qortal.data.account.RewardShareData;
 import org.qortal.data.network.OnlineAccountData;
 import org.qortal.data.network.OnlineAccountLevel;
@@ -466,6 +469,54 @@ public class AddressesResource {
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/penalties")
+	@Operation(
+			summary = "Get addresses with penalties",
+			description = "Returns a list of accounts with a blocksMintedPenalty",
+			responses = {
+					@ApiResponse(
+							description = "accounts with penalties",
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = AccountPenaltyData.class)))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public List<AccountPenaltyData> getAccountsWithPenalties() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<AccountData> accounts = repository.getAccountRepository().getPenaltyAccounts();
+			List<AccountPenaltyData> penalties = accounts.stream().map(a -> new AccountPenaltyData(a.getAddress(), a.getBlocksMintedPenalty())).collect(Collectors.toList());
+
+			return penalties;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/penalties/stats")
+	@Operation(
+			summary = "Get stats about current penalties",
+			responses = {
+					@ApiResponse(
+							description = "aggregated stats about accounts with penalties",
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = AccountPenaltyStats.class)))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public AccountPenaltyStats getPenaltyStats() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			List<AccountData> accounts = repository.getAccountRepository().getPenaltyAccounts();
+			return AccountPenaltyStats.fromAccounts(accounts);
+
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

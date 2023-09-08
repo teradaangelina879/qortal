@@ -4,7 +4,7 @@ import java.nio.ByteBuffer;
 
 public class GenericUnknownMessage extends Message {
 
-    public static final long MINIMUM_PEER_VERSION = 0x03000400cbL;
+    public static final long MINIMUM_PEER_VERSION = 0x0300060001L;
 
     public GenericUnknownMessage() {
         super(MessageType.GENERIC_UNKNOWN);

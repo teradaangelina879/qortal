@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import com.google.common.io.Resources;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.HTMLParser;
@@ -34,36 +35,40 @@ public class ArbitraryDataRenderer {
     private final String resourceId;
     private final ResourceIdType resourceIdType;
     private final Service service;
+    private final String identifier;
     private String theme = "light";
     private String inPath;
     private final String secret58;
     private final String prefix;
-    private final boolean usePrefix;
+    private final boolean includeResourceIdInPrefix;
     private final boolean async;
+    private final String qdnContext;
     private final HttpServletRequest request;
     private final HttpServletResponse response;
     private final ServletContext context;
 
-    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                 String secret58, String prefix, boolean usePrefix, boolean async,
+    public ArbitraryDataRenderer(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                 String inPath, String secret58, String prefix, boolean includeResourceIdInPrefix, boolean async, String qdnContext,
                                  HttpServletRequest request, HttpServletResponse response, ServletContext context) {
 
         this.resourceId = resourceId;
         this.resourceIdType = resourceIdType;
         this.service = service;
+        this.identifier = identifier != null ? identifier : "default";
         this.inPath = inPath;
         this.secret58 = secret58;
         this.prefix = prefix;
-        this.usePrefix = usePrefix;
+        this.includeResourceIdInPrefix = includeResourceIdInPrefix;
         this.async = async;
+        this.qdnContext = qdnContext;
         this.request = request;
         this.response = response;
         this.context = context;
     }
 
     public HttpServletResponse render() {
-        if (!inPath.startsWith(File.separator)) {
-            inPath = File.separator + inPath;
+        if (!inPath.startsWith("/")) {
+            inPath = "/" + inPath;
         }
 
         // Don't render data if QDN is disabled
@@ -71,14 +76,14 @@ public class ArbitraryDataRenderer {
             return ArbitraryDataRenderer.getResponse(response, 500, "QDN is disabled in settings");
         }
 
-        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, null);
+        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, identifier);
         arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
         try {
             if (!arbitraryDataReader.isCachedDataAvailable()) {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {
                     arbitraryDataReader.loadAsynchronously(false, 10);
-                    return this.getLoadingResponse(service, resourceId, theme);
+                    return this.getLoadingResponse(service, resourceId, identifier, theme);
                 }
 
                 // Otherwise, loop until we have data
@@ -111,23 +116,64 @@ public class ArbitraryDataRenderer {
         }
         String unzippedPath = path.toString();
 
+        // Set path automatically for single file resources (except for apps, which handle routing differently)
+        String[] files = ArrayUtils.removeElement(new File(unzippedPath).list(), ".qortal");
+        if (files.length == 1 && this.service != Service.APP) {
+            // This is a single file resource
+            inPath = files[0];
+        }
+
         try {
             String filename = this.getFilename(unzippedPath, inPath);
-            String filePath = Paths.get(unzippedPath, filename).toString();
+            Path filePath = Paths.get(unzippedPath, filename);
+            boolean usingCustomRouting = false;
+            if (Files.isDirectory(filePath) && (!inPath.endsWith("/"))) {
+                inPath = inPath + "/";
+                filename = this.getFilename(unzippedPath, inPath);
+                filePath = Paths.get(unzippedPath, filename);
+            }
+            
+            // If the file doesn't exist, we may need to route the request elsewhere, or cleanup
+            if (!Files.exists(filePath)) {
+                if (inPath.equals("/")) {
+                    // Delete the unzipped folder if no index file was found
+                    try {
+                        FileUtils.deleteDirectory(new File(unzippedPath));
+                    } catch (IOException e) {
+                        LOGGER.debug("Unable to delete directory: {}", unzippedPath, e);
+                    }
+                }
+
+                // If this is an app, then forward all unhandled requests to the index, to give the app the option to route it
+                if (this.service == Service.APP) {
+                    // Locate index file
+                    List<String> indexFiles = ArbitraryDataRenderer.indexFiles();
+                    for (String indexFile : indexFiles) {
+                        Path indexPath = Paths.get(unzippedPath, indexFile);
+                        if (Files.exists(indexPath)) {
+                            // Forward request to index file
+                            filePath = indexPath;
+                            filename = indexFile;
+                            usingCustomRouting = true;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (HTMLParser.isHtmlFile(filename)) {
                 // HTML file - needs to be parsed
-                byte[] data = Files.readAllBytes(Paths.get(filePath)); // TODO: limit file size that can be read into memory
-                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, usePrefix, data);
+                byte[] data = Files.readAllBytes(filePath); // TODO: limit file size that can be read into memory
+                HTMLParser htmlParser = new HTMLParser(resourceId, inPath, prefix, includeResourceIdInPrefix, data, qdnContext, service, identifier, theme, usingCustomRouting);
                 htmlParser.addAdditionalHeaderTags();
-                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob:; img-src 'self' data: blob:;");
+                response.addHeader("Content-Security-Policy", "default-src 'self' 'unsafe-inline' 'unsafe-eval'; media-src 'self' data: blob:; img-src 'self' data: blob:;");
                 response.setContentType(context.getMimeType(filename));
                 response.setContentLength(htmlParser.getData().length);
                 response.getOutputStream().write(htmlParser.getData());
             }
             else {
                 // Regular file - can be streamed directly
-                File file = new File(filePath);
+                File file = filePath.toFile();
                 FileInputStream inputStream = new FileInputStream(file);
                 response.addHeader("Content-Security-Policy", "default-src 'self'");
                 response.setContentType(context.getMimeType(filename));
@@ -143,14 +189,6 @@ public class ArbitraryDataRenderer {
             return response;
         } catch (FileNotFoundException | NoSuchFileException e) {
             LOGGER.info("Unable to serve file: {}", e.getMessage());
-            if (inPath.equals("/")) {
-                // Delete the unzipped folder if no index file was found
-                try {
-                    FileUtils.deleteDirectory(new File(unzippedPath));
-                } catch (IOException ioException) {
-                    LOGGER.debug("Unable to delete directory: {}", unzippedPath, e);
-                }
-            }
         } catch (IOException e) {
             LOGGER.info("Unable to serve file at path {}: {}", inPath, e.getMessage());
         }
@@ -172,7 +210,7 @@ public class ArbitraryDataRenderer {
         return userPath;
     }
 
-    private HttpServletResponse getLoadingResponse(Service service, String name, String theme) {
+    private HttpServletResponse getLoadingResponse(Service service, String name, String identifier, String theme) {
         String responseString = "";
         URL url = Resources.getResource("loading/index.html");
         try {
@@ -181,6 +219,7 @@ public class ArbitraryDataRenderer {
             // Replace vars
             responseString = responseString.replace("%%SERVICE%%", service.toString());
             responseString = responseString.replace("%%NAME%%", name);
+            responseString = responseString.replace("%%IDENTIFIER%%", identifier);
             responseString = responseString.replace("%%THEME%%", theme);
 
         } catch (IOException e) {

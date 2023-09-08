@@ -1,9 +1,14 @@
 package org.qortal.data.chat;
 
+import org.bouncycastle.util.encoders.Base64;
+import org.qortal.utils.Base58;
+
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+
+import static org.qortal.data.chat.ChatMessage.Encoding;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class ActiveChats {
@@ -17,17 +22,39 @@ public class ActiveChats {
 		private Long timestamp;
 		private String sender;
 		private String senderName;
+		private byte[] signature;
+		private Encoding encoding;
+		private String data;
 
 		protected GroupChat() {
 			/* JAXB */
 		}
 
-		public GroupChat(int groupId, String groupName, Long timestamp, String sender, String senderName) {
+		public GroupChat(int groupId, String groupName, Long timestamp, String sender, String senderName,
+						 byte[] signature, Encoding encoding, byte[] data) {
 			this.groupId = groupId;
 			this.groupName = groupName;
 			this.timestamp = timestamp;
 			this.sender = sender;
 			this.senderName = senderName;
+			this.signature = signature;
+			this.encoding = encoding != null ? encoding : Encoding.BASE58;
+
+			if (data != null) {
+				switch (this.encoding) {
+					case BASE64:
+						this.data = Base64.toBase64String(data);
+						break;
+
+					case BASE58:
+					default:
+						this.data = Base58.encode(data);
+						break;
+				}
+			}
+			else {
+				this.data = null;
+			}
 		}
 
 		public int getGroupId() {
@@ -48,6 +75,14 @@ public class ActiveChats {
 
 		public String getSenderName() {
 			return this.senderName;
+		}
+
+		public byte[] getSignature() {
+			return this.signature;
+		}
+
+		public String getData() {
+			return this.data;
 		}
 	}
 

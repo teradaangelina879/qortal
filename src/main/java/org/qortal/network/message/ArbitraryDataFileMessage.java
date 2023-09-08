@@ -68,7 +68,7 @@ public class ArbitraryDataFileMessage extends Message {
 		byteBuffer.get(data);
 
 		try {
-			ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data, signature);
+			ArbitraryDataFile arbitraryDataFile = new ArbitraryDataFile(data, signature, false);
 			return new ArbitraryDataFileMessage(id, signature, arbitraryDataFile);
 		} catch (DataException e) {
 			LOGGER.info("Unable to process received file: {}", e.getMessage());

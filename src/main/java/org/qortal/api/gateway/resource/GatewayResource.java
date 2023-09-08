@@ -2,6 +2,7 @@ package org.qortal.api.gateway.resource;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.commons.lang3.StringUtils;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -16,6 +17,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 
 
 @Path("/")
@@ -76,50 +81,83 @@ public class GatewayResource {
 
 
     @GET
-    @Path("{name}/{path:.*}")
+    @Path("{path:.*}")
     @SecurityRequirement(name = "apiKey")
-    public HttpServletResponse getPathByName(@PathParam("name") String name,
-                                             @PathParam("path") String inPath) {
+    public HttpServletResponse getPath(@PathParam("path") String inPath) {
         // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
         Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "", true, true);
-    }
-
-    @GET
-    @Path("{name}")
-    @SecurityRequirement(name = "apiKey")
-    public HttpServletResponse getIndexByName(@PathParam("name") String name) {
-        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
-        Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "", true, true);
-    }
-
-
-    // Optional /site alternative for backwards support
-
-    @GET
-    @Path("/site/{name}/{path:.*}")
-    public HttpServletResponse getSitePathByName(@PathParam("name") String name,
-                                                 @PathParam("path") String inPath) {
-        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
-        Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, inPath, null, "/site", true, true);
-    }
-
-    @GET
-    @Path("/site/{name}")
-    public HttpServletResponse getSiteIndexByName(@PathParam("name") String name) {
-        // Block requests from localhost, to prevent websites/apps from running javascript that fetches unvetted data
-        Security.disallowLoopbackRequests(request);
-        return this.get(name, ResourceIdType.NAME, Service.WEBSITE, "/", null, "/site", true, true);
+        return this.parsePath(inPath, "gateway", null, true, true);
     }
 
     
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                    String secret58, String prefix, boolean usePrefix, boolean async) {
+    private HttpServletResponse parsePath(String inPath, String qdnContext, String secret58, boolean includeResourceIdInPrefix, boolean async) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
-                secret58, prefix, usePrefix, async, request, response, context);
+        if (inPath == null || inPath.equals("")) {
+            // Assume not a real file
+            return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
+        }
+
+        // Default service is WEBSITE
+        Service service = Service.WEBSITE;
+        String name = null;
+        String identifier = null;
+        String outPath = "";
+        List<String> prefixParts = new ArrayList<>();
+
+        if (!inPath.contains("/")) {
+            // Assume entire inPath is a registered name
+            name = inPath;
+        }
+        else {
+            // Parse the path to determine what we need to load
+            List<String> parts = new LinkedList<>(Arrays.asList(inPath.split("/")));
+
+            // Check if the first element is a service
+            try {
+                Service parsedService = Service.valueOf(parts.get(0).toUpperCase());
+                if (parsedService != null) {
+                    // First element matches a service, so we can assume it is one
+                    service = parsedService;
+                    parts.remove(0);
+                    prefixParts.add(service.name());
+                }
+            } catch (IllegalArgumentException e) {
+                // Not a service
+            }
+
+            if (parts.isEmpty()) {
+                // We need more than just a service
+                return ArbitraryDataRenderer.getResponse(response, 404, "Error 404: File Not Found");
+            }
+
+            // Service is removed, so assume first element is now a registered name
+            name = parts.get(0);
+            parts.remove(0);
+
+            if (!parts.isEmpty()) {
+                // Name is removed, so check if the first element is now an identifier
+                ArbitraryResourceStatus status = this.getStatus(service, name, parts.get(0), false);
+                if (status.getTotalChunkCount() > 0) {
+                    // Matched service, name and identifier combination - so assume this is an identifier and can be removed
+                    identifier = parts.get(0);
+                    parts.remove(0);
+                    prefixParts.add(identifier);
+                }
+            }
+
+            if (!parts.isEmpty()) {
+                // outPath can be built by combining any remaining parts
+                outPath = String.join("/", parts);
+            }
+        }
+
+        String prefix = StringUtils.join(prefixParts, "/");
+        if (prefix != null && prefix.length() > 0) {
+            prefix = "/" + prefix;
+        }
+
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(name, ResourceIdType.NAME, service, identifier, outPath,
+                secret58, prefix, includeResourceIdInPrefix, async, qdnContext, request, response, context);
         return renderer.render();
     }
 

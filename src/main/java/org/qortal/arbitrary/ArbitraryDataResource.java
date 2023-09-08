@@ -3,6 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.arbitrary.exception.DataNotPublishedException;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
@@ -10,13 +11,13 @@ import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.FilesystemUtils;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
@@ -42,6 +43,7 @@ public class ArbitraryDataResource {
     private int layerCount;
     private Integer localChunkCount = null;
     private Integer totalChunkCount = null;
+    private boolean exists = false;
 
     public ArbitraryDataResource(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
         this.resourceId = resourceId.toLowerCase();
@@ -60,6 +62,10 @@ public class ArbitraryDataResource {
         // Avoid this for "quick" statuses, to speed things up
         if (!quick) {
             this.calculateChunkCounts();
+
+            if (!this.exists) {
+                return new ArbitraryResourceStatus(Status.NOT_PUBLISHED, this.localChunkCount, this.totalChunkCount);
+            }
         }
 
         if (resourceIdType != ResourceIdType.NAME) {
@@ -68,8 +74,7 @@ public class ArbitraryDataResource {
         }
 
         // Check if the name is blocked
-        if (ResourceListManager.getInstance()
-                .listContains("blockedNames", this.resourceId, false)) {
+        if (ListUtils.isNameBlocked(this.resourceId)) {
             return new ArbitraryResourceStatus(Status.BLOCKED, this.localChunkCount, this.totalChunkCount);
         }
 
@@ -134,21 +139,23 @@ public class ArbitraryDataResource {
         return null;
     }
 
-    public boolean delete() {
+    public boolean delete(boolean deleteMetadata) {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
             for (ArbitraryTransactionData transactionData : transactionDataList) {
-                byte[] hash = transactionData.getData();
-                byte[] metadataHash = transactionData.getMetadataHash();
-                byte[] signature = transactionData.getSignature();
-                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-                arbitraryDataFile.setMetadataHash(metadataHash);
+                ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
+                if (arbitraryDataFile == null) {
+                    continue;
+                }
 
                 // Delete any chunks or complete files from each transaction
-                arbitraryDataFile.deleteAll();
+                arbitraryDataFile.deleteAll(deleteMetadata);
             }
 
             // Also delete cached data for the entire resource
@@ -192,6 +199,9 @@ public class ArbitraryDataResource {
 
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
@@ -211,6 +221,14 @@ public class ArbitraryDataResource {
     private void calculateChunkCounts() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                this.exists = false;
+                this.localChunkCount = 0;
+                this.totalChunkCount = 0;
+                return;
+            }
+
+            this.exists = true;
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
             int localChunkCount = 0;
@@ -230,6 +248,9 @@ public class ArbitraryDataResource {
     private boolean isRateLimited() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return true;
+            }
 
             List<ArbitraryTransactionData> transactionDataList = new ArrayList<>(this.transactions);
 
@@ -253,6 +274,10 @@ public class ArbitraryDataResource {
     private boolean isDataPotentiallyAvailable() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
+
             Long now = NTP.getTime();
             if (now == null) {
                 return false;
@@ -284,6 +309,10 @@ public class ArbitraryDataResource {
     private boolean isDownloading() {
         try {
             this.fetchTransactions();
+            if (this.transactions == null) {
+                return false;
+            }
+
             Long now = NTP.getTime();
             if (now == null) {
                 return false;
@@ -325,7 +354,7 @@ public class ArbitraryDataResource {
             if (latestPut == null) {
                 String message = String.format("Couldn't find PUT transaction for name %s, service %s and identifier %s",
                         this.resourceId, this.service, this.identifierString());
-                throw new DataException(message);
+                throw new DataNotPublishedException(message);
             }
             this.latestPutTransaction = latestPut;
 
@@ -336,7 +365,10 @@ public class ArbitraryDataResource {
             this.transactions = transactionDataList;
             this.layerCount = transactionDataList.size();
 
-        } catch (DataException e) {
+        } catch (DataNotPublishedException e) {
+            // Ignore without logging
+        }
+        catch (DataException e) {
             LOGGER.info(String.format("Repository error when fetching transactions for resource %s: %s", this, e.getMessage()));
         }
     }

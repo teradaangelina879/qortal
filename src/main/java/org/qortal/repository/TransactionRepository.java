@@ -126,6 +126,23 @@ public interface TransactionRepository {
 															List<Object> bindParams) throws DataException;
 
 	/**
+	 * Returns signatures for transactions that match search criteria, with optional limit.
+	 * <p>
+	 * Alternate version that allows for custom where clauses and bind params.
+	 * Only use for very specific use cases, such as the names integrity check.
+	 * Not advised to be used otherwise, given that it could be possible for
+	 * unsanitized inputs to be passed in if not careful.
+	 *
+	 * @param txType
+	 * @param whereClauses
+	 * @param bindParams
+	 * @return
+	 * @throws DataException
+	 */
+	public List<byte[]> getSignaturesMatchingCustomCriteria(TransactionType txType, List<String> whereClauses,
+															List<Object> bindParams, Integer limit) throws DataException;
+
+	/**
 	 * Returns signature for latest auto-update transaction.
 	 * <p>
 	 * Transaction must be <tt>CONFIRMED</tt> and <tt>APPROVED</tt>
@@ -178,6 +195,15 @@ public interface TransactionRepository {
 	 */
 	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
+
+	/**
+	 * Returns list of reward share transaction creators, excluding self shares.
+	 * This uses confirmed transactions only.
+	 *
+	 * @return
+	 * @throws DataException
+	 */
+	public List<String> getConfirmedRewardShareCreatorsExcludingSelfShares() throws DataException;
 
 	/**
 	 * Returns list of transactions pending approval, with optional txGgroupId filtering.
@@ -288,7 +314,7 @@ public interface TransactionRepository {
 	 * @return list of transactions, or empty if none.
 	 * @throws DataException
 	 */
-	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes) throws DataException;
+	public List<TransactionData> getUnconfirmedTransactions(EnumSet<TransactionType> excludedTxTypes, Integer limit) throws DataException;
 
 	/**
 	 * Remove transaction from unconfirmed transactions pile.
@@ -299,6 +325,8 @@ public interface TransactionRepository {
 	public void confirmTransaction(byte[] signature) throws DataException;
 
 	public void updateBlockHeight(byte[] signature, Integer height) throws DataException;
+
+	public void updateBlockSequence(byte[] signature, Integer sequence) throws DataException;
 
 	public void updateApprovalHeight(byte[] signature, Integer approvalHeight) throws DataException;
 

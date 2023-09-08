@@ -29,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.account.Account;
 import org.qortal.api.ApiService;
 import org.qortal.api.DomainMapService;
 import org.qortal.api.GatewayService;
@@ -401,12 +402,11 @@ public class Controller extends Thread {
 			RepositoryManager.setRequestedCheckpoint(Boolean.TRUE);
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				RepositoryManager.archive(repository);
-				RepositoryManager.prune(repository);
+				RepositoryManager.rebuildTransactionSequences(repository);
 			}
 		} catch (DataException e) {
-			// If exception has no cause then repository is in use by some other process.
-			if (e.getCause() == null) {
+			// If exception has no cause or message then repository is in use by some other process.
+			if (e.getCause() == null && e.getMessage() == null) {
 				LOGGER.info("Repository in use by another process?");
 				Gui.getInstance().fatalError("Repository issue", "Repository in use by another process?");
 			} else {
@@ -438,6 +438,19 @@ public class Controller extends Thread {
 				Gui.getInstance().fatalError("Blockchain validation issue", e);
 				return; // Not System.exit() so that GUI can display error
 			}
+		}
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			if (RepositoryManager.needsTransactionSequenceRebuild(repository)) {
+				// Don't allow the node to start if transaction sequences haven't been built yet
+				// This is needed to handle a case when bootstrapping
+				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
+				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
+				return;
+			}
+		} catch (DataException e) {
+			LOGGER.error("Error checking transaction sequences in repository", e);
+			return;
 		}
 
 		// Import current trade bot states and minting accounts if they exist
@@ -756,6 +769,28 @@ public class Controller extends Thread {
 		return peer.isAtLeastVersion(minPeerVersion) == false;
 	};
 
+	public static final Predicate<Peer> hasInvalidSigner = peer -> {
+		final BlockSummaryData peerChainTipData = peer.getChainTipData();
+		if (peerChainTipData == null)
+			return true;
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			return Account.getRewardShareEffectiveMintingLevel(repository, peerChainTipData.getMinterPublicKey()) == 0;
+		} catch (DataException e) {
+			return true;
+		}
+	};
+
+	public static final Predicate<Peer> wasRecentlyTooDivergent = peer -> {
+		Long now = NTP.getTime();
+		Long peerLastTooDivergentTime = peer.getLastTooDivergentTime();
+		if (now == null || peerLastTooDivergentTime == null)
+			return false;
+
+		// Exclude any peers that were TOO_DIVERGENT in the last 5 mins
+		return (now - peerLastTooDivergentTime < 5 * 60 * 1000L);
+	};
+
 	private long getRandomRepositoryMaintenanceInterval() {
 		final long minInterval = Settings.getInstance().getRepositoryMaintenanceMinInterval();
 		final long maxInterval = Settings.getInstance().getRepositoryMaintenanceMaxInterval();
@@ -838,6 +873,12 @@ public class Controller extends Thread {
 		String tooltip = String.format("%s - %d %s", actionText, numberOfPeers, connectionsText);
 		if (!Settings.getInstance().isLite()) {
 			tooltip = tooltip.concat(String.format(" - %s %d", heightText, height));
+
+			final Integer blocksRemaining = Synchronizer.getInstance().getBlocksRemaining();
+			if (blocksRemaining != null && blocksRemaining > 0) {
+				String blocksRemainingText = Translator.INSTANCE.translate("SysTray", "BLOCKS_REMAINING");
+				tooltip = tooltip.concat(String.format(" - %d %s", blocksRemaining, blocksRemainingText));
+			}
 		}
 		tooltip = tooltip.concat(String.format("\n%s: %s", Translator.INSTANCE.translate("SysTray", "BUILD_VERSION"), this.buildVersion));
 		SysTray.getInstance().setToolTipText(tooltip);
@@ -1237,13 +1278,6 @@ public class Controller extends Thread {
 				TransactionImporter.getInstance().onNetworkTransactionSignaturesMessage(peer, message);
 				break;
 
-			case GET_ONLINE_ACCOUNTS:
-			case ONLINE_ACCOUNTS:
-			case GET_ONLINE_ACCOUNTS_V2:
-			case ONLINE_ACCOUNTS_V2:
-				// No longer supported - to be eventually removed
-				break;
-
 			case GET_ONLINE_ACCOUNTS_V3:
 				OnlineAccountsManager.getInstance().onNetworkGetOnlineAccountsV3Message(peer, message);
 				break;
@@ -1350,9 +1384,24 @@ public class Controller extends Thread {
 			// If we have no block data, we should check the archive in case it's there
 			if (blockData == null) {
 				if (Settings.getInstance().isArchiveEnabled()) {
-					byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, true, repository);
-					if (bytes != null) {
-						CachedBlockMessage blockMessage = new CachedBlockMessage(bytes);
+					Triple<byte[], Integer, Integer> serializedBlock = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, true, repository);
+					if (serializedBlock != null) {
+						byte[] bytes = serializedBlock.getA();
+						Integer serializationVersion = serializedBlock.getB();
+
+						Message blockMessage;
+						switch (serializationVersion) {
+							case 1:
+								blockMessage = new CachedBlockMessage(bytes);
+								break;
+
+							case 2:
+								blockMessage = new CachedBlockV2Message(bytes);
+								break;
+
+							default:
+								return;
+						}
 						blockMessage.setId(message.getId());
 
 						// This call also causes the other needed data to be pulled in from repository
@@ -1601,6 +1650,17 @@ public class Controller extends Thread {
 					return;
 				}
 			}
+		}
+
+		if (message.hasId()) {
+			/*
+			 * Experimental proof-of-concept: discard messages with ID
+			 * These are 'late' reply messages received after timeout has expired,
+			 * having been passed upwards from Peer to Network to Controller.
+			 * Hence, these are NOT simple "here's my chain tip" broadcasts from other peers.
+			 */
+			LOGGER.debug("Discarding late {} message with ID {} from {}", message.getType().name(), message.getId(), peer);
+			return;
 		}
 
 		// Update peer chain tip data
@@ -1860,6 +1920,10 @@ public class Controller extends Thread {
 		final BlockData latestBlockData = getChainTip();
 		if (latestBlockData == null || latestBlockData.getTimestamp() < minLatestBlockTimestamp)
 			return false;
+
+		if (Settings.getInstance().isSingleNodeTestnet())
+			// Single node testnets won't have peers, so we can assume up to date from this point
+			return true;
 
 		// Needs a mutable copy of the unmodifiableList
 		List<Peer> peers = new ArrayList<>(Network.getInstance().getImmutableHandshakedPeers());

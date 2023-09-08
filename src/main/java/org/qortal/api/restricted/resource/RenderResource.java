@@ -1,4 +1,4 @@
-package org.qortal.api.resource;
+package org.qortal.api.restricted.resource;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -8,7 +8,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.io.*;
 import java.nio.file.Paths;
-import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,8 +27,8 @@ import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.repository.DataException;
-import org.qortal.settings.Settings;
 import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 
 
@@ -42,60 +41,6 @@ public class RenderResource {
     @Context HttpServletRequest request;
     @Context HttpServletResponse response;
     @Context ServletContext context;
-
-    @POST
-    @Path("/preview")
-    @Operation(
-            summary = "Generate preview URL based on a user-supplied path and service",
-            requestBody = @RequestBody(
-                    required = true,
-                    content = @Content(
-                            mediaType = MediaType.TEXT_PLAIN,
-                            schema = @Schema(
-                                    type = "string", example = "/Users/user/Documents/MyStaticWebsite"
-                            )
-                    )
-            ),
-            responses = {
-                    @ApiResponse(
-                            description = "a temporary URL to preview the website",
-                            content = @Content(
-                                    mediaType = MediaType.TEXT_PLAIN,
-                                    schema = @Schema(
-                                            type = "string"
-                                    )
-                            )
-                    )
-            }
-    )
-    @SecurityRequirement(name = "apiKey")
-    public String preview(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String directoryPath) {
-        Security.checkApiCallAllowed(request);
-        Method method = Method.PUT;
-        Compression compression = Compression.ZIP;
-
-        ArbitraryDataWriter arbitraryDataWriter = new ArbitraryDataWriter(Paths.get(directoryPath),
-                null, Service.WEBSITE, null, method, compression,
-                null, null, null, null);
-        try {
-            arbitraryDataWriter.save();
-        } catch (IOException | DataException | InterruptedException | MissingDataException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE);
-        } catch (RuntimeException e) {
-            LOGGER.info("Unable to create arbitrary data file: {}", e.getMessage());
-            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-        }
-
-        ArbitraryDataFile arbitraryDataFile = arbitraryDataWriter.getArbitraryDataFile();
-        if (arbitraryDataFile != null) {
-            String digest58 = arbitraryDataFile.digest58();
-            if (digest58 != null) {
-                return "http://localhost:12393/render/hash/" + digest58 + "?secret=" + Base58.encode(arbitraryDataFile.getSecret());
-            }
-        }
-        return "Unable to generate preview URL";
-    }
 
     @POST
     @Path("/authorize/{resourceId}")
@@ -140,8 +85,10 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexBySignature(@PathParam("signature") String signature,
                                                    @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
-        return this.get(signature, ResourceIdType.SIGNATURE, null, "/", null, "/render/signature", true, true, theme);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
+
+        return this.get(signature, ResourceIdType.SIGNATURE, null, null, "/", null, "/render/signature", true, true, theme);
     }
 
     @GET
@@ -149,8 +96,10 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getPathBySignature(@PathParam("signature") String signature, @PathParam("path") String inPath,
                                                   @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
-        return this.get(signature, ResourceIdType.SIGNATURE, null, inPath,null, "/render/signature", true, true, theme);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, signature, Service.WEBSITE, null);
+
+        return this.get(signature, ResourceIdType.SIGNATURE, null, null, inPath,null, "/render/signature", true, true, theme);
     }
 
     @GET
@@ -158,8 +107,10 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByHash(@PathParam("hash") String hash58, @QueryParam("secret") String secret58,
                                               @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
-        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, "/", secret58, "/render/hash", true, false, theme);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
+
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.ARBITRARY_DATA, null, "/", secret58, "/render/hash", true, false, theme);
     }
 
     @GET
@@ -168,8 +119,10 @@ public class RenderResource {
     public HttpServletResponse getPathByHash(@PathParam("hash") String hash58, @PathParam("path") String inPath,
                                              @QueryParam("secret") String secret58,
                                              @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
-        return this.get(hash58, ResourceIdType.FILE_HASH, Service.WEBSITE, inPath, secret58, "/render/hash", true, false, theme);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, hash58, Service.WEBSITE, null);
+
+        return this.get(hash58, ResourceIdType.FILE_HASH, Service.ARBITRARY_DATA, null, inPath, secret58, "/render/hash", true, false, theme);
     }
 
     @GET
@@ -178,10 +131,13 @@ public class RenderResource {
     public HttpServletResponse getPathByName(@PathParam("service") Service service,
                                              @PathParam("name") String name,
                                              @PathParam("path") String inPath,
+                                             @QueryParam("identifier") String identifier,
                                              @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, name, service, null);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, name, service, null);
+
         String prefix = String.format("/render/%s", service);
-        return this.get(name, ResourceIdType.NAME, service, inPath, null, prefix, true, true, theme);
+        return this.get(name, ResourceIdType.NAME, service, identifier, inPath, null, prefix, true, true, theme);
     }
 
     @GET
@@ -189,19 +145,22 @@ public class RenderResource {
     @SecurityRequirement(name = "apiKey")
     public HttpServletResponse getIndexByName(@PathParam("service") Service service,
                                               @PathParam("name") String name,
+                                              @QueryParam("identifier") String identifier,
                                               @QueryParam("theme") String theme) {
-        Security.requirePriorAuthorization(request, name, service, null);
+        if (!Settings.getInstance().isQDNAuthBypassEnabled())
+            Security.requirePriorAuthorization(request, name, service, null);
+
         String prefix = String.format("/render/%s", service);
-        return this.get(name, ResourceIdType.NAME, service, "/", null, prefix, true, true, theme);
+        return this.get(name, ResourceIdType.NAME, service, identifier, "/", null, prefix, true, true, theme);
     }
 
 
 
-    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String inPath,
-                                    String secret58, String prefix, boolean usePrefix, boolean async, String theme) {
+    private HttpServletResponse get(String resourceId, ResourceIdType resourceIdType, Service service, String identifier,
+                                    String inPath, String secret58, String prefix, boolean includeResourceIdInPrefix, boolean async, String theme) {
 
-        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, inPath,
-                secret58, prefix, usePrefix, async, request, response, context);
+        ArbitraryDataRenderer renderer = new ArbitraryDataRenderer(resourceId, resourceIdType, service, identifier, inPath,
+                secret58, prefix, includeResourceIdInPrefix, async, "render", request, response, context);
 
         if (theme != null) {
             renderer.setTheme(theme);

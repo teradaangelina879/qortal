@@ -5,9 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.bouncycastle.util.Longs;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceInfo;
-import org.qortal.crypto.Crypto;
 import org.qortal.data.arbitrary.ArbitraryResourceNameInfo;
-import org.qortal.data.network.ArbitraryPeerData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.*;
 import org.qortal.data.transaction.BaseTransactionData;
@@ -15,8 +13,10 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.ArbitraryRepository;
 import org.qortal.repository.DataException;
 import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -26,8 +26,6 @@ import java.util.List;
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBArbitraryRepository.class);
-
-	private static final int MAX_RAW_DATA_SIZE = 255; // size of VARBINARY
 
 	protected HSQLDBRepository repository;
 	
@@ -55,13 +53,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return true;
 		}
 
-		// Load hashes
-		byte[] hash = transactionData.getData();
-		byte[] metadataHash = transactionData.getMetadataHash();
-
 		// Load data file(s)
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-		arbitraryDataFile.setMetadataHash(metadataHash);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
 		// Check if we already have the complete data file or all chunks
 		if (arbitraryDataFile.allFilesExist()) {
@@ -84,13 +77,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				return transactionData.getData();
 			}
 
-			// Load hashes
-			byte[] digest = transactionData.getData();
-			byte[] metadataHash = transactionData.getMetadataHash();
-
 			// Load data file(s)
-			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(digest, signature);
-			arbitraryDataFile.setMetadataHash(metadataHash);
+			ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(transactionData);
 
 			// If we have the complete data file, return it
 			if (arbitraryDataFile.exists()) {
@@ -105,6 +93,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryDataFile.join();
 
 				// Verify that the combined hash matches the expected hash
+				byte[] digest = transactionData.getData();
 				if (!digest.equals(arbitraryDataFile.digest())) {
 					LOGGER.info(String.format("Hash mismatch for transaction: %s", Base58.encode(signature)));
 					return null;
@@ -132,11 +121,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		}
 
 		// Trivial-sized payloads can remain in raw form
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= MAX_RAW_DATA_SIZE) {
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= ArbitraryTransaction.MAX_DATA_SIZE) {
 			return;
 		}
 
-		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%d bytes). Please use ArbitraryDataWriter.", MAX_RAW_DATA_SIZE));
+		throw new IllegalStateException(String.format("Supplied data is larger than maximum size (%d bytes). Please use ArbitraryDataWriter.", ArbitraryTransaction.MAX_DATA_SIZE));
 	}
 
 	@Override
@@ -146,17 +135,11 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			return;
 		}
 
-		// Load hashes
-		byte[] hash = arbitraryTransactionData.getData();
-		byte[] metadataHash = arbitraryTransactionData.getMetadataHash();
-
 		// Load data file(s)
-		byte[] signature = arbitraryTransactionData.getSignature();
-		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromHash(hash, signature);
-		arbitraryDataFile.setMetadataHash(metadataHash);
+		ArbitraryDataFile arbitraryDataFile = ArbitraryDataFile.fromTransactionData(arbitraryTransactionData);
 
-		// Delete file and chunks
-		arbitraryDataFile.deleteAll();
+		// Delete file, chunks, and metadata
+		arbitraryDataFile.deleteAll(true);
 	}
 
 	@Override
@@ -202,7 +185,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 				int version = resultSet.getInt(11);
 				int nonce = resultSet.getInt(12);
-				Service serviceResult = Service.valueOf(resultSet.getInt(13));
+				int serviceInt = resultSet.getInt(13);
 				int size = resultSet.getInt(14);
 				boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 				DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
@@ -216,7 +199,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
 				ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-						version, serviceResult, nonce, size, nameResult, identifierResult, method, secret,
+						version, serviceInt, nonce, size, nameResult, identifierResult, method, secret,
 						compression, data, dataType, metadataHash, null);
 
 				arbitraryTransactionData.add(transactionData);
@@ -277,7 +260,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 			int version = resultSet.getInt(11);
 			int nonce = resultSet.getInt(12);
-			Service serviceResult = Service.valueOf(resultSet.getInt(13));
+			int serviceInt = resultSet.getInt(13);
 			int size = resultSet.getInt(14);
 			boolean isDataRaw = resultSet.getBoolean(15); // NOT NULL, so no null to false
 			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
@@ -291,7 +274,7 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			// FUTURE: get payments from signature if needed. Avoiding for now to reduce database calls.
 
 			ArbitraryTransactionData transactionData = new ArbitraryTransactionData(baseTransactionData,
-					version, serviceResult, nonce, size, nameResult, identifierResult, methodResult, secret,
+					version, serviceInt, nonce, size, nameResult, identifierResult, methodResult, secret,
 					compression, data, dataType, metadataHash, null);
 
 			return transactionData;
@@ -302,7 +285,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public List<ArbitraryResourceInfo> getArbitraryResources(Service service, String identifier, List<String> names,
-															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+															 boolean defaultResource,  Boolean followedOnly, Boolean excludeBlocked,
+															 Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
@@ -335,6 +319,36 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 			}
 
 			sql.append(")");
+		}
+
+		// Handle "followed only"
+		if (followedOnly != null && followedOnly) {
+			List<String> followedNames = ListUtils.followedNames();
+			if (followedNames != null && !followedNames.isEmpty()) {
+				sql.append(" AND name IN (?");
+				bindParams.add(followedNames.get(0));
+
+				for (int i = 1; i < followedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(followedNames.get(i));
+				}
+				sql.append(")");
+			}
+		}
+
+		// Handle "exclude blocked"
+		if (excludeBlocked != null && excludeBlocked) {
+			List<String> blockedNames = ListUtils.blockedNames();
+			if (blockedNames != null && !blockedNames.isEmpty()) {
+				sql.append(" AND name NOT IN (?");
+				bindParams.add(blockedNames.get(0));
+
+				for (int i = 1; i < blockedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(blockedNames.get(i));
+				}
+				sql.append(")");
+			}
 		}
 
 		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
@@ -378,37 +392,107 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 	}
 
 	@Override
-	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query,
-															 boolean defaultResource, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<ArbitraryResourceInfo> searchArbitraryResources(Service service, String query, String identifier, List<String> names, boolean prefixOnly,
+																List<String> exactMatchNames, boolean defaultResource, Boolean followedOnly, Boolean excludeBlocked,
+																Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
 		List<Object> bindParams = new ArrayList<>();
 
-		// For now we are searching anywhere in the fields
-		// Note that this will bypass any indexes so may not scale well
-		// Longer term we probably want to copy resources to their own table anyway
-		String queryWildcard = String.format("%%%s%%", query.toLowerCase());
-
-		sql.append("SELECT name, service, identifier, MAX(size) AS max_size FROM ArbitraryTransactions WHERE 1=1");
+		sql.append("SELECT name, service, identifier, MAX(size) AS max_size, MIN(created_when) AS date_created, MAX(created_when) AS date_updated " +
+				"FROM ArbitraryTransactions " +
+				"JOIN Transactions USING (signature) " +
+				"WHERE 1=1");
 
 		if (service != null) {
 			sql.append(" AND service = ");
 			sql.append(service.value);
 		}
 
-		if (defaultResource) {
-			// Default resource requested - use NULL identifier and search name only
-			sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
-			bindParams.add(queryWildcard);
+		// Handle general query matches
+		if (query != null) {
+			// Search anywhere in the fields, unless "prefixOnly" has been requested
+			// Note that without prefixOnly it will bypass any indexes so may not scale well
+			// Longer term we probably want to copy resources to their own table anyway
+			String queryWildcard = prefixOnly ? String.format("%s%%", query.toLowerCase()) : String.format("%%%s%%", query.toLowerCase());
+
+			if (defaultResource) {
+				// Default resource requested - use NULL identifier and search name only
+				sql.append(" AND LCASE(name) LIKE ? AND identifier IS NULL");
+				bindParams.add(queryWildcard);
+			} else {
+				// Non-default resource requested
+				// In this case we search the identifier as well as the name
+				sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
+				bindParams.add(queryWildcard);
+				bindParams.add(queryWildcard);
+			}
 		}
-		else {
-			// Non-default resource requested
-			// In this case we search the identifier as well as the name
-			sql.append(" AND (LCASE(name) LIKE ? OR LCASE(identifier) LIKE ?)");
-			bindParams.add(queryWildcard);
+
+		// Handle identifier matches
+		if (identifier != null) {
+			// Search anywhere in the identifier, unless "prefixOnly" has been requested
+			String queryWildcard = prefixOnly ? String.format("%s%%", identifier.toLowerCase()) : String.format("%%%s%%", identifier.toLowerCase());
+			sql.append(" AND LCASE(identifier) LIKE ?");
 			bindParams.add(queryWildcard);
 		}
 
-		sql.append(" GROUP BY name, service, identifier ORDER BY name COLLATE SQL_TEXT_UCC_NO_PAD");
+		// Handle name searches
+		if (names != null && !names.isEmpty()) {
+			sql.append(" AND (");
+
+			for (int i = 0; i < names.size(); ++i) {
+				// Search anywhere in the name, unless "prefixOnly" has been requested
+				String queryWildcard = prefixOnly ? String.format("%s%%", names.get(i).toLowerCase()) : String.format("%%%s%%", names.get(i).toLowerCase());
+				if (i > 0) sql.append(" OR ");
+				sql.append("LCASE(name) LIKE ?");
+				bindParams.add(queryWildcard);
+			}
+			sql.append(")");
+		}
+
+		// Handle name exact matches
+		if (exactMatchNames != null && !exactMatchNames.isEmpty()) {
+			sql.append(" AND LCASE(name) IN (?");
+			bindParams.add(exactMatchNames.get(0).toLowerCase());
+
+			for (int i = 1; i < exactMatchNames.size(); ++i) {
+				sql.append(", ?");
+				bindParams.add(exactMatchNames.get(i).toLowerCase());
+			}
+			sql.append(")");
+		}
+
+		// Handle "followed only"
+		if (followedOnly != null && followedOnly) {
+			List<String> followedNames = ListUtils.followedNames();
+			if (followedNames != null && !followedNames.isEmpty()) {
+				sql.append(" AND LCASE(name) IN (?");
+				bindParams.add(followedNames.get(0).toLowerCase());
+
+				for (int i = 1; i < followedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(followedNames.get(i).toLowerCase());
+				}
+				sql.append(")");
+			}
+		}
+
+		// Handle "exclude blocked"
+		if (excludeBlocked != null && excludeBlocked) {
+			List<String> blockedNames = ListUtils.blockedNames();
+			if (blockedNames != null && !blockedNames.isEmpty()) {
+				sql.append(" AND LCASE(name) NOT IN (?");
+				bindParams.add(blockedNames.get(0).toLowerCase());
+
+				for (int i = 1; i < blockedNames.size(); ++i) {
+					sql.append(", ?");
+					bindParams.add(blockedNames.get(i).toLowerCase());
+				}
+				sql.append(")");
+			}
+		}
+
+		sql.append(" GROUP BY name, service, identifier ORDER BY date_created");
 
 		if (reverse != null && reverse) {
 			sql.append(" DESC");
@@ -427,6 +511,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				Service serviceResult = Service.valueOf(resultSet.getInt(2));
 				String identifierResult = resultSet.getString(3);
 				Integer sizeResult = resultSet.getInt(4);
+				long dateCreated = resultSet.getLong(5);
+				long dateUpdated = resultSet.getLong(6);
 
 				// We should filter out resources without names
 				if (nameResult == null) {
@@ -438,6 +524,8 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 				arbitraryResourceInfo.service = serviceResult;
 				arbitraryResourceInfo.identifier = identifierResult;
 				arbitraryResourceInfo.size = Longs.valueOf(sizeResult);
+				arbitraryResourceInfo.created = dateCreated;
+				arbitraryResourceInfo.updated = dateUpdated;
 
 				arbitraryResources.add(arbitraryResourceInfo);
 			} while (resultSet.next());

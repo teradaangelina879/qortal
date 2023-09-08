@@ -24,6 +24,7 @@ import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.CrossChainOfferSummary;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
+import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
@@ -315,7 +316,7 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 					throw new DataException("Couldn't fetch historic trades from repository");
 
 				for (ATStateData historicAtState : historicAtStates) {
-					CrossChainOfferSummary historicOfferSummary = produceSummary(repository, acct, historicAtState, null);
+					CrossChainOfferSummary historicOfferSummary = produceSummary(repository, acct, historicAtState, null, null);
 
 					if (!isHistoric.test(historicOfferSummary))
 						continue;
@@ -330,8 +331,10 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 		}
 	}
 
-	private static CrossChainOfferSummary produceSummary(Repository repository, ACCT acct, ATStateData atState, Long timestamp) throws DataException {
-		CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
+	private static CrossChainOfferSummary produceSummary(Repository repository, ACCT acct, ATStateData atState, CrossChainTradeData crossChainTradeData, Long timestamp) throws DataException {
+		if (crossChainTradeData == null) {
+			crossChainTradeData = acct.populateTradeData(repository, atState);
+		}
 
 		long atStateTimestamp;
 
@@ -346,9 +349,16 @@ public class TradeOffersWebSocket extends ApiWebSocket implements Listener {
 
 	private static List<CrossChainOfferSummary> produceSummaries(Repository repository, ACCT acct, List<ATStateData> atStates, Long timestamp) throws DataException {
 		List<CrossChainOfferSummary> offerSummaries = new ArrayList<>();
+		for (ATStateData atState : atStates) {
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atState);
 
-		for (ATStateData atState : atStates)
-			offerSummaries.add(produceSummary(repository, acct, atState, timestamp));
+			// Ignore trade if it has failed
+			if (TradeBot.getInstance().isFailedTrade(repository, crossChainTradeData)) {
+				continue;
+			}
+
+			offerSummaries.add(produceSummary(repository, acct, atState, crossChainTradeData, timestamp));
+		}
 
 		return offerSummaries;
 	}

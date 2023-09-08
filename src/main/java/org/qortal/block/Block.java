@@ -84,6 +84,7 @@ public class Block {
 		TRANSACTION_PROCESSING_FAILED(53),
 		TRANSACTION_ALREADY_PROCESSED(54),
 		TRANSACTION_NEEDS_APPROVAL(55),
+		TRANSACTION_NOT_CONFIRMABLE(56),
 		AT_STATES_MISMATCH(61),
 		ONLINE_ACCOUNTS_INVALID(70),
 		ONLINE_ACCOUNT_UNKNOWN(71),
@@ -130,13 +131,16 @@ public class Block {
 	/** Locally-generated AT fees */
 	protected long ourAtFees; // Generated locally
 
+	/** Cached online accounts validation decision, to avoid revalidating when true */
+	private boolean onlineAccountsAlreadyValid = false;
+
 	@FunctionalInterface
 	private interface BlockRewardDistributor {
 		long distribute(long amount, Map<String, Long> balanceChanges) throws DataException;
 	}
 
 	/** Lazy-instantiated expanded info on block's online accounts. */
-	private static class ExpandedAccount {
+	public static class ExpandedAccount {
 		private final RewardShareData rewardShareData;
 		private final int sharePercent;
 		private final boolean isRecipientAlsoMinter;
@@ -167,6 +171,13 @@ public class Block {
 				this.recipientAccount = new Account(repository, this.rewardShareData.getRecipient());
 				this.recipientAccountData = repository.getAccountRepository().getAccount(this.recipientAccount.getAddress());
 			}
+		}
+
+		public Account getMintingAccount() {
+			return this.mintingAccount;
+		}
+		public Account getRecipientAccount() {
+			return this.recipientAccount;
 		}
 
 		/**
@@ -363,15 +374,24 @@ public class Block {
 			return null;
 		}
 
+		int height = parentBlockData.getHeight() + 1;
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
 		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
-		// Fetch our list of online accounts
+		// Fetch our list of online accounts, removing any that are missing a nonce
 		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
+		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
 
-		// If mempow is active, remove any legacy accounts that are missing a nonce
-		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-			onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+		// After feature trigger, remove any online accounts that are level 0
+		if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			onlineAccounts.removeIf(a -> {
+				try {
+					return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+				} catch (DataException e) {
+					// Something went wrong, so remove the account
+					return true;
+				}
+			});
 		}
 
 		if (onlineAccounts.isEmpty()) {
@@ -412,29 +432,27 @@ public class Block {
 		// Aggregated, single signature
 		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
 
-		// Add nonces to the end of the online accounts signatures if mempow is active
-		if (timestamp >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-			try {
-				// Create ordered list of nonce values
-				List<Integer> nonces = new ArrayList<>();
-				for (int i = 0; i < onlineAccountsCount; ++i) {
-					Integer accountIndex = accountIndexes.get(i);
-					OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
-					nonces.add(onlineAccountData.getNonce());
-				}
-
-				// Encode the nonces to a byte array
-				byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
-
-				// Append the encoded nonces to the encoded online account signatures
-				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-				outputStream.write(onlineAccountsSignatures);
-				outputStream.write(encodedNonces);
-				onlineAccountsSignatures = outputStream.toByteArray();
+		// Add nonces to the end of the online accounts signatures
+		try {
+			// Create ordered list of nonce values
+			List<Integer> nonces = new ArrayList<>();
+			for (int i = 0; i < onlineAccountsCount; ++i) {
+				Integer accountIndex = accountIndexes.get(i);
+				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+				nonces.add(onlineAccountData.getNonce());
 			}
-			catch (TransformationException | IOException e) {
-				return null;
-			}
+
+			// Encode the nonces to a byte array
+			byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+
+			// Append the encoded nonces to the encoded online account signatures
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			outputStream.write(onlineAccountsSignatures);
+			outputStream.write(encodedNonces);
+			onlineAccountsSignatures = outputStream.toByteArray();
+		}
+		catch (TransformationException | IOException e) {
+			return null;
 		}
 
 		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
@@ -442,7 +460,6 @@ public class Block {
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
-		int height = parentBlockData.getHeight() + 1;
 
 		int atCount = 0;
 		long atFees = 0;
@@ -550,6 +567,13 @@ public class Block {
 	}
 
 
+	/**
+	 * Force online accounts to be revalidated, e.g. at final stage of block minting.
+	 */
+	public void clearOnlineAccountsValidationCache() {
+		this.onlineAccountsAlreadyValid = false;
+	}
+
 	// More information
 
 	/**
@@ -642,6 +666,10 @@ public class Block {
 		this.atStates = atStateData;
 
 		return this.atStates;
+	}
+
+	public byte[] getAtStatesHash() {
+		return this.atStatesHash;
 	}
 
 	/**
@@ -1026,6 +1054,10 @@ public class Block {
 		if (this.blockData.getHeight() != null && this.blockData.getHeight() == 1)
 			return ValidationResult.OK;
 
+		// Don't bother revalidating if accounts have already been validated in this block
+		if (this.onlineAccountsAlreadyValid)
+			return ValidationResult.OK;
+
 		// Expand block's online accounts indexes into actual accounts
 		ConciseSet accountIndexes = BlockTransformer.decodeOnlineAccounts(this.blockData.getEncodedOnlineAccounts());
 		// We use count of online accounts to validate decoded account indexes
@@ -1035,6 +1067,15 @@ public class Block {
 		List<RewardShareData> onlineRewardShares = repository.getAccountRepository().getRewardSharesByIndexes(accountIndexes.toArray());
 		if (onlineRewardShares == null)
 			return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
+
+		// After feature trigger, require all online account minters to be greater than level 0
+		if (this.getBlockData().getHeight() >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+			List<ExpandedAccount> expandedAccounts = this.getExpandedAccounts();
+			for (ExpandedAccount account : expandedAccounts) {
+				if (account.getMintingAccount().getEffectiveMintingLevel() == 0)
+					return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+		}
 
 		// If block is past a certain age then we simply assume the signatures were correct
 		long signatureRequirementThreshold = NTP.getTime() - BlockChain.getInstance().getOnlineAccountSignaturesMinLifetime();
@@ -1047,14 +1088,9 @@ public class Block {
 		final int signaturesLength = Transformer.SIGNATURE_LENGTH;
 		final int noncesLength = onlineRewardShares.size() * Transformer.INT_LENGTH;
 
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-			// We expect nonces to be appended to the online accounts signatures
-			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
-		} else {
-			if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength)
-				return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
-		}
+		// We expect nonces to be appended to the online accounts signatures
+		if (this.blockData.getOnlineAccountsSignatures().length != signaturesLength + noncesLength)
+			return ValidationResult.ONLINE_ACCOUNT_SIGNATURES_MALFORMED;
 
 		// Check signatures
 		long onlineTimestamp = this.blockData.getOnlineAccountsTimestamp();
@@ -1063,31 +1099,32 @@ public class Block {
 		byte[] encodedOnlineAccountSignatures = this.blockData.getOnlineAccountsSignatures();
 
 		// Split online account signatures into signature(s) + nonces, then validate the nonces
-		if (this.blockData.getTimestamp() >= BlockChain.getInstance().getOnlineAccountsMemoryPoWTimestamp()) {
-			byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
-			byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
-			encodedOnlineAccountSignatures = extractedSignatures;
+		byte[] extractedSignatures = BlockTransformer.extract(encodedOnlineAccountSignatures, 0, signaturesLength);
+		byte[] extractedNonces = BlockTransformer.extract(encodedOnlineAccountSignatures, signaturesLength, onlineRewardShares.size() * Transformer.INT_LENGTH);
+		encodedOnlineAccountSignatures = extractedSignatures;
 
-			List<Integer> nonces = BlockTransformer.decodeOnlineAccountNonces(extractedNonces);
+		List<Integer> nonces = BlockTransformer.decodeOnlineAccountNonces(extractedNonces);
 
-			// Build block's view of online accounts (without signatures, as we don't need them here)
-			Set<OnlineAccountData> onlineAccounts = new HashSet<>();
-			for (int i = 0; i < onlineRewardShares.size(); ++i) {
-				Integer nonce = nonces.get(i);
-				byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
+		// Build block's view of online accounts (without signatures, as we don't need them here)
+		Set<OnlineAccountData> onlineAccounts = new HashSet<>();
+		for (int i = 0; i < onlineRewardShares.size(); ++i) {
+			Integer nonce = nonces.get(i);
+			byte[] publicKey = onlineRewardShares.get(i).getRewardSharePublicKey();
 
-				OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, null, publicKey, nonce);
-				onlineAccounts.add(onlineAccountData);
-			}
-
-			// Remove those already validated & cached by online accounts manager - no need to re-validate them
-			OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
-
-			// Validate the rest
-			for (OnlineAccountData onlineAccount : onlineAccounts)
-				if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, this.blockData.getTimestamp()))
-					return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
+			OnlineAccountData onlineAccountData = new OnlineAccountData(onlineTimestamp, null, publicKey, nonce);
+			onlineAccounts.add(onlineAccountData);
 		}
+
+		// Remove those already validated & cached by online accounts manager - no need to re-validate them
+		OnlineAccountsManager.getInstance().removeKnown(onlineAccounts, onlineTimestamp);
+
+		// Validate the rest
+		for (OnlineAccountData onlineAccount : onlineAccounts)
+			if (!OnlineAccountsManager.getInstance().verifyMemoryPoW(onlineAccount, null))
+				return ValidationResult.ONLINE_ACCOUNT_NONCE_INCORRECT;
+
+		// Cache the valid online accounts as they will likely be needed for the next block
+		OnlineAccountsManager.getInstance().addBlocksOnlineAccounts(onlineAccounts, onlineTimestamp);
 
 		// Extract online accounts' timestamp signatures from block data. Only one signature if aggregated.
 		List<byte[]> onlineAccountsSignatures = BlockTransformer.decodeTimestampSignatures(encodedOnlineAccountSignatures);
@@ -1107,6 +1144,9 @@ public class Block {
 
 		// All online accounts valid, so save our list of online accounts for potential later use
 		this.cachedOnlineRewardShares = onlineRewardShares;
+
+		// Remember that the accounts are valid, to speed up subsequent checks
+		this.onlineAccountsAlreadyValid = true;
 
 		return ValidationResult.OK;
 	}
@@ -1211,6 +1251,13 @@ public class Block {
 				if (transactionData.getTimestamp() > this.blockData.getTimestamp()
 						|| transaction.getDeadline() <= this.blockData.getTimestamp())
 					return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
+
+				// After feature trigger, check that this transaction is confirmable
+				if (transactionData.getTimestamp() >= BlockChain.getInstance().getMemPoWTransactionUpdatesTimestamp()) {
+					if (!transaction.isConfirmable()) {
+						return ValidationResult.TRANSACTION_NOT_CONFIRMABLE;
+					}
+				}
 
 				// Check transaction isn't already included in a block
 				if (this.repository.getTransactionRepository().isConfirmed(transactionData.getSignature()))
@@ -1445,6 +1492,9 @@ public class Block {
 			if (this.blockData.getHeight() == 212937)
 				// Apply fix for block 212937
 				Block212937.processFix(this);
+
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1501,25 +1551,48 @@ public class Block {
 		// Batch update in repository
 		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +1);
 
+		// Keep track of level bumps in case we need to apply to other entries
+		Map<String, Integer> bumpedAccounts = new HashMap<>();
+
 		// Local changes and also checks for level bump
 		for (AccountData accountData : allUniqueExpandedAccounts) {
 			// Adjust count locally (in Java)
 			accountData.setBlocksMinted(accountData.getBlocksMinted() + 1);
 			LOGGER.trace(() -> String.format("Block minter %s up to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {
 					if (newLevel > accountData.getLevel()) {
 						// Account has increased in level!
 						accountData.setLevel(newLevel);
+						bumpedAccounts.put(accountData.getAddress(), newLevel);
 						repository.getAccountRepository().setLevel(accountData);
 						LOGGER.trace(() -> String.format("Block minter %s bumped to level %d", accountData.getAddress(), accountData.getLevel()));
 					}
 
 					break;
 				}
+		}
+
+		// Also bump other entries if need be
+		if (!bumpedAccounts.isEmpty()) {
+			for (ExpandedAccount expandedAccount : expandedAccounts) {
+				Integer newLevel = bumpedAccounts.get(expandedAccount.mintingAccountData.getAddress());
+				if (newLevel != null && expandedAccount.mintingAccountData.getLevel() != newLevel) {
+					expandedAccount.mintingAccountData.setLevel(newLevel);
+					LOGGER.trace("Also bumped {} to level {}", expandedAccount.mintingAccountData.getAddress(), newLevel);
+				}
+
+				if (!expandedAccount.isRecipientAlsoMinter) {
+					newLevel = bumpedAccounts.get(expandedAccount.recipientAccountData.getAddress());
+					if (newLevel != null && expandedAccount.recipientAccountData.getLevel() != newLevel) {
+						expandedAccount.recipientAccountData.setLevel(newLevel);
+						LOGGER.trace("Also bumped {} to level {}", expandedAccount.recipientAccountData.getAddress(), newLevel);
+					}
+				}
+			}
 		}
 	}
 
@@ -1638,11 +1711,13 @@ public class Block {
 					transactionData.getSignature());
 			this.repository.getBlockRepository().save(blockTransactionData);
 
-			// Update transaction's height in repository
+			// Update transaction's height in repository and local transactionData
 			transactionRepository.updateBlockHeight(transactionData.getSignature(), this.blockData.getHeight());
-
-			// Update local transactionData's height too
 			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
+
+			// Update transaction's sequence in repository and local transactionData
+			transactionRepository.updateBlockSequence(transactionData.getSignature(), sequence);
+			transaction.getTransactionData().setBlockSequence(sequence);
 
 			// No longer unconfirmed
 			transactionRepository.confirmTransaction(transactionData.getSignature());
@@ -1679,6 +1754,9 @@ public class Block {
 			if (this.blockData.getHeight() == 212937)
 				// Revert fix for block 212937
 				Block212937.orphanFix(this);
+
+			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
 
 			// Block rewards, including transaction fees, removed after transactions undone
 			orphanBlockRewards();
@@ -1727,6 +1805,9 @@ public class Block {
 
 				// Unset height
 				transactionRepository.updateBlockHeight(transactionData.getSignature(), null);
+
+				// Unset sequence
+				transactionRepository.updateBlockSequence(transactionData.getSignature(), null);
 			}
 
 			transactionRepository.deleteParticipants(transactionData);
@@ -1808,7 +1889,7 @@ public class Block {
 			accountData.setBlocksMinted(accountData.getBlocksMinted() - 1);
 			LOGGER.trace(() -> String.format("Block minter %s down to %d minted block%s", accountData.getAddress(), accountData.getBlocksMinted(), (accountData.getBlocksMinted() != 1 ? "s" : "")));
 
-			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment();
+			final int effectiveBlocksMinted = accountData.getBlocksMinted() + accountData.getBlocksMintedAdjustment() + accountData.getBlocksMintedPenalty();
 
 			for (int newLevel = maximumLevel; newLevel >= 0; --newLevel)
 				if (effectiveBlocksMinted >= cumulativeBlocksByLevel.get(newLevel)) {

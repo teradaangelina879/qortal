@@ -2,8 +2,11 @@ package org.qortal.list;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.settings.Settings;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -18,6 +21,7 @@ public class ResourceListManager {
 
 
     public ResourceListManager() {
+        this.lists = this.fetchLists();
     }
 
     public static synchronized ResourceListManager getInstance() {
@@ -25,6 +29,38 @@ public class ResourceListManager {
             instance = new ResourceListManager();
         }
         return instance;
+    }
+
+    public static synchronized void reset() {
+        if (instance != null) {
+            instance = null;
+        }
+    }
+
+    private List<ResourceList> fetchLists() {
+        List<ResourceList> lists = new ArrayList<>();
+        Path listsPath = Paths.get(Settings.getInstance().getListsPath());
+
+        if (listsPath.toFile().isDirectory()) {
+            String[] files = listsPath.toFile().list();
+
+            for (String fileName : files) {
+                try {
+                    // Remove .json extension
+                    if (fileName.endsWith(".json")) {
+                        fileName = fileName.substring(0, fileName.length() - 5);
+                    }
+
+                    ResourceList list = new ResourceList(fileName);
+                    if (list != null) {
+                        lists.add(list);
+                    }
+                } catch (IOException e) {
+                    // Ignore this list
+                }
+            }
+        }
+        return lists;
     }
 
     private ResourceList getList(String listName) {
@@ -46,6 +82,18 @@ public class ResourceListManager {
             return null;
         }
 
+    }
+
+    private List<ResourceList> getListsByPrefix(String listNamePrefix) {
+        List<ResourceList> lists = new ArrayList<>();
+
+        for (ResourceList list : this.lists) {
+            if (list != null && list.getName() != null && list.getName().startsWith(listNamePrefix)) {
+                lists.add(list);
+            }
+        }
+
+        return lists;
     }
 
     public boolean addToList(String listName, String item, boolean save) {
@@ -95,6 +143,16 @@ public class ResourceListManager {
         return list.contains(item, caseSensitive);
     }
 
+    public boolean listWithPrefixContains(String listNamePrefix, String item, boolean caseSensitive) {
+        List<ResourceList> lists = getListsByPrefix(listNamePrefix);
+        for (ResourceList list : lists) {
+            if (list.contains(item, caseSensitive)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void saveList(String listName) {
         ResourceList list = this.getList(listName);
         if (list == null) {
@@ -131,6 +189,15 @@ public class ResourceListManager {
             return null;
         }
         return list.getList();
+    }
+
+    public List<String> getStringsInListsWithPrefix(String listNamePrefix) {
+        List<String> items = new ArrayList<>();
+        List<ResourceList> lists = getListsByPrefix(listNamePrefix);
+        for (ResourceList list : lists) {
+            items.addAll(list.getList());
+        }
+        return items;
     }
 
     public int getItemCountForList(String listName) {

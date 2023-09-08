@@ -43,8 +43,9 @@
       var host = location.protocol + '//' + location.host;
       var service = "%%SERVICE%%"
       var name = "%%NAME%%"
+      var identifier = "%%IDENTIFIER%%"
 
-      var url = host + '/arbitrary/resource/status/' + service + '/' + name + '?build=true';
+      var url = host + '/arbitrary/resource/status/' + service + '/' + name + '/' + identifier + '?build=true';
       var textStatus = "Loading...";
       var textProgress = "";
       var retryInterval = 2500;
@@ -74,18 +75,18 @@
       }
       else if (status.id == "BUILDING") {
         textStatus = status.description;
-        retryInterval = 1000;
+        retryInterval = 2000;
       }
       else if (status.id == "BUILD_FAILED") {
         textStatus = status.description;
       }
       else if (status.id == "NOT_STARTED") {
         textStatus = status.description;
-        retryInterval = 1000;
+        retryInterval = 2000;
       }
       else if (status.id == "DOWNLOADING") {
         textStatus = status.description;
-        retryInterval = 1000;
+        retryInterval = 2000;
       }
       else if (status.id == "MISSING_DATA") {
         textStatus = status.description;
@@ -96,8 +97,14 @@
       else if (status.id == "DOWNLOADED") {
         textStatus = status.description;
       }
+      else if (status.id == "NOT_PUBLISHED") {
+        document.getElementById("title").innerHTML = "File not found";
+        document.getElementById("description").innerHTML = "";
+        document.getElementById("c").style.opacity = "0.5";
+        textStatus = status.description;
+      }
 
-      if (status.localChunkCount != null && status.totalChunkCount != null) {
+      if (status.localChunkCount != null && status.totalChunkCount != null && status.totalChunkCount > 0) {
         textProgress = "Files downloaded: " + status.localChunkCount + " / " + status.totalChunkCount;
       }
 
@@ -275,8 +282,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 <div id="panel-outer">
   <div id="panel">
-    <h2>Loading</h2>
-    <p>
+    <h2 id="title">Loading</h2>
+    <p id="description">
       Files are being retrieved from the Qortal Data Network.
       This page will refresh automatically when the content becomes available.
     </p>

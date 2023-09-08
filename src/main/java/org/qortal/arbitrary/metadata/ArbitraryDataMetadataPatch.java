@@ -3,6 +3,7 @@ package org.qortal.arbitrary.metadata;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.qortal.arbitrary.ArbitraryDataDiff.*;
 import org.qortal.repository.DataException;
@@ -40,7 +41,7 @@ public class ArbitraryDataMetadataPatch extends ArbitraryDataQortalMetadata {
     }
 
     @Override
-    protected void readJson() throws DataException {
+    protected void readJson() throws DataException, JSONException {
         if (this.jsonString == null) {
             throw new DataException("Patch JSON string is null");
         }

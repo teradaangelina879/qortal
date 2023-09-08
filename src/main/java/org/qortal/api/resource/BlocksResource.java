@@ -48,6 +48,7 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
+import org.qortal.utils.Triple;
 
 @Path("/blocks")
 @Tag(name = "Blocks")
@@ -165,10 +166,13 @@ public class BlocksResource {
             }
 
             // Not found, so try the block archive
-            byte[] bytes = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, false, repository);
-            if (bytes != null) {
-				if (version != 1) {
-					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Archived blocks require version 1");
+            Triple<byte[], Integer, Integer> serializedBlock = BlockArchiveReader.getInstance().fetchSerializedBlockBytesForSignature(signature, false, repository);
+            if (serializedBlock != null) {
+				byte[] bytes = serializedBlock.getA();
+				Integer serializationVersion = serializedBlock.getB();
+				if (version != serializationVersion) {
+					// TODO: we could quite easily reserialize the block with the requested version
+					throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.INVALID_CRITERIA, "Block is not stored using requested serialization version.");
 				}
 				return Base58.encode(bytes);
             }
@@ -218,14 +222,25 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-		    // Check if the block exists in either the database or archive
-			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0 &&
-					repository.getBlockArchiveRepository().getHeightFromSignature(signature) == 0) {
-				// Not found in either the database or archive
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
-            }
+			// Check if the block exists in either the database or archive
+			int height = repository.getBlockRepository().getHeightFromSignature(signature);
+			if (height == 0) {
+				height = repository.getBlockArchiveRepository().getHeightFromSignature(signature);
+				if (height == 0) {
+					// Not found in either the database or archive
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_UNKNOWN);
+				}
+			}
 
-			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, height, height);
+
+			// Expand signatures to transactions
+			List<TransactionData> transactions = new ArrayList<>(signatures.size());
+			for (byte[] s : signatures) {
+				transactions.add(repository.getTransactionRepository().fromSignature(s));
+			}
+
+			return transactions;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -634,13 +649,16 @@ public class BlocksResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
-	public List<BlockData> getBlockRange(@PathParam("height") int height, @Parameter(
-		ref = "count"
-	) @QueryParam("count") int count) {
+	public List<BlockData> getBlockRange(@PathParam("height") int height,
+										 @Parameter(ref = "count") @QueryParam("count") int count,
+										 @Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse,
+										 @QueryParam("includeOnlineSignatures") Boolean includeOnlineSignatures) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<BlockData> blocks = new ArrayList<>();
+			boolean shouldReverse = (reverse != null && reverse == true);
 
-			for (/* count already set */; count > 0; --count, ++height) {
+			int i = 0;
+			while (i < count) {
 				BlockData blockData = repository.getBlockRepository().fromHeight(height);
 				if (blockData == null) {
 					// Not found - try the archive
@@ -650,8 +668,14 @@ public class BlocksResource {
 						break;
 					}
 				}
+				if (includeOnlineSignatures == null || includeOnlineSignatures == false) {
+					blockData.setOnlineAccountsSignatures(null);
+				}
 
 				blocks.add(blockData);
+
+				height = shouldReverse ? height - 1 : height + 1;
+				i++;
 			}
 
 			return blocks;

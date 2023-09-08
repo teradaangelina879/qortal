@@ -16,7 +16,6 @@ import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.list.ResourceListManager;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.repository.DataException;
@@ -27,6 +26,7 @@ import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
+import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
 
 public class ArbitraryDataManager extends Thread {
@@ -172,7 +172,7 @@ public class ArbitraryDataManager extends Thread {
 
 	private void processNames() throws InterruptedException {
 		// Fetch latest list of followed names
-		List<String> followedNames = ResourceListManager.getInstance().getStringsInList("followedNames");
+		List<String> followedNames = ListUtils.followedNames();
 		if (followedNames == null || followedNames.isEmpty()) {
 			return;
 		}
@@ -275,7 +275,10 @@ public class ArbitraryDataManager extends Thread {
 		int offset = 0;
 
 		while (!isStopping) {
-			Thread.sleep(1000L);
+			final int minSeconds = 3;
+			final int maxSeconds = 10;
+			final int randomSleepTime = new Random().nextInt((maxSeconds - minSeconds + 1)) + minSeconds;
+			Thread.sleep(randomSleepTime * 1000L);
 
 			// Any arbitrary transactions we want to fetch data for?
 			try (final Repository repository = RepositoryManager.getRepository()) {
@@ -398,6 +401,11 @@ public class ArbitraryDataManager extends Thread {
 	// Entrypoint to request new metadata from peers
 	public ArbitraryDataTransactionMetadata fetchMetadata(ArbitraryTransactionData arbitraryTransactionData) {
 
+		if (arbitraryTransactionData.getService() == null) {
+			// Can't fetch metadata without a valid service
+			return null;
+		}
+
 		ArbitraryDataResource resource = new ArbitraryDataResource(
 				arbitraryTransactionData.getName(),
 				ArbitraryDataFile.ResourceIdType.NAME,
@@ -489,7 +497,7 @@ public class ArbitraryDataManager extends Thread {
 	public void invalidateCache(ArbitraryTransactionData arbitraryTransactionData) {
 		String signature58 = Base58.encode(arbitraryTransactionData.getSignature());
 
-		if (arbitraryTransactionData.getName() != null) {
+		if (arbitraryTransactionData.getName() != null && arbitraryTransactionData.getService() != null) {
 			String resourceId = arbitraryTransactionData.getName().toLowerCase();
 			Service service = arbitraryTransactionData.getService();
 			String identifier = arbitraryTransactionData.getIdentifier();

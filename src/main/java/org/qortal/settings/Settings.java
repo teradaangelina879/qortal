@@ -47,6 +47,9 @@ public class Settings {
 	private static final int MAINNET_GATEWAY_PORT = 80;
 	private static final int TESTNET_GATEWAY_PORT = 8080;
 
+    private static final int MAINNET_DEV_PROXY_PORT = 12393;
+    private static final int TESTNET_DEV_PROXY_PORT = 62393;
+
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
 
@@ -61,6 +64,7 @@ public class Settings {
 
 	// Common to all networking (API/P2P)
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
+	private String bindAddressFallback = "0.0.0.0"; // Some systems are unable to bind using IPv6
 
 	// UI servers
 	private int uiPort = 12388;
@@ -104,13 +108,25 @@ public class Settings {
 	private Integer gatewayPort;
 	private boolean gatewayEnabled = false;
 	private boolean gatewayLoggingEnabled = false;
+	private boolean gatewayLoopbackEnabled = false;
+
+    // Developer Proxy
+	private Integer devProxyPort;
+    private boolean devProxyLoggingEnabled = false;
+
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 25;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
-	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
+	private int maxTransactionTimestampFuture = 30 * 60 * 1000; // milliseconds
+
+	/** Maximum number of CHAT transactions allowed per account in recent timeframe */
+	private int maxRecentChatMessagesPerAccount = 250;
+	/** Maximum age of a CHAT transaction to be considered 'recent' */
+	private long recentChatMessagesMaxAge = 60 * 60 * 1000L; // milliseconds
+
 	/** Whether we check, fetch and install auto-updates */
 	private boolean autoUpdateEnabled = true;
 	/** How long between repository backups (ms), or 0 if disabled. */
@@ -129,6 +145,9 @@ public class Settings {
 	private boolean showCheckpointNotification = false;
 	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
 	private int blockCacheSize = 10;
+
+	/** Maximum number of transactions for the block minter to include in a block */
+	private int maxTransactionsPerBlock = 50;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -153,7 +172,7 @@ public class Settings {
 	 * This prevents the node from being able to serve older blocks */
 	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
-	private int pruneBlockLimit = 1450;
+	private int pruneBlockLimit = 6000;
 
 	/** How often to attempt AT state pruning (ms). */
 	private long atStatesPruneInterval = 3219L; // milliseconds
@@ -172,6 +191,8 @@ public class Settings {
 	private boolean archiveEnabled = true;
 	/** How often to attempt archiving (ms). */
 	private long archiveInterval = 7171L; // milliseconds
+	/** Serialization version to use when building an archive */
+	private int defaultArchiveVersion = 2;
 
 
 	/** Whether to automatically bootstrap instead of syncing from genesis */
@@ -184,27 +205,32 @@ public class Settings {
 
 	// Peer-to-peer related
 	private boolean isTestNet = false;
+	/** Single node testnet mode */
+	private boolean singleNodeTestnet = false;
 	/** Port number for inbound peer-to-peer connections. */
 	private Integer listenPort;
 	/** Whether to attempt to open the listen port via UPnP */
 	private boolean uPnPEnabled = true;
 	/** Minimum number of peers to allow block minting / synchronization. */
-	private int minBlockchainPeers = 5;
+	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
 	private int minOutboundPeers = 16;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 36;
+	private int maxPeers = 40;
 	/** Number of slots to reserve for short-lived QDN data transfers */
 	private int maxDataPeers = 4;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 32;
+	private int maxNetworkThreadPoolSize = 120;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
 	private int maxRetries = 2;
 
+	/** The number of seconds of no activity before recovery mode begins */
+	public long recoveryModeTimeout = 9999999999999L;
+
 	/** Minimum peer version number required in order to sync with them */
-	private String minPeerVersion = "3.3.7";
+	private String minPeerVersion = "4.3.0";
 	/** Whether to allow connections with peers below minPeerVersion
 	 * If true, we won't sync with them but they can still sync with us, and will show in the peers list
 	 * If false, sync will be blocked both ways, and they will not appear in the peers list */
@@ -238,6 +264,9 @@ public class Settings {
 	/** Whether to show SysTray pop-up notifications when trade-bot entries change state */
 	private boolean tradebotSystrayEnabled = false;
 
+	/** Maximum buy attempts for each trade offer before it is considered failed, and hidden from the list */
+	private int maxTradeOfferAttempts = 3;
+
 	/** Wallets path - used for storing encrypted wallet caches for coins that require them */
 	private String walletsPath = "wallets";
 
@@ -249,7 +278,7 @@ public class Settings {
 	/** Repository storage path. */
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
-	private int repositoryConnectionPoolSize = 100;
+	private int repositoryConnectionPoolSize = 240;
 	private List<String> fixedNetwork;
 
 	// Export/import
@@ -262,7 +291,8 @@ public class Settings {
 	private String[] bootstrapHosts = new String[] {
 			"http://bootstrap.qortal.org",
 			"http://bootstrap2.qortal.org",
-			"http://62.171.190.193"
+			"http://bootstrap3.qortal.org",
+			"http://bootstrap.qortal.online"
 	};
 
 	// Auto-update sources
@@ -290,10 +320,6 @@ public class Settings {
 	/** Additional offset added to values returned by NTP.getTime() */
 	private Long testNtpOffset = null;
 
-	// Online accounts
-
-	/** Whether to opt-in to mempow computations for online accounts, ahead of general release */
-	private boolean onlineAccountsMemPoWEnabled = false;
 
 
 	/* Foreign chains */
@@ -343,7 +369,7 @@ public class Settings {
 	private Long maxStorageCapacity = null;
 
 	/** Whether to serve QDN data without authentication */
-	private boolean qdnAuthBypassEnabled = false;
+	private boolean qdnAuthBypassEnabled = true;
 
 	// Domain mapping
 	public static class DomainMap {
@@ -490,8 +516,11 @@ public class Settings {
 
 	private void validate() {
 		// Validation goes here
-		if (this.minBlockchainPeers < 1)
+		if (this.minBlockchainPeers < 1 && !singleNodeTestnet)
 			throwValidationError("minBlockchainPeers must be at least 1");
+
+		if (this.topOnly)
+			throwValidationError("topOnly mode is no longer supported");
 
 		if (this.apiKey != null && this.apiKey.trim().length() < 8)
 			throwValidationError("apiKey must be at least 8 characters");
@@ -626,6 +655,22 @@ public class Settings {
 		return this.gatewayLoggingEnabled;
 	}
 
+	public boolean isGatewayLoopbackEnabled() {
+		return this.gatewayLoopbackEnabled;
+	}
+
+
+    public int getDevProxyPort() {
+        if (this.devProxyPort != null)
+            return this.devProxyPort;
+
+        return this.isTestNet ? TESTNET_DEV_PROXY_PORT : MAINNET_DEV_PROXY_PORT;
+    }
+
+    public boolean isDevProxyLoggingEnabled() {
+        return this.devProxyLoggingEnabled;
+    }
+
 
 	public boolean getWipeUnconfirmedOnStart() {
 		return this.wipeUnconfirmedOnStart;
@@ -639,12 +684,28 @@ public class Settings {
 		return this.maxTransactionTimestampFuture;
 	}
 
+	public int getMaxRecentChatMessagesPerAccount() {
+		return this.maxRecentChatMessagesPerAccount;
+	}
+
+	public long getRecentChatMessagesMaxAge() {
+		return recentChatMessagesMaxAge;
+	}
+
 	public int getBlockCacheSize() {
 		return this.blockCacheSize;
 	}
 
+	public int getMaxTransactionsPerBlock() {
+		return this.maxTransactionsPerBlock;
+	}
+
 	public boolean isTestNet() {
 		return this.isTestNet;
+	}
+
+	public boolean isSingleNodeTestnet() {
+		return this.singleNodeTestnet;
 	}
 
 	public int getListenPort() {
@@ -662,11 +723,18 @@ public class Settings {
 		return this.bindAddress;
 	}
 
+	public String getBindAddressFallback() {
+		return this.bindAddressFallback;
+	}
+
 	public boolean isUPnPEnabled() {
 		return this.uPnPEnabled;
 	}
 
 	public int getMinBlockchainPeers() {
+		if (singleNodeTestnet)
+			return 0;
+
 		return this.minBlockchainPeers;
 	}
 
@@ -691,6 +759,10 @@ public class Settings {
 	}
 
 	public int getMaxRetries() { return this.maxRetries; }
+
+	public long getRecoveryModeTimeout() {
+		return recoveryModeTimeout;
+	}
 
 	public String getMinPeerVersion() { return this.minPeerVersion; }
 
@@ -730,6 +802,10 @@ public class Settings {
 
 	public PirateChainNet getPirateChainNet() {
 		return this.pirateChainNet;
+	}
+
+	public int getMaxTradeOfferAttempts() {
+		return this.maxTradeOfferAttempts;
 	}
 
 	public String getWalletsPath() {
@@ -798,10 +874,6 @@ public class Settings {
 
 	public Long getTestNtpOffset() {
 		return this.testNtpOffset;
-	}
-
-	public boolean isOnlineAccountsMemPoWEnabled() {
-		return this.onlineAccountsMemPoWEnabled;
 	}
 
 	public long getRepositoryBackupInterval() {
@@ -904,6 +976,10 @@ public class Settings {
 		return this.archiveInterval;
 	}
 
+	public int getDefaultArchiveVersion() {
+		return this.defaultArchiveVersion;
+	}
+
 
 	public boolean getBootstrap() {
 		return this.bootstrap;
@@ -972,6 +1048,10 @@ public class Settings {
 	}
 
 	public boolean isQDNAuthBypassEnabled() {
+		if (this.gatewayEnabled) {
+			// We must always bypass QDN authentication in gateway mode, in order for it to function properly
+			return true;
+		}
 		return this.qdnAuthBypassEnabled;
 	}
 }
