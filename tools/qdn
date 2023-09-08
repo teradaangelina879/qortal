@@ -131,12 +131,12 @@ if [[ "${method}" == "POST" ]]; then
   fi
   
   if [ -n "$fee" ]; then
-    if [[ "$fee" == "1" || "$fee" == ".001" ]]; then
-    fee="100000"
+    if [[ "$fee" == "1" || "$fee" == ".01" ]]; then
+    fee="1000000"
   elif [ -z "$fee" ]; then
     fee=""
   else 
-    echo "Error: Invalid fee value. Expected '1', '.001' or no input."
+    echo "Error: Invalid fee value. Expected '1', '.01' or no input."
     exit 1
     fi
     final_fee="${fee}"
