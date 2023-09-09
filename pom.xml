@@ -34,7 +34,7 @@
 		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
 		<jsoup.version>1.16.1</jsoup.version>
 		<java-diff-utils.version>4.12</java-diff-utils.version>
-		<grpc.version>1.57.2</grpc.version>
+		<grpc.version>1.58.0</grpc.version>
 		<protobuf.version>3.24.2</protobuf.version>
 		<simplemagic.version>1.17</simplemagic.version>
 	</properties>
@@ -168,7 +168,7 @@
 							<replacements>
 								<replacement>
 									<token>^(#.*$[\n\r]*)</token>
-									<value></value>
+									<value/>
 								</replacement>
 							</replacements>
 						</configuration>
@@ -367,7 +367,7 @@
 										</goals>
 									</pluginExecutionFilter>
 									<action>
-										<execute></execute>
+										<execute/>
 									</action>
 								</pluginExecution>
 								<pluginExecution>
@@ -386,7 +386,7 @@
 										</goals>
 									</pluginExecutionFilter>
 									<action>
-										<execute></execute>
+										<execute/>
 									</action>
 								</pluginExecution>
 							</pluginExecutions>
