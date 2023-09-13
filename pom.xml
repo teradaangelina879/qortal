@@ -15,7 +15,7 @@
 		<commons-net.version>3.8.0</commons-net.version>
 		<commons-text.version>1.10.0</commons-text.version>
 		<commons-io.version>2.13.0</commons-io.version>
-		<commons-compress.version>1.23.0</commons-compress.version>
+		<commons-compress.version>1.24.0</commons-compress.version>
 		<commons-lang3.version>3.13.0</commons-lang3.version>
 		<xz.version>1.9</xz.version>
 		<dagger.version>1.2.2</dagger.version>
@@ -35,7 +35,7 @@
 		<jsoup.version>1.16.1</jsoup.version>
 		<java-diff-utils.version>4.12</java-diff-utils.version>
 		<grpc.version>1.58.0</grpc.version>
-		<protobuf.version>3.24.2</protobuf.version>
+		<protobuf.version>3.24.3</protobuf.version>
 		<simplemagic.version>1.17</simplemagic.version>
 	</properties>
 	<build>
@@ -164,7 +164,9 @@
 						<configuration>
 							<file>${project.build.outputDirectory}/git.properties</file>
 							<regex>true</regex>
-							<regexFlags><regexFlag>MULTILINE</regexFlag></regexFlags>
+							<regexFlags>
+								<regexFlag>MULTILINE</regexFlag>
+							</regexFlags>
 							<replacements>
 								<replacement>
 									<token>^(#.*$[\n\r]*)</token>
@@ -414,14 +416,16 @@
 			<groupId>org.codehaus.mojo</groupId>
 			<artifactId>build-helper-maven-plugin</artifactId>
 			<version>3.4.0</version>
-			<scope>provided</scope><!-- needed for build, not for runtime -->
+			<scope>provided</scope>
+			<!-- needed for build, not for runtime -->
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.github.bohnman/package-info-maven-plugin -->
 		<dependency>
 			<groupId>com.github.bohnman</groupId>
 			<artifactId>package-info-maven-plugin</artifactId>
 			<version>${package-info-maven-plugin.version}</version>
-			<scope>provided</scope><!-- needed for build, not for runtime -->
+			<scope>provided</scope>
+			<!-- needed for build, not for runtime -->
 		</dependency>
 		<!-- HSQLDB for repository -->
 		<dependency>
@@ -638,7 +642,8 @@
 			<artifactId>jersey-hk2</artifactId>
 			<version>${jersey.version}</version>
 			<exclusions>
-				<exclusion><!-- exclude javax.inject-1.jar because other jersey modules include javax.inject v2+ -->
+				<exclusion>
+					<!-- exclude javax.inject-1.jar because other jersey modules include javax.inject v2+ -->
 					<groupId>javax.inject</groupId>
 					<artifactId>javax.inject</artifactId>
 				</exclusion>
@@ -665,7 +670,8 @@
 			<artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
 			<version>${swagger-api.version}</version>
 			<exclusions>
-				<exclusion><!-- excluded because included in swagger-jaxrs2-servlet-initializer -->
+				<exclusion>
+					<!-- excluded because included in swagger-jaxrs2-servlet-initializer -->
 					<groupId>io.swagger.core.v3</groupId>
 					<artifactId>swagger-integration</artifactId>
 				</exclusion>
