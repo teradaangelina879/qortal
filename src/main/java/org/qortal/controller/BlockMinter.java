@@ -23,6 +23,7 @@ import org.qortal.data.account.RewardShareData;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.CommonBlockData;
+import org.qortal.data.network.OnlineAccountData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
@@ -36,6 +37,7 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 // Minting new blocks
 
@@ -124,10 +126,6 @@ public class BlockMinter extends Thread {
 
 					final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 					if (minLatestBlockTimestamp == null)
-						continue;
-
-					// No online accounts for current timestamp? (e.g. during startup)
-					if (!OnlineAccountsManager.getInstance().hasOnlineAccounts())
 						continue;
 
 					List<MintingAccountData> mintingAccountsData = repository.getAccountRepository().getMintingAccounts();
@@ -541,6 +539,18 @@ public class BlockMinter extends Thread {
 		OnlineAccountsManager.getInstance().ensureTestingAccountsOnline(mintingAndOnlineAccounts);
 
 		PrivateKeyAccount mintingAccount = mintingAndOnlineAccounts[0];
+
+		return mintTestingBlockRetainingTimestamps(repository, mintingAccount);
+	}
+
+	public static Block mintTestingBlockUnvalidatedWithoutOnlineAccounts(Repository repository, PrivateKeyAccount mintingAccount) throws DataException {
+		if (!BlockChain.getInstance().isTestChain())
+			throw new DataException("Ignoring attempt to mint testing block for non-test chain!");
+
+		// Make sure there are no online accounts
+		OnlineAccountsManager.getInstance().removeAllOnlineAccounts();
+		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts();
+		assertTrue(onlineAccounts.isEmpty());
 
 		return mintTestingBlockRetainingTimestamps(repository, mintingAccount);
 	}

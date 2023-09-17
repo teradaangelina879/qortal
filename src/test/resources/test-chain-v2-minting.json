@@ -24,6 +24,9 @@
 	"onlineAccountsModulusV2Timestamp": 9999999999999,
 	"selfSponsorshipAlgoV1SnapshotTimestamp": 9999999999999,
 	"mempowTransactionUpdatesTimestamp": 9999999999999,
+	"blockRewardBatchStartHeight": 999999000,
+	"blockRewardBatchSize": 10,
+	"blockRewardBatchAccountsBlockCount": 3,
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 100 },
 		{ "height": 11, "reward": 10 },

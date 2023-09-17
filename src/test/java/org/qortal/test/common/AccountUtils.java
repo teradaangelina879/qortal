@@ -1,13 +1,16 @@
 package org.qortal.test.common;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.qortal.crypto.Qortal25519Extras.signForAggregation;
 
 import java.security.SecureRandom;
 import java.util.*;
 
 import com.google.common.primitives.Longs;
+import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
+import org.qortal.account.PublicKeyAccount;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.data.network.OnlineAccountData;
@@ -107,6 +110,12 @@ public class AccountUtils {
 		return sponsees;
 	}
 
+	public static Account createRandomAccount(Repository repository) {
+		byte[] randomPublicKey = new byte[32];
+		new Random().nextBytes(randomPublicKey);
+		return new PublicKeyAccount(repository, randomPublicKey);
+	}
+
 	public static Transaction.ValidationResult createRandomRewardShare(Repository repository, PrivateKeyAccount account) throws DataException {
 		// Bob attempts to create a reward share transaction
 		byte[] randomPrivateKey = new byte[32];
@@ -170,6 +179,24 @@ public class AccountUtils {
 		String assetName = repository.getAssetRepository().fromAssetId(assetId).getName();
 
 		assertEquals(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), expectedBalance, actualBalance);
+	}
+
+	public static void assertBalanceGreaterThan(Repository repository, String accountName, long assetId, long minimumBalance) throws DataException {
+		long actualBalance = getBalance(repository, accountName, assetId);
+		String assetName = repository.getAssetRepository().fromAssetId(assetId).getName();
+
+		assertTrue(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), actualBalance > minimumBalance);
+	}
+
+
+	public static int getBlocksMinted(Repository repository, String accountName) throws DataException {
+		return Common.getTestAccount(repository, accountName).getBlocksMinted();
+	}
+
+	public static void assertBlocksMinted(Repository repository, String accountName, int expectedBlocksMinted) throws DataException {
+		int actualBlocksMinted = getBlocksMinted(repository, accountName);
+
+		assertEquals(String.format("%s's blocks minted incorrect", accountName), expectedBlocksMinted, actualBlocksMinted);
 	}
 
 

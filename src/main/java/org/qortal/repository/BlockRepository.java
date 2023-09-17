@@ -133,6 +133,17 @@ public interface BlockRepository {
 	public List<BlockData> getBlocks(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
 	/**
+	 * Returns blocks within height range.
+	 */
+	public Long getTotalFeesInBlockRange(int firstBlockHeight, int lastBlockHeight) throws DataException;
+
+	/**
+	 * Returns block with highest online accounts count in specified range. If more than one block
+	 * has the same high count, the oldest one is returned.
+	 */
+	public BlockData getBlockInRangeWithHighestOnlineAccountsCount(int firstBlockHeight, int lastBlockHeight) throws DataException;
+
+	/**
 	 * Returns block summaries for the passed height range.
 	 */
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;

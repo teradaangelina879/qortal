@@ -212,6 +212,19 @@ public class BlockChain {
 	/** Feature-trigger timestamp to modify behaviour of various transactions that support mempow */
 	private long mempowTransactionUpdatesTimestamp;
 
+	/** Feature trigger block height for batch block reward payouts.
+	 * This MUST be a multiple of blockRewardBatchSize. Can't use
+	 * featureTriggers because unit tests need to set this value via Reflection. */
+	private int blockRewardBatchStartHeight;
+
+	/** Block reward batch size. Must be (significantly) less than block prune size,
+	 * as all blocks in the range need to be present in the repository when processing/orphaning */
+	private int blockRewardBatchSize;
+
+	/** Number of blocks prior to the batch reward distribution blocks to include online accounts
+	 * data and to base online accounts decisions on. */
+	private int blockRewardBatchAccountsBlockCount;
+
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
 		public long timestamp;
@@ -367,6 +380,21 @@ public class BlockChain {
 	public long getOnlineAccountsModulusV2Timestamp() {
 		return this.onlineAccountsModulusV2Timestamp;
 	}
+
+
+	/* Block reward batching */
+	public long getBlockRewardBatchStartHeight() {
+		return this.blockRewardBatchStartHeight;
+	}
+
+	public int getBlockRewardBatchSize() {
+		return this.blockRewardBatchSize;
+	}
+
+	public int getBlockRewardBatchAccountsBlockCount() {
+		return this.blockRewardBatchAccountsBlockCount;
+	}
+
 
 	// Self sponsorship algo
 	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
@@ -653,6 +681,22 @@ public class BlockChain {
 
 		if (totalShareV2 < 0 || totalShareV2 > 1_00000000L)
 			Settings.throwValidationError("Total non-founder share out of bounds (0<x<1e8)");
+
+		// Check that blockRewardBatchSize isn't zero
+		if (this.blockRewardBatchSize <= 0)
+			Settings.throwValidationError("\"blockRewardBatchSize\" must be greater than 0");
+
+		// Check that blockRewardBatchStartHeight is a multiple of blockRewardBatchSize
+		if (this.blockRewardBatchStartHeight % this.blockRewardBatchSize != 0)
+			Settings.throwValidationError("\"blockRewardBatchStartHeight\" must be a multiple of \"blockRewardBatchSize\"");
+
+		// Check that blockRewardBatchAccountsBlockCount isn't zero
+		if (this.blockRewardBatchAccountsBlockCount <= 0)
+			Settings.throwValidationError("\"blockRewardBatchAccountsBlockCount\" must be greater than 0");
+
+		// Check that blockRewardBatchSize isn't zero
+		if (this.blockRewardBatchAccountsBlockCount > this.blockRewardBatchSize)
+			Settings.throwValidationError("\"blockRewardBatchAccountsBlockCount\" must be less than or equal to \"blockRewardBatchSize\"");
 	}
 
 	/** Minor normalization, cached value generation, etc. */

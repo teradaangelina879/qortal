@@ -778,6 +778,13 @@ public class OnlineAccountsManager {
     }
 
 
+    // Utils
+
+    public void removeAllOnlineAccounts() {
+        this.currentOnlineAccounts.clear();
+    }
+
+
     // Network handlers
 
     public void onNetworkGetOnlineAccountsV3Message(Peer peer, Message message) {
