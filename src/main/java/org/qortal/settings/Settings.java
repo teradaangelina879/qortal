@@ -29,6 +29,7 @@ import org.qortal.crosschain.Dogecoin.DogecoinNet;
 import org.qortal.crosschain.Digibyte.DigibyteNet;
 import org.qortal.crosschain.Ravencoin.RavencoinNet;
 import org.qortal.crosschain.PirateChain.PirateChainNet;
+import org.qortal.network.message.MessageType;
 import org.qortal.utils.EnumUtils;
 
 // All properties to be converted to JSON via JAXB
@@ -371,6 +372,58 @@ public class Settings {
 	/** Whether to serve QDN data without authentication */
 	private boolean qdnAuthBypassEnabled = true;
 
+	/** Limit threads per message type */
+	private Set<ThreadLimit> maxThreadsPerMessageType = new HashSet<>();
+
+	/** The number of threads per message type at which a warning should be logged.
+	 * Exclude from settings.json to disable this warning. */
+	private Integer threadCountPerMessageTypeWarningThreshold = null;
+
+
+	// Domain mapping
+	public static class ThreadLimit {
+		private String messageType;
+		private Integer limit;
+
+		private ThreadLimit() { // makes JAXB happy; will never be invoked
+		}
+
+		private ThreadLimit(String messageType, Integer limit) {
+			this.messageType = messageType;
+			this.limit = limit;
+		}
+
+		public String getMessageType() {
+			return messageType;
+		}
+
+		public void setMessageType(String messageType) {
+			this.messageType = messageType;
+		}
+
+		public Integer getLimit() {
+			return limit;
+		}
+
+		public void setLimit(Integer limit) {
+			this.limit = limit;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (!(other instanceof ThreadLimit))
+				return false;
+
+			return this.messageType.equals(((ThreadLimit) other).getMessageType());
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(messageType);
+		}
+	}
+
+
 	// Domain mapping
 	public static class DomainMap {
 		private String domain;
@@ -497,6 +550,9 @@ public class Settings {
 			}
 		} while (settings.userPath != null);
 
+		// Set some additional defaults if needed
+		settings.setAdditionalDefaults();
+
 		// Validate settings
 		settings.validate();
 
@@ -531,6 +587,22 @@ public class Settings {
 			String possibleValues = EnumUtils.getNames(StoragePolicy.class, ", ");
 			throwValidationError(String.format("storagePolicy must be one of: %s", possibleValues));
 		}
+	}
+
+	private void setAdditionalDefaults() {
+		// Populate defaults for maxThreadsPerMessageType. If any are specified in settings.json, they will take priority.
+		maxThreadsPerMessageType.add(new ThreadLimit("ARBITRARY_DATA_FILE", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("GET_ARBITRARY_DATA_FILE", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("ARBITRARY_DATA", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("GET_ARBITRARY_DATA", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("ARBITRARY_DATA_FILE_LIST", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("GET_ARBITRARY_DATA_FILE_LIST", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("ARBITRARY_SIGNATURES", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("ARBITRARY_METADATA", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("GET_ARBITRARY_METADATA", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("GET_TRANSACTION", 10));
+		maxThreadsPerMessageType.add(new ThreadLimit("TRANSACTION_SIGNATURES", 5));
+		maxThreadsPerMessageType.add(new ThreadLimit("TRADE_PRESENCES", 5));
 	}
 
 	// Getters / setters
@@ -1053,5 +1125,21 @@ public class Settings {
 			return true;
 		}
 		return this.qdnAuthBypassEnabled;
+	}
+
+	public Integer getMaxThreadsForMessageType(MessageType messageType) {
+		if (maxThreadsPerMessageType != null) {
+			for (ThreadLimit threadLimit : maxThreadsPerMessageType) {
+				if (threadLimit.getMessageType().equals(messageType.name())) {
+					return threadLimit.getLimit();
+				}
+			}
+		}
+		// No entry, so assume unlimited
+		return null;
+	}
+
+	public Integer getThreadCountPerMessageTypeWarningThreshold() {
+		return this.threadCountPerMessageTypeWarningThreshold;
 	}
 }
