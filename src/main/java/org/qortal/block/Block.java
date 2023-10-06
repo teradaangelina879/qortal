@@ -1678,21 +1678,19 @@ public class Block {
 			// Add transaction fees since last distribution block
 			int firstBlock = this.getBlockData().getHeight() - BlockChain.getInstance().getBlockRewardBatchSize() + 1;
 			int lastBlock = this.blockData.getHeight() - 1;
-			Long startTime = NTP.getTime();
 			Long totalFees = repository.getBlockRepository().getTotalFeesInBlockRange(firstBlock, lastBlock);
-			LOGGER.info("[process] Fetching total fees took {} ms", (NTP.getTime()-startTime));
 			if (totalFees == null) {
 				throw new DataException("Unable to calculate total fees for block range");
 			}
 			reward += totalFees;
-			LOGGER.info("[process] Total fees for range {} - {}: {}", firstBlock, lastBlock, totalFees);
+			LOGGER.debug("Total fees for range {} - {} when processing: {}", firstBlock, lastBlock, totalFees);
 		}
 
 		// Add transaction fees for this block (it was excluded from the range above as it's not in the repository yet)
 		reward += this.blockData.getTotalFees();
-		LOGGER.info("[process] Total fees for block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
+		LOGGER.debug("Total fees when processing block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
 
-		LOGGER.info("[process] Block reward for height {}: {}", this.blockData.getHeight(), reward);
+		LOGGER.debug("Block reward when processing block {}: {}", this.blockData.getHeight(), reward);
 
 		// Nothing to reward?
 		if (reward <= 0)
@@ -1951,14 +1949,14 @@ public class Block {
 				throw new DataException("Unable to calculate total fees for block range");
 			}
 			reward += totalFees;
-			LOGGER.info("[orphan] Total fees for range {} - {}: {}", firstBlock, lastBlock, totalFees);
+			LOGGER.debug("Total fees for range {} - {} when orphaning: {}", firstBlock, lastBlock, totalFees);
 		}
 
 		// Add transaction fees for this block (it was excluded from the range above as it's not in the repository yet)
 		reward += this.blockData.getTotalFees();
-		LOGGER.info("[orphan] Total fees for block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
+		LOGGER.debug("Total fees when orphaning block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
 
-		LOGGER.info("[orphan] Block reward for height {}: {}", this.blockData.getHeight(), reward);
+		LOGGER.debug("Block reward when orphaning block {}: {}", this.blockData.getHeight(), reward);
 
 		// Nothing to reward?
 		if (reward <= 0)
