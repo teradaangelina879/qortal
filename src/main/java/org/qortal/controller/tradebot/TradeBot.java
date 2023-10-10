@@ -712,7 +712,7 @@ public class TradeBot implements Listener {
 			}
 
 			try {
-				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, Arrays.asList(Transaction.TransactionType.MESSAGE), null, null, crossChainTradeData.qortalCreatorTradeAddress, TransactionsResource.ConfirmationStatus.CONFIRMED, null, null, null);
+				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, Arrays.asList(Transaction.TransactionType.MESSAGE), null, null, crossChainTradeData.qortalCreatorTradeAddress, TransactionsResource.ConfirmationStatus.BOTH, null, null, null);
 				if (signatures.size() < getMaxTradeOfferAttempts) {
 					// Less than 3 (or user-specified number of) MESSAGE transactions relate to this trade, so assume it is ok
 					validTrades.put(crossChainTradeData.qortalAtAddress, now);
