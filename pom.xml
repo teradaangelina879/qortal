@@ -9,7 +9,7 @@
 		<skipTests>true</skipTests>
 		<altcoinj.version>7dc8c6f</altcoinj.version>
 		<bitcoinj.version>0.15.10</bitcoinj.version>
-		<bouncycastle.version>1.70</bouncycastle.version>
+		<bouncycastle.version>1.69</bouncycastle.version>
 		<build.timestamp>${maven.build.timestamp}</build.timestamp>
 		<ciyam-at.version>1.4.1</ciyam-at.version>
 		<commons-net.version>3.8.0</commons-net.version>
