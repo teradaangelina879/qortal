@@ -8,19 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-import java.util.stream.Collectors;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiException;
@@ -29,11 +16,7 @@ import org.qortal.api.model.NameSummary;
 import org.qortal.controller.LiteNode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.naming.NameData;
-import org.qortal.data.transaction.BuyNameTransactionData;
-import org.qortal.data.transaction.CancelSellNameTransactionData;
-import org.qortal.data.transaction.RegisterNameTransactionData;
-import org.qortal.data.transaction.SellNameTransactionData;
-import org.qortal.data.transaction.UpdateNameTransactionData;
+import org.qortal.data.transaction.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -41,13 +24,16 @@ import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
-import org.qortal.transform.transaction.BuyNameTransactionTransformer;
-import org.qortal.transform.transaction.CancelSellNameTransactionTransformer;
-import org.qortal.transform.transaction.RegisterNameTransactionTransformer;
-import org.qortal.transform.transaction.SellNameTransactionTransformer;
-import org.qortal.transform.transaction.UpdateNameTransactionTransformer;
+import org.qortal.transform.transaction.*;
 import org.qortal.utils.Base58;
 import org.qortal.utils.Unicode;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Path("/names")
 @Tag(name = "Names")

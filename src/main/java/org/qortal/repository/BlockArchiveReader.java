@@ -10,13 +10,13 @@ import org.qortal.transform.block.BlockTransformation;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Triple;
 
-import static org.qortal.transform.Transformer.INT_LENGTH;
-
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+
+import static org.qortal.transform.Transformer.INT_LENGTH;
 
 public class BlockArchiveReader {
 

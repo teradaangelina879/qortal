@@ -1,18 +1,13 @@
 package org.qortal.transaction;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
-import org.qortal.controller.arbitrary.ArbitraryDataCacheManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.crypto.Crypto;
@@ -27,7 +22,6 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
@@ -35,6 +29,11 @@ import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.NTP;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class ArbitraryTransaction extends Transaction {
 

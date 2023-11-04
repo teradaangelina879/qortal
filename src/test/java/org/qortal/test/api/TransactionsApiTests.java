@@ -1,16 +1,16 @@
 package org.qortal.test.api;
 
-import static org.junit.Assert.*;
-
-import java.util.Arrays;
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.api.resource.TransactionsResource;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.test.common.ApiCommon;
 import org.qortal.transaction.Transaction.TransactionType;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.Assert.assertNotNull;
 
 public class TransactionsApiTests extends ApiCommon {
 

@@ -1,30 +1,5 @@
 package org.qortal.controller;
 
-import java.awt.TrayIcon.MessageType;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.Security;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -38,8 +13,8 @@ import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.arbitrary.*;
-import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
+import org.qortal.controller.repository.PruneManager;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
@@ -65,6 +40,30 @@ import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.*;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import java.awt.TrayIcon.MessageType;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.Security;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class Controller extends Thread {
 

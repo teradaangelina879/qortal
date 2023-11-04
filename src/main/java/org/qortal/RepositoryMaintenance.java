@@ -1,8 +1,5 @@
 package org.qortal;
 
-import java.security.Security;
-import java.util.concurrent.TimeoutException;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -14,6 +11,9 @@ import org.qortal.repository.RepositoryFactory;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
+
+import java.security.Security;
+import java.util.concurrent.TimeoutException;
 
 public class RepositoryMaintenance {
 

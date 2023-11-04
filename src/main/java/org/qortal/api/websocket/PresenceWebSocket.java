@@ -1,23 +1,7 @@
 package org.qortal.api.websocket;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
-import org.eclipse.jetty.websocket.api.annotations.WebSocket;
+import org.eclipse.jetty.websocket.api.annotations.*;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
@@ -34,6 +18,13 @@ import org.qortal.transaction.PresenceTransaction.PresenceType;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @WebSocket
 @SuppressWarnings("serial")

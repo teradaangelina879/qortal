@@ -1,19 +1,18 @@
 package org.qortal.test.crosschain.apps;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.script.Script.ScriptType;
-import org.qortal.crosschain.Litecoin;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.BitcoinyHTLC;
+import org.qortal.crosschain.Litecoin;
 
-import com.google.common.hash.HashCode;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 public class BuildHTLC {
 

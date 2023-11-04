@@ -3,10 +3,9 @@ package org.qortal.data.chat;
 import org.bouncycastle.util.encoders.Base64;
 import org.qortal.utils.Base58;
 
-import java.util.List;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import java.util.List;
 
 import static org.qortal.data.chat.ChatMessage.Encoding;
 

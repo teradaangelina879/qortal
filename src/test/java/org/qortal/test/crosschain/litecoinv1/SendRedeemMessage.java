@@ -1,5 +1,6 @@
 package org.qortal.test.crosschain.litecoinv1;
 
+import com.google.common.hash.HashCode;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.controller.Controller;
 import org.qortal.crosschain.LitecoinACCTv1;
@@ -15,8 +16,6 @@ import org.qortal.transaction.MessageTransaction;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
-
-import com.google.common.hash.HashCode;
 
 public class SendRedeemMessage {
 

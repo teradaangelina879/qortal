@@ -1,15 +1,14 @@
 package org.qortal.data.account;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
+import org.json.JSONObject;
+import org.qortal.crypto.Crypto;
+import org.qortal.utils.Base58;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
-
-import org.json.JSONObject;
-import org.qortal.crypto.Crypto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
-import org.qortal.utils.Base58;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

@@ -1,14 +1,14 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.qortal.account.Account;
 import org.qortal.block.BlockChain;
 import org.qortal.data.transaction.AccountLevelTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+
+import java.util.Collections;
+import java.util.List;
 
 public class AccountLevelTransaction extends Transaction {
 

@@ -1,14 +1,13 @@
 package org.qortal.network.message;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.block.BlockTransformer;
 
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public class HeightV2Message extends Message {
 

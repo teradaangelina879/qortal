@@ -12,9 +12,8 @@ import org.qortal.test.common.AccountUtils;
 import org.qortal.transform.Transformer;
 
 import java.math.BigInteger;
-import java.security.SecureRandom;
 import java.security.Security;
-import java.util.*;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;

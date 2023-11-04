@@ -1,14 +1,14 @@
 package org.qortal.crosschain;
 
+import org.qortal.utils.ByteArray;
+import org.qortal.utils.Triple;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import org.qortal.utils.ByteArray;
-import org.qortal.utils.Triple;
 
 public enum SupportedBlockchain {
 

@@ -4,7 +4,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
-
 import org.qortal.data.block.BlockData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;

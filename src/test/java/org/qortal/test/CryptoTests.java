@@ -1,16 +1,24 @@
 package org.qortal.test;
 
+import com.google.common.hash.HashCode;
+import org.bouncycastle.crypto.agreement.X25519Agreement;
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.AES;
-import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.crypto.Crypto;
+import org.qortal.crypto.Qortal25519Extras;
 import org.qortal.test.common.Common;
 import org.qortal.utils.Base58;
 
-import static org.junit.Assert.*;
-
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -25,18 +33,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.bouncycastle.crypto.agreement.X25519Agreement;
-import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
-import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
-import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
-import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
-
-import com.google.common.hash.HashCode;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
+import static org.junit.Assert.*;
 
 public class CryptoTests extends Common {
 

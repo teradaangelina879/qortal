@@ -1,14 +1,6 @@
 package org.qortal.transaction;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
-
+import com.google.common.primitives.Longs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
@@ -31,7 +23,14 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ByteArray;
 
-import com.google.common.primitives.Longs;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public class PresenceTransaction extends Transaction {
 

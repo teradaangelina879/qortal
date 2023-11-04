@@ -1,10 +1,10 @@
 package org.qortal.network.message;
 
+import org.qortal.transform.Transformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import org.qortal.transform.Transformer;
 
 public class ChallengeMessage extends Message {
 

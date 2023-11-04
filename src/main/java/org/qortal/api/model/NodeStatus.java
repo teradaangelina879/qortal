@@ -1,12 +1,12 @@
 package org.qortal.api.model;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-
 import org.qortal.controller.Controller;
 import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.controller.Synchronizer;
 import org.qortal.network.Network;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class NodeStatus {

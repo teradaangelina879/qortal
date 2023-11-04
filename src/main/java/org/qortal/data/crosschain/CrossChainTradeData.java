@@ -1,12 +1,11 @@
 package org.qortal.data.crosschain;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.qortal.crosschain.AcctMode;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
-import org.qortal.crosschain.AcctMode;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

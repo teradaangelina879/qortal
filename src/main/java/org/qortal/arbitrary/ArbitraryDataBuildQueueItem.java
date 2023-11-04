@@ -1,7 +1,7 @@
 package org.qortal.arbitrary;
 
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
-import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.repository.DataException;
 import org.qortal.utils.ArbitraryTransactionUtils;

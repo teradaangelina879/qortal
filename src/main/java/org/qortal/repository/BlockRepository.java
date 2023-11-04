@@ -1,12 +1,12 @@
 package org.qortal.repository;
 
-import java.util.List;
-
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.block.BlockTransactionData;
 import org.qortal.data.transaction.TransactionData;
+
+import java.util.List;
 
 public interface BlockRepository {
 

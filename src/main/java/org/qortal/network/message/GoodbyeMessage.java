@@ -1,12 +1,12 @@
 package org.qortal.network.message;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
+import com.google.common.primitives.Ints;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-import com.google.common.primitives.Ints;
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public class GoodbyeMessage extends Message {
 

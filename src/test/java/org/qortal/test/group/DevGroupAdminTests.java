@@ -5,8 +5,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.data.transaction.*;
-import org.qortal.group.Group;
-import org.qortal.group.Group.ApprovalThreshold;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -17,7 +15,6 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
-import org.qortal.utils.Base58;
 
 import static org.junit.Assert.*;
 

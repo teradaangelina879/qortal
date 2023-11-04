@@ -1,16 +1,5 @@
 package org.qortal.controller;
 
-import java.math.BigInteger;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
@@ -34,6 +23,17 @@ import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertNotNull;
 

@@ -1,14 +1,13 @@
 package org.qortal.network.message;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
+import com.google.common.primitives.Ints;
 import org.qortal.block.Block;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformer;
 
-import com.google.common.primitives.Ints;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 // This is an OUTGOING-only Message which more readily lends itself to being cached
 public class CachedBlockMessage extends Message implements Cloneable {

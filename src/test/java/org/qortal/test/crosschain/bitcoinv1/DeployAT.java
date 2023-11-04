@@ -1,5 +1,6 @@
 package org.qortal.test.crosschain.bitcoinv1;
 
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.LegacyAddress;
@@ -26,8 +27,6 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
-
-import com.google.common.hash.HashCode;
 
 public class DeployAT {
 

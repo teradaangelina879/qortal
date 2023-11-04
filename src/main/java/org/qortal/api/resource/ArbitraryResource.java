@@ -12,24 +12,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.io.*;
-import java.net.FileNameMap;
-import java.net.URLConnection;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
@@ -50,7 +32,10 @@ import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
-import org.qortal.data.arbitrary.*;
+import org.qortal.data.arbitrary.ArbitraryCategoryInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -67,6 +52,25 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.*;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.FileNameMap;
+import java.net.URLConnection;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 @Path("/arbitrary")
 @Tag(name = "Arbitrary")

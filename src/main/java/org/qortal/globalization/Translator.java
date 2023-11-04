@@ -1,16 +1,10 @@
 package org.qortal.globalization;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.MissingFormatArgumentException;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
-import java.util.Set;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.settings.Settings;
+
+import java.util.*;
 
 public enum Translator {
 	INSTANCE;

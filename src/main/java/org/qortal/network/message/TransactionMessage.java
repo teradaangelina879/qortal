@@ -1,10 +1,10 @@
 package org.qortal.network.message;
 
-import java.nio.ByteBuffer;
-
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.TransactionTransformer;
+
+import java.nio.ByteBuffer;
 
 public class TransactionMessage extends Message {
 

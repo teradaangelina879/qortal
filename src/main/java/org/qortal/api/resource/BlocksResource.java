@@ -8,26 +8,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-
-import javax.servlet.http.HttpServletRequest;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.account.Account;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -35,7 +15,6 @@ import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.BlockMintingInfo;
 import org.qortal.api.model.BlockSignerSummary;
 import org.qortal.block.Block;
-import org.qortal.controller.Controller;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
 import org.qortal.data.block.BlockData;
@@ -49,6 +28,23 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.Triple;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 @Path("/blocks")
 @Tag(name = "Blocks")

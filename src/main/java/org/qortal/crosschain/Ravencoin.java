@@ -1,10 +1,5 @@
 package org.qortal.crosschain;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.Map;
-
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
@@ -14,6 +9,11 @@ import org.libdohj.params.RavencoinMainNetParams;
 import org.qortal.crosschain.ElectrumX.Server;
 import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.settings.Settings;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.Map;
 
 public class Ravencoin extends Bitcoiny {
 

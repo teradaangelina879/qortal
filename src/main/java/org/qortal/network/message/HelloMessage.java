@@ -1,13 +1,12 @@
 package org.qortal.network.message;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
+import com.google.common.primitives.Longs;
 import org.qortal.transform.TransformationException;
 import org.qortal.utils.Serialization;
 
-import com.google.common.primitives.Longs;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
 public class HelloMessage extends Message {
 

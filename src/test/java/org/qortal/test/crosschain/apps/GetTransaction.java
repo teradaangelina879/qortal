@@ -1,8 +1,6 @@
 package org.qortal.test.crosschain.apps;
 
-import java.security.Security;
-import java.util.List;
-
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.AddressFormatException;
 import org.bitcoinj.core.TransactionOutput;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -13,7 +11,8 @@ import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.Litecoin;
 import org.qortal.settings.Settings;
 
-import com.google.common.hash.HashCode;
+import java.security.Security;
+import java.util.List;
 
 public class GetTransaction {
 

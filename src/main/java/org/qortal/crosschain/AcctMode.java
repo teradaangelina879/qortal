@@ -1,9 +1,9 @@
 package org.qortal.crosschain;
 
+import java.util.Map;
+
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
-
-import java.util.Map;
 
 public enum AcctMode {
 	OFFERING(0), TRADING(1), CANCELLED(2), REFUNDED(3), REDEEMED(4);

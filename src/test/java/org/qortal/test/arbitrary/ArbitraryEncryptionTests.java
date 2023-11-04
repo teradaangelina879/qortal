@@ -2,12 +2,10 @@ package org.qortal.test.arbitrary;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.qortal.arbitrary.ArbitraryDataDigest;
 import org.qortal.crypto.AES;
 import org.qortal.crypto.Crypto;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
-import org.qortal.utils.ZipUtils;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;

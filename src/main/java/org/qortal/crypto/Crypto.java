@@ -1,13 +1,6 @@
 package org.qortal.crypto;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-
+import com.google.common.primitives.Bytes;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
@@ -15,7 +8,13 @@ import org.bouncycastle.math.ec.rfc8032.Ed25519;
 import org.qortal.account.Account;
 import org.qortal.utils.Base58;
 
-import com.google.common.primitives.Bytes;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 public abstract class Crypto {
 

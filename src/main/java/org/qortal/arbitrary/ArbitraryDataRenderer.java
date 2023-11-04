@@ -6,7 +6,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.HTMLParser;
-import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;

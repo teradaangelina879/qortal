@@ -1,15 +1,15 @@
 package org.qortal.repository.hsqldb;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.qortal.data.voting.PollData;
 import org.qortal.data.voting.PollOptionData;
 import org.qortal.data.voting.VoteOnPollData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.VotingRepository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HSQLDBVotingRepository implements VotingRepository {
 

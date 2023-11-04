@@ -15,7 +15,9 @@ import org.qortal.transaction.ArbitraryTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class ArbitraryDataCacheManager extends Thread {
 

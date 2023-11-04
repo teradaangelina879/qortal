@@ -6,7 +6,7 @@ import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.ArbitraryDataDigest;
 import org.qortal.arbitrary.ArbitraryDataFile;
-import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.ArbitraryDataReader;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Category;

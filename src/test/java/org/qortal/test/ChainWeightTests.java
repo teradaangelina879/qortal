@@ -1,14 +1,8 @@
 package org.qortal.test;
 
-import static org.junit.Assert.*;
-
-import java.math.BigInteger;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
@@ -21,9 +15,15 @@ import org.qortal.test.common.TestAccount;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.NTP;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+
+import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+import static org.junit.Assert.*;
 
 public class ChainWeightTests extends Common {
 

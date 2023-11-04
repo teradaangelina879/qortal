@@ -27,10 +27,10 @@ import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.NTP;
 
-import static org.junit.Assert.*;
-
 import java.util.List;
 import java.util.Random;
+
+import static org.junit.Assert.*;
 
 public class MessageTests extends Common {
 

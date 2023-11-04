@@ -1,8 +1,8 @@
 package org.qortal.repository;
 
-import java.util.List;
-
 import org.qortal.data.crosschain.TradeBotData;
+
+import java.util.List;
 
 public interface CrossChainRepository {
 

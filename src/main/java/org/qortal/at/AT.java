@@ -1,9 +1,5 @@
 package org.qortal.at;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import org.ciyam.at.MachineState;
 import org.ciyam.at.Timestamp;
 import org.qortal.crypto.Crypto;
@@ -14,6 +10,10 @@ import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.AtTransaction;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class AT {
 

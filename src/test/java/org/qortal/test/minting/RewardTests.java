@@ -1,10 +1,5 @@
 package org.qortal.test.minting;
 
-import static org.junit.Assert.*;
-
-import java.math.BigInteger;
-import java.util.*;
-
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,6 +22,14 @@ import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
+
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.Assert.*;
 
 public class RewardTests extends Common {
 	private static final Logger LOGGER = LogManager.getLogger(RewardTests.class);

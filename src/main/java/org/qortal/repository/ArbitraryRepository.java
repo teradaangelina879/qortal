@@ -6,7 +6,7 @@ import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.*;
+import org.qortal.data.transaction.ArbitraryTransactionData.Method;
 
 import java.util.List;
 

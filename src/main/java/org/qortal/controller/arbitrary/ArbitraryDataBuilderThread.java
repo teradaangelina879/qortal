@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.Map;
 
-import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status.*;
+import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status.NOT_PUBLISHED;
 
 
 public class ArbitraryDataBuilderThread implements Runnable {

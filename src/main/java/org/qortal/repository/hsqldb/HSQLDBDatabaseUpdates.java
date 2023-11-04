@@ -1,17 +1,17 @@
 package org.qortal.repository.hsqldb;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
+import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
+import org.qortal.gui.SplashFrame;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.stream.Collectors;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.qortal.controller.Controller;
-import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
-import org.qortal.gui.SplashFrame;
 
 public class HSQLDBDatabaseUpdates {
 

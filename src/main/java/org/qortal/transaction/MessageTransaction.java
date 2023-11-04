@@ -1,9 +1,5 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
-
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
@@ -26,6 +22,10 @@ import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.NTP;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
 public class MessageTransaction extends Transaction {
 

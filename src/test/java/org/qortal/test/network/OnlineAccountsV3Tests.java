@@ -2,11 +2,12 @@ package org.qortal.test.network;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.data.network.OnlineAccountData;
-import org.qortal.network.message.*;
+import org.qortal.network.message.GetOnlineAccountsV3Message;
+import org.qortal.network.message.Message;
+import org.qortal.network.message.MessageException;
 import org.qortal.transform.Transformer;
 
 import java.nio.ByteBuffer;

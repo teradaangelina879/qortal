@@ -3,8 +3,6 @@ package org.qortal.utils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.data.at.ATStateData;
-import org.qortal.data.block.BlockData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.BlockArchiveReader;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;

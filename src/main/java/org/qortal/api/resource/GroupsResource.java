@@ -8,45 +8,14 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.model.GroupMembers;
 import org.qortal.api.model.GroupMembers.MemberInfo;
 import org.qortal.crypto.Crypto;
-import org.qortal.data.group.GroupAdminData;
-import org.qortal.data.group.GroupBanData;
-import org.qortal.data.group.GroupData;
-import org.qortal.data.group.GroupInviteData;
-import org.qortal.data.group.GroupJoinRequestData;
-import org.qortal.data.group.GroupMemberData;
-import org.qortal.data.transaction.AddGroupAdminTransactionData;
-import org.qortal.data.transaction.CancelGroupBanTransactionData;
-import org.qortal.data.transaction.CancelGroupInviteTransactionData;
-import org.qortal.data.transaction.CreateGroupTransactionData;
-import org.qortal.data.transaction.GroupApprovalTransactionData;
-import org.qortal.data.transaction.GroupBanTransactionData;
-import org.qortal.data.transaction.GroupInviteTransactionData;
-import org.qortal.data.transaction.GroupKickTransactionData;
-import org.qortal.data.transaction.JoinGroupTransactionData;
-import org.qortal.data.transaction.LeaveGroupTransactionData;
-import org.qortal.data.transaction.RemoveGroupAdminTransactionData;
-import org.qortal.data.transaction.SetGroupTransactionData;
-import org.qortal.data.transaction.UpdateGroupTransactionData;
+import org.qortal.data.group.*;
+import org.qortal.data.transaction.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
@@ -54,20 +23,16 @@ import org.qortal.settings.Settings;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.transform.TransformationException;
-import org.qortal.transform.transaction.AddGroupAdminTransactionTransformer;
-import org.qortal.transform.transaction.CancelGroupBanTransactionTransformer;
-import org.qortal.transform.transaction.CancelGroupInviteTransactionTransformer;
-import org.qortal.transform.transaction.CreateGroupTransactionTransformer;
-import org.qortal.transform.transaction.GroupApprovalTransactionTransformer;
-import org.qortal.transform.transaction.GroupBanTransactionTransformer;
-import org.qortal.transform.transaction.GroupInviteTransactionTransformer;
-import org.qortal.transform.transaction.GroupKickTransactionTransformer;
-import org.qortal.transform.transaction.JoinGroupTransactionTransformer;
-import org.qortal.transform.transaction.LeaveGroupTransactionTransformer;
-import org.qortal.transform.transaction.RemoveGroupAdminTransactionTransformer;
-import org.qortal.transform.transaction.SetGroupTransactionTransformer;
-import org.qortal.transform.transaction.UpdateGroupTransactionTransformer;
+import org.qortal.transform.transaction.*;
 import org.qortal.utils.Base58;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Path("/groups")
 @Tag(name = "Groups")

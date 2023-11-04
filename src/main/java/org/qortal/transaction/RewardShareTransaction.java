@@ -1,9 +1,5 @@
 package org.qortal.transaction;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
@@ -15,6 +11,10 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transform.Transformer;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class RewardShareTransaction extends Transaction {
 

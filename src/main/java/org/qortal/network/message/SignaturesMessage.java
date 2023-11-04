@@ -1,15 +1,14 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
+import org.qortal.transform.block.BlockTransformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.qortal.transform.block.BlockTransformer;
-
-import com.google.common.primitives.Ints;
 
 public class SignaturesMessage extends Message {
 

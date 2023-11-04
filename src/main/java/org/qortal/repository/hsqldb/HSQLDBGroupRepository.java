@@ -1,19 +1,14 @@
 package org.qortal.repository.hsqldb;
 
+import org.qortal.data.group.*;
+import org.qortal.group.Group.ApprovalThreshold;
+import org.qortal.repository.DataException;
+import org.qortal.repository.GroupRepository;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.qortal.data.group.GroupAdminData;
-import org.qortal.data.group.GroupBanData;
-import org.qortal.data.group.GroupData;
-import org.qortal.data.group.GroupInviteData;
-import org.qortal.data.group.GroupJoinRequestData;
-import org.qortal.data.group.GroupMemberData;
-import org.qortal.group.Group.ApprovalThreshold;
-import org.qortal.repository.DataException;
-import org.qortal.repository.GroupRepository;
 
 public class HSQLDBGroupRepository implements GroupRepository {
 

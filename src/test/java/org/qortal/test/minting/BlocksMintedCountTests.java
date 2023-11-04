@@ -1,8 +1,5 @@
 package org.qortal.test.minting;
 
-import static org.junit.Assert.*;
-
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,6 +14,9 @@ import org.qortal.test.common.AccountUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class BlocksMintedCountTests extends Common {
 

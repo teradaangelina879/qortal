@@ -1,21 +1,5 @@
 package org.qortal.block;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.sql.SQLException;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
-
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.UnmarshalException;
-import javax.xml.bind.Unmarshaller;
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-import javax.xml.transform.stream.StreamSource;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
@@ -28,6 +12,21 @@ import org.qortal.repository.*;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.StringLongMapXmlAdapter;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.UnmarshalException;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import javax.xml.transform.stream.StreamSource;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.sql.SQLException;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Class representing the blockchain as a whole.

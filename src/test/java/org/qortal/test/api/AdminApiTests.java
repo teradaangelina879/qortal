@@ -1,7 +1,5 @@
 package org.qortal.test.api;
 
-import static org.junit.Assert.*;
-
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -10,6 +8,8 @@ import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
 import org.qortal.test.common.ApiCommon;
 import org.qortal.test.common.Common;
+
+import static org.junit.Assert.assertNotNull;
 
 public class AdminApiTests extends ApiCommon {
 

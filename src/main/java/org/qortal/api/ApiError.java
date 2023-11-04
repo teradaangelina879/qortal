@@ -1,13 +1,12 @@
 package org.qortal.api;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Map;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.util.Map;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 @XmlAccessorType(XmlAccessType.NONE)
 @XmlRootElement

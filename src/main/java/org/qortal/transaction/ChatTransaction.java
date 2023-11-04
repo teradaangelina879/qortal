@@ -1,21 +1,14 @@
 package org.qortal.transaction;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.function.Predicate;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
-import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.group.Group;
-import org.qortal.list.ResourceListManager;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
@@ -25,6 +18,11 @@ import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Predicate;
 
 public class ChatTransaction extends Transaction {
 

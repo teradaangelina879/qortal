@@ -1,14 +1,15 @@
 package org.qortal.test.common;
 
-import static org.junit.Assert.*;
-
-import java.lang.reflect.Field;
-
 import org.eclipse.jetty.server.Request;
 import org.junit.Before;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiException;
 import org.qortal.repository.DataException;
+
+import java.lang.reflect.Field;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class ApiCommon extends Common {
 

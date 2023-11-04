@@ -1,13 +1,13 @@
 package org.qortal.test.apps;
 
-import java.security.Security;
-
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.crypto.Crypto;
 import org.qortal.utils.Base58;
+
+import java.security.Security;
 
 public class RewardShareKeys {
 

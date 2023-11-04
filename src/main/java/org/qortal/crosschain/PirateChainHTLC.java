@@ -10,6 +10,7 @@ import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
 import java.util.*;
+
 import static org.qortal.crosschain.BitcoinyHTLC.Status;
 
 public class PirateChainHTLC {
