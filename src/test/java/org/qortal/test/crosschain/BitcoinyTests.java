@@ -4,6 +4,7 @@ import org.bitcoinj.core.Transaction;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.qortal.crosschain.AddressInfo;
 import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -11,6 +12,8 @@ import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -127,4 +130,36 @@ public abstract class BitcoinyTests extends Common {
 		System.out.println(address);
 	}
 
+	@Test
+	public void testGenerateRootKeyForTesting() {
+
+		String rootKey = BitcoinyTestsUtils.generateBip32RootKey( this.bitcoiny.getNetworkParameters() );
+
+		System.out.println(String.format(getCoinName() + " generated BIP32 Root Key: " + rootKey));
+
+	}
+
+	@Test
+	public void testGetWalletAddresses() throws ForeignBlockchainException {
+
+		String xprv58 = getDeterministicKey58();
+
+		Set<String> addresses = this.bitcoiny.getWalletAddresses(xprv58);
+
+		System.out.println( "root key = " + xprv58 );
+		System.out.println( "keys ...");
+		addresses.stream().forEach(System.out::println);
+	}
+
+	@Test
+	public void testWalletAddressInfos() throws ForeignBlockchainException {
+
+		String xprv58 = getDeterministicKey58();
+
+		List<AddressInfo> addressInfos = this.bitcoiny.getWalletAddressInfos(xprv58);
+
+		System.out.println("address count = " + addressInfos.size() );
+		System.out.println( "address infos ..." );
+		addressInfos.forEach( System.out::println );
+	}
 }
