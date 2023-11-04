@@ -1019,7 +1019,7 @@ public class HSQLDBDatabaseUpdates {
 
 					stmt.execute("CREATE TABLE ArbitraryResourcesCache (service SMALLINT NOT NULL, "
 							+ "name RegisteredName NOT NULL, identifier VARCHAR(64), size INT NOT NULL, "
-							+ "status INTEGER, created_when EpochMillis NOT NULL, updated_when EpochMillis, "
+							+ "status INTEGER DEFAULT 1, created_when EpochMillis NOT NULL, updated_when EpochMillis, "
 							+ "PRIMARY KEY (service, name, identifier))");
 					// For finding resources by service.
 					stmt.execute("CREATE INDEX ArbitraryResourcesServiceIndex ON ArbitraryResourcesCache (service)");
