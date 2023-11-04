@@ -3,6 +3,8 @@ package org.qortal.api.gateway.resource;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.commons.lang3.StringUtils;
+import org.qortal.api.ApiError;
+import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
 import org.qortal.arbitrary.ArbitraryDataFile;
 import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
@@ -11,6 +13,9 @@ import org.qortal.arbitrary.ArbitraryDataRenderer;
 import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
+import org.qortal.repository.DataException;
+import org.qortal.repository.Repository;
+import org.qortal.repository.RepositoryManager;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -31,36 +36,12 @@ public class GatewayResource {
     @Context HttpServletResponse response;
     @Context ServletContext context;
 
-    /**
-     * We need to allow resource status checking (and building) via the gateway, as the node's API port
-     * may not be forwarded and will almost certainly not be authenticated. Since gateways allow for
-     * all resources to be loaded except those that are blocked, there is no need for authentication.
-     */
-    @GET
-    @Path("/arbitrary/resource/status/{service}/{name}")
-    public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
-                                                             @PathParam("name") String name,
-                                                             @QueryParam("build") Boolean build) {
-
-        return this.getStatus(service, name, null, build);
-    }
-
-    @GET
-    @Path("/arbitrary/resource/status/{service}/{name}/{identifier}")
-    public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
-                                                      @PathParam("name") String name,
-                                                      @PathParam("identifier") String identifier,
-                                                      @QueryParam("build") Boolean build) {
-
-        return this.getStatus(service, name, identifier, build);
-    }
-
     private ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
 
         // If "build=true" has been specified in the query string, build the resource before returning its status
         if (build != null && build == true) {
-            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
             try {
+                ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, null);
                 if (!reader.isBuilding()) {
                     reader.loadSynchronously(false);
                 }
@@ -69,8 +50,13 @@ public class GatewayResource {
             }
         }
 
-        ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-        return resource.getStatus(false);
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+            return resource.getStatus(repository);
+
+        } catch (DataException e) {
+            throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+        }
     }
 
 

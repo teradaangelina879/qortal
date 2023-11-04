@@ -187,7 +187,7 @@ public class PirateChainWalletController extends Thread {
 
             // Check its status
             ArbitraryResourceStatus status = ArbitraryTransactionUtils.getStatus(
-                    t.getService(), t.getName(), t.getIdentifier(), false);
+                    t.getService(), t.getName(), t.getIdentifier(), false, true);
 
             if (status.getStatus() != ArbitraryResourceStatus.Status.READY) {
                 LOGGER.info("Not ready yet: {}", status.getTitle());

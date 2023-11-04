@@ -76,9 +76,11 @@ public class ArbitraryDataRenderer {
             return ArbitraryDataRenderer.getResponse(response, 500, "QDN is disabled in settings");
         }
 
-        ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, identifier);
-        arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
+        ArbitraryDataReader arbitraryDataReader;
         try {
+            arbitraryDataReader = new ArbitraryDataReader(resourceId, resourceIdType, service, identifier);
+            arbitraryDataReader.setSecret58(secret58); // Optional, used for loading encrypted file hashes only
+
             if (!arbitraryDataReader.isCachedDataAvailable()) {
                 // If async is requested, show a loading screen whilst build is in progress
                 if (async) {

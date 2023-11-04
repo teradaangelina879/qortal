@@ -320,41 +320,46 @@ public class ArbitraryMetadataManager {
             return;
         }
 
-        // Update requests map to reflect that we've received all chunks
+        // Update requests map to reflect that we've received this metadata
         Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
         arbitraryMetadataRequests.put(message.getId(), newEntry);
 
-        ArbitraryTransactionData arbitraryTransactionData = null;
-
-        // Forwarding
-        if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
-
-            // Get transaction info
-            try (final Repository repository = RepositoryManager.getRepository()) {
-                TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
-                if (!(transactionData instanceof ArbitraryTransactionData))
-                    return;
-                arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-            } catch (DataException e) {
-                LOGGER.error(String.format("Repository issue while finding arbitrary transaction metadata for peer %s", peer), e);
+        // Get transaction info
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+            if (!(transactionData instanceof ArbitraryTransactionData)) {
+                return;
             }
+            ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-            // Check if the name is blocked
-            boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
-            if (!isBlocked) {
-                Peer requestingPeer = request.getB();
-                if (requestingPeer != null) {
+            // Forwarding
+            if (isRelayRequest && Settings.getInstance().isRelayModeEnabled()) {
 
-                    ArbitraryMetadataMessage forwardArbitraryMetadataMessage = new ArbitraryMetadataMessage(signature, arbitraryMetadataMessage.getArbitraryMetadataFile());
-                    forwardArbitraryMetadataMessage.setId(arbitraryMetadataMessage.getId());
+                // Check if the name is blocked
+                boolean isBlocked = (arbitraryTransactionData == null || ListUtils.isNameBlocked(arbitraryTransactionData.getName()));
+                if (!isBlocked) {
+                    Peer requestingPeer = request.getB();
+                    if (requestingPeer != null) {
 
-                    // Forward to requesting peer
-                    LOGGER.debug("Forwarding metadata to requesting peer: {}", requestingPeer);
-                    if (!requestingPeer.sendMessage(forwardArbitraryMetadataMessage)) {
-                        requestingPeer.disconnect("failed to forward arbitrary metadata");
+                        ArbitraryMetadataMessage forwardArbitraryMetadataMessage = new ArbitraryMetadataMessage(signature, arbitraryMetadataMessage.getArbitraryMetadataFile());
+                        forwardArbitraryMetadataMessage.setId(arbitraryMetadataMessage.getId());
+
+                        // Forward to requesting peer
+                        LOGGER.debug("Forwarding metadata to requesting peer: {}", requestingPeer);
+                        if (!requestingPeer.sendMessage(forwardArbitraryMetadataMessage)) {
+                            requestingPeer.disconnect("failed to forward arbitrary metadata");
+                        }
                     }
                 }
             }
+
+            // Add to resource queue to update arbitrary resource caches
+            if (arbitraryTransactionData != null) {
+                ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
+            }
+
+        } catch (DataException e) {
+            LOGGER.error(String.format("Repository issue while saving arbitrary transaction metadata from peer %s", peer), e);
         }
     }
 

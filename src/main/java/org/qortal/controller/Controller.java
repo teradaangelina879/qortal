@@ -47,6 +47,7 @@ import org.qortal.data.block.BlockData;
 import org.qortal.data.block.BlockSummaryData;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.network.PeerData;
+import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.ChatTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.event.Event;
@@ -403,6 +404,7 @@ public class Controller extends Thread {
 
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				RepositoryManager.rebuildTransactionSequences(repository);
+				ArbitraryDataCacheManager.getInstance().buildArbitraryResourcesCache(repository, false);
 			}
 		} catch (DataException e) {
 			// If exception has no cause or message then repository is in use by some other process.
@@ -443,6 +445,13 @@ public class Controller extends Thread {
 		try (Repository repository = RepositoryManager.getRepository()) {
 			if (RepositoryManager.needsTransactionSequenceRebuild(repository)) {
 				// Don't allow the node to start if transaction sequences haven't been built yet
+				// This is needed to handle a case when bootstrapping
+				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
+				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
+				return;
+			}
+			if (ArbitraryDataCacheManager.getInstance().needsArbitraryResourcesCacheRebuild(repository)) {
+				// Don't allow the node to start if arbitrary resources cache hasn't been built yet
 				// This is needed to handle a case when bootstrapping
 				LOGGER.error("Database upgrade needed. Please restart the core to complete the upgrade process.");
 				Gui.getInstance().fatalError("Database upgrade needed", "Please restart the core to complete the upgrade process.");
@@ -496,6 +505,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting arbitrary-transaction controllers");
 		ArbitraryDataManager.getInstance().start();
 		ArbitraryDataFileManager.getInstance().start();
+		ArbitraryDataCacheManager.getInstance().start();
 		ArbitraryDataBuildManager.getInstance().start();
 		ArbitraryDataCleanupManager.getInstance().start();
 		ArbitraryDataStorageManager.getInstance().start();
@@ -907,6 +917,7 @@ public class Controller extends Thread {
 				if (now >= transaction.getDeadline()) {
 					LOGGER.debug(() -> String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
+					this.onExpiredTransaction(transactionData);
 					deletedCount++;
 				}
 			}
@@ -949,6 +960,7 @@ public class Controller extends Thread {
 				LOGGER.info("Shutting down arbitrary-transaction controllers");
 				ArbitraryDataManager.getInstance().shutdown();
 				ArbitraryDataFileManager.getInstance().shutdown();
+				ArbitraryDataCacheManager.getInstance().shutdown();
 				ArbitraryDataBuildManager.getInstance().shutdown();
 				ArbitraryDataCleanupManager.getInstance().shutdown();
 				ArbitraryDataStorageManager.getInstance().shutdown();
@@ -1216,6 +1228,21 @@ public class Controller extends Thread {
 			// If this is a CHAT transaction, there may be extra listeners to notify
 			if (transactionData.getType() == TransactionType.CHAT)
 				ChatNotifier.getInstance().onNewChatTransaction((ChatTransactionData) transactionData);
+		});
+	}
+
+	/**
+	 * Callback for when we've deleted an expired, unconfirmed transaction.
+	 * <p>
+	 * @implSpec performs actions in a new thread
+	 */
+	public void onExpiredTransaction(TransactionData transactionData) {
+		this.callbackExecutor.execute(() -> {
+
+			// If this is an ARBITRARY transaction, we may need to update the cache
+			if (transactionData.getType() == TransactionType.ARBITRARY) {
+				ArbitraryDataManager.getInstance().onExpiredArbitraryTransaction((ArbitraryTransactionData)transactionData);
+			}
 		});
 	}
 

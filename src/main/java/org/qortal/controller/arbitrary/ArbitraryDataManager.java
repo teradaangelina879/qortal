@@ -14,6 +14,7 @@ import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.network.Network;
@@ -540,6 +541,17 @@ public class ArbitraryDataManager extends Thread {
 			return false;
 		}
 		return true;
+	}
+
+	public void onExpiredArbitraryTransaction(ArbitraryTransactionData arbitraryTransactionData) {
+		if (arbitraryTransactionData.getName() == null) {
+			// No name, so we don't care about this transaction
+			return;
+		}
+
+		// Add to queue for update/deletion
+		ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
+
 	}
 
 	public int getPowDifficulty() {

@@ -146,7 +146,7 @@ public class ArbitraryDataFileManager extends Thread {
                 if (!arbitraryDataFileRequests.containsKey(Base58.encode(hash))) {
                     LOGGER.debug("Requesting data file {} from peer {}", hash58, peer);
                     Long startTime = NTP.getTime();
-                    ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, null, signature, hash, null);
+                    ArbitraryDataFile receivedArbitraryDataFile = fetchArbitraryDataFile(peer, null, arbitraryTransactionData, signature, hash, null);
                     Long endTime = NTP.getTime();
                     if (receivedArbitraryDataFile != null) {
                         LOGGER.debug("Received data file {} from peer {}. Time taken: {} ms", receivedArbitraryDataFile.getHash58(), peer, (endTime-startTime));
@@ -191,7 +191,7 @@ public class ArbitraryDataFileManager extends Thread {
         return receivedAtLeastOneFile;
     }
 
-    private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, Peer requestingPeer, byte[] signature, byte[] hash, Message originalMessage) throws DataException {
+    private ArbitraryDataFile fetchArbitraryDataFile(Peer peer, Peer requestingPeer, ArbitraryTransactionData arbitraryTransactionData, byte[] signature, byte[] hash, Message originalMessage) throws DataException {
         ArbitraryDataFile existingFile = ArbitraryDataFile.fromHash(hash, signature);
         boolean fileAlreadyExists = existingFile.exists();
         String hash58 = Base58.encode(hash);
@@ -247,6 +247,13 @@ public class ArbitraryDataFileManager extends Thread {
 
                 // Keep trying to delete the data until it is deleted, or we reach 10 attempts
                 arbitraryDataFile.delete(10);
+            }
+        }
+
+        // If this is a metadata file then we need to update the cache
+        if (arbitraryTransactionData != null && arbitraryTransactionData.getMetadataHash() != null) {
+            if (Arrays.equals(arbitraryTransactionData.getMetadataHash(), hash)) {
+                ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
             }
         }
 
@@ -585,7 +592,9 @@ public class ArbitraryDataFileManager extends Thread {
 
                     // Forward the message to this peer
                     LOGGER.debug("Asking peer {} for hash {}", peerToAsk, hash58);
-                    this.fetchArbitraryDataFile(peerToAsk, peer, signature, hash, message);
+                    // No need to pass arbitraryTransactionData below because this is only used for metadata caching,
+                    // and metadata isn't retained when relaying.
+                    this.fetchArbitraryDataFile(peerToAsk, peer, null, signature, hash, message);
                 }
                 else {
                     LOGGER.debug("Peer {} not found in relay info", peer);

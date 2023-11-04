@@ -4,10 +4,8 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.*;
-import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Service;
-import org.qortal.data.arbitrary.ArbitraryResourceInfo;
-import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
 import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -258,8 +256,7 @@ public class ArbitraryTransactionUtils {
                                 "chunks if needed", Base58.encode(completeHash));
 
                         ArbitraryTransactionUtils.deleteCompleteFile(arbitraryTransactionData, now, cleanupAfter);
-                    }
-                    else {
+                    } else {
                         // File might be in use. It's best to leave it and it it will be cleaned up later.
                     }
                 }
@@ -271,6 +268,7 @@ public class ArbitraryTransactionUtils {
      * When first uploaded, files go into a _misc folder as they are not yet associated with a
      * transaction signature. Once the transaction is broadcast, they need to be moved to the
      * correct location, keyed by the transaction signature.
+     *
      * @param arbitraryTransactionData
      * @return
      * @throws DataException
@@ -356,8 +354,7 @@ public class ArbitraryTransactionUtils {
                     file.createNewFile();
                 }
             }
-        }
-        catch (DataException | IOException e) {
+        } catch (DataException | IOException e) {
             LOGGER.info("Unable to check and relocate all files for signature {}: {}",
                     Base58.encode(arbitraryTransactionData.getSignature()), e.getMessage());
         }
@@ -366,7 +363,7 @@ public class ArbitraryTransactionUtils {
     }
 
     public static List<ArbitraryTransactionData> limitOffsetTransactions(List<ArbitraryTransactionData> transactions,
-                                                                              Integer limit, Integer offset) {
+                                                                         Integer limit, Integer offset) {
         if (limit != null && limit == 0) {
             limit = null;
         }
@@ -389,18 +386,19 @@ public class ArbitraryTransactionUtils {
 
     /**
      * Lookup status of resource
+     *
      * @param service
      * @param name
      * @param identifier
      * @param build
      * @return
      */
-    public static ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build) {
+    public static ArbitraryResourceStatus getStatus(Service service, String name, String identifier, Boolean build, boolean updateCache) {
 
         // If "build" has been specified, build the resource before returning its status
         if (build != null && build == true) {
-            ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
             try {
+                ArbitraryDataReader reader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
                 if (!reader.isBuilding()) {
                     reader.loadSynchronously(false);
                 }
@@ -410,44 +408,6 @@ public class ArbitraryTransactionUtils {
         }
 
         ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
-        return resource.getStatus(false);
+        return resource.getStatusAndUpdateCache(updateCache);
     }
-
-    public static List<ArbitraryResourceInfo> addStatusToResources(List<ArbitraryResourceInfo> resources) {
-        // Determine and add the status of each resource
-        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-        for (ArbitraryResourceInfo resourceInfo : resources) {
-            try {
-                ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
-                        resourceInfo.service, resourceInfo.identifier);
-                ArbitraryResourceStatus status = resource.getStatus(true);
-                if (status != null) {
-                    resourceInfo.status = status;
-                }
-                updatedResources.add(resourceInfo);
-
-            } catch (Exception e) {
-                // Catch and log all exceptions, since some systems are experiencing 500 errors when including statuses
-                LOGGER.info("Caught exception when adding status to resource {}: {}", resourceInfo, e.toString());
-            }
-        }
-        return updatedResources;
-    }
-
-    public static List<ArbitraryResourceInfo> addMetadataToResources(List<ArbitraryResourceInfo> resources) {
-        // Add metadata fields to each resource if they exist
-        List<ArbitraryResourceInfo> updatedResources = new ArrayList<>();
-        for (ArbitraryResourceInfo resourceInfo : resources) {
-            ArbitraryDataResource resource = new ArbitraryDataResource(resourceInfo.name, ArbitraryDataFile.ResourceIdType.NAME,
-                    resourceInfo.service, resourceInfo.identifier);
-            ArbitraryDataTransactionMetadata transactionMetadata = resource.getLatestTransactionMetadata();
-            ArbitraryResourceMetadata resourceMetadata = ArbitraryResourceMetadata.fromTransactionMetadata(transactionMetadata, false);
-            if (resourceMetadata != null) {
-                resourceInfo.metadata = resourceMetadata;
-            }
-            updatedResources.add(resourceInfo);
-        }
-        return updatedResources;
-    }
-
 }
