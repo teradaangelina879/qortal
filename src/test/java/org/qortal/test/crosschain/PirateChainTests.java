@@ -11,6 +11,7 @@ import org.qortal.crypto.Crypto;
 import org.qortal.transform.TransformationException;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 import static org.qortal.crosschain.BitcoinyHTLC.Status.*;
@@ -241,4 +242,12 @@ public class PirateChainTests extends BitcoinyTests {
 	@Test
 	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testGetUnusedReceiveAddress() {}
+
+	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
+	public void testGetWalletAddresses() throws ForeignBlockchainException {}
+
+	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
+	public void testWalletAddressInfos() throws ForeignBlockchainException {}
 }
