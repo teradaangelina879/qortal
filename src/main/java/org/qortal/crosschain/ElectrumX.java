@@ -1,5 +1,18 @@
 package org.qortal.crosschain;
 
+import cash.z.wallet.sdk.rpc.CompactFormats.CompactBlock;
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Bytes;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
+import org.qortal.crypto.Crypto;
+import org.qortal.crypto.TrustlessSSLSocketFactory;
+import org.qortal.utils.BitTwiddling;
+
+import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
@@ -9,21 +22,6 @@ import java.text.DecimalFormat;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.net.ssl.SSLSocketFactory;
-
-import cash.z.wallet.sdk.rpc.CompactFormats.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONValue;
-import org.qortal.crypto.Crypto;
-import org.qortal.crypto.TrustlessSSLSocketFactory;
-
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Bytes;
-import org.qortal.utils.BitTwiddling;
 
 /** ElectrumX network support for querying Bitcoiny-related info like block headers, transaction outputs, etc. */
 public class ElectrumX extends BitcoinyBlockchainProvider {

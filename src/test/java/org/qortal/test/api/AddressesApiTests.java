@@ -1,14 +1,14 @@
 package org.qortal.test.api;
 
-import static org.junit.Assert.*;
-
-import java.util.Collections;
-
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.api.resource.AddressesResource;
 import org.qortal.test.common.ApiCommon;
+
+import java.util.Collections;
+
+import static org.junit.Assert.assertNotNull;
 
 public class AddressesApiTests extends ApiCommon {
 

@@ -1,7 +1,6 @@
 package org.qortal.utils;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.nio.file.Files;

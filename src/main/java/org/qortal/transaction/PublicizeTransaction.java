@@ -1,8 +1,5 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
@@ -18,6 +15,9 @@ import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.PublicizeTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.NTP;
+
+import java.util.Collections;
+import java.util.List;
 
 public class PublicizeTransaction extends Transaction {
 

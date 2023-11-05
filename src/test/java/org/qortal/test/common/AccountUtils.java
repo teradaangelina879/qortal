@@ -1,11 +1,5 @@
 package org.qortal.test.common;
 
-import static org.junit.Assert.assertEquals;
-import static org.qortal.crypto.Qortal25519Extras.signForAggregation;
-
-import java.security.SecureRandom;
-import java.util.*;
-
 import com.google.common.primitives.Longs;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
@@ -21,6 +15,12 @@ import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Amounts;
+
+import java.security.SecureRandom;
+import java.util.*;
+
+import static org.junit.Assert.assertEquals;
+import static org.qortal.crypto.Qortal25519Extras.signForAggregation;
 
 public class AccountUtils {
 

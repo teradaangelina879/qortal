@@ -1,12 +1,6 @@
 package org.qortal.test.crosschain.apps;
 
-import java.security.Security;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Collections;
-import java.util.List;
-
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -17,7 +11,12 @@ import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.settings.Settings;
 import org.qortal.utils.NTP;
 
-import com.google.common.hash.HashCode;
+import java.security.Security;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Collections;
+import java.util.List;
 
 public abstract class Common {
 

@@ -1,12 +1,11 @@
 package org.qortal.api.model;
 
-import java.util.List;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
-
-import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 
 @Schema(description = "Group info, maybe including members")
 // All properties to be converted to JSON via JAX-RS

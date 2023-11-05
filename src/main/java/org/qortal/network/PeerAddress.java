@@ -1,18 +1,12 @@
 package org.qortal.network;
 
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import com.google.common.net.HostAndPort;
+import com.google.common.net.InetAddresses;
+import org.qortal.settings.Settings;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-
-import org.qortal.settings.Settings;
-
-import com.google.common.net.HostAndPort;
-import com.google.common.net.InetAddresses;
+import java.net.*;
 
 /**
  * Convenience class for encapsulating/parsing/rendering/converting peer addresses

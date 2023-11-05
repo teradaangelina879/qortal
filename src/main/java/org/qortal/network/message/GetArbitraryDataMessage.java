@@ -1,9 +1,9 @@
 package org.qortal.network.message;
 
+import org.qortal.transform.Transformer;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-
-import org.qortal.transform.Transformer;
 
 public class GetArbitraryDataMessage extends Message {
 

@@ -1,27 +1,15 @@
 package org.qortal.utils;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UncheckedIOException;
-import java.text.Normalizer;
-import java.text.Normalizer.Form;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.MissingResourceException;
-import java.util.TreeMap;
-
 import com.google.common.base.CharMatcher;
-
 import com.ibm.icu.text.CaseMap;
 import com.ibm.icu.text.Normalizer2;
 import com.ibm.icu.text.UnicodeSet;
 import net.codebox.homoglyph.HomoglyphBuilder;
+
+import java.io.*;
+import java.text.Normalizer;
+import java.text.Normalizer.Form;
+import java.util.*;
 
 public abstract class Unicode {
 

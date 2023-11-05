@@ -1,10 +1,10 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import com.google.common.primitives.Ints;
 
 public class ResponseMessage extends Message {
 

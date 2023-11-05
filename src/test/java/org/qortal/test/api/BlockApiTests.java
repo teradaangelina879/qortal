@@ -1,11 +1,5 @@
 package org.qortal.test.api;
 
-import static org.junit.Assert.*;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -20,6 +14,12 @@ import org.qortal.test.common.ApiCommon;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.utils.Base58;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.Assert.assertNotNull;
 
 public class BlockApiTests extends ApiCommon {
 

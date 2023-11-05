@@ -1,18 +1,17 @@
 package org.qortal.test.apps;
 
-import java.security.SecureRandom;
-import java.security.Security;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
+import com.google.common.primitives.Bytes;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.crypto.Crypto;
 import org.qortal.utils.Base58;
 
-import com.google.common.primitives.Bytes;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class VanityGen {
 

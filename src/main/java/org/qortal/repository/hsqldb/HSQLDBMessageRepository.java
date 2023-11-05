@@ -1,15 +1,15 @@
 package org.qortal.repository.hsqldb;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.MessageRepository;
 import org.qortal.transaction.Transaction.TransactionType;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class HSQLDBMessageRepository implements MessageRepository {
 

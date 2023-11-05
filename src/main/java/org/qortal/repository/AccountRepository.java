@@ -1,9 +1,9 @@
 package org.qortal.repository;
 
+import org.qortal.data.account.*;
+
 import java.util.List;
 import java.util.Set;
-
-import org.qortal.data.account.*;
 
 public interface AccountRepository {
 

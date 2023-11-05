@@ -1,10 +1,5 @@
 package org.qortal.crosschain;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.Map;
-
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.Transaction;
@@ -14,6 +9,11 @@ import org.bitcoinj.params.TestNet3Params;
 import org.qortal.crosschain.ElectrumX.Server;
 import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.settings.Settings;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.Map;
 
 public class Bitcoin extends Bitcoiny {
 

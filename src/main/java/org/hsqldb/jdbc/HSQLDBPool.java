@@ -1,9 +1,9 @@
 package org.hsqldb.jdbc;
 
+import org.hsqldb.jdbc.pool.JDBCPooledConnection;
+
 import java.sql.Connection;
 import java.sql.SQLException;
-
-import org.hsqldb.jdbc.pool.JDBCPooledConnection;
 
 public class HSQLDBPool extends JDBCPool {
 

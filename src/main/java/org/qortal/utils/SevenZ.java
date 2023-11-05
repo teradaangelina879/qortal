@@ -11,7 +11,10 @@ import org.apache.commons.compress.archivers.sevenz.SevenZFile;
 import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile;
 import org.qortal.gui.SplashFrame;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 public class SevenZ {
 

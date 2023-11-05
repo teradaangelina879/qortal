@@ -1,6 +1,7 @@
 package org.qortal.data.arbitrary;
 
 import org.qortal.network.Peer;
+
 import java.util.Objects;
 
 public class ArbitraryRelayInfo {

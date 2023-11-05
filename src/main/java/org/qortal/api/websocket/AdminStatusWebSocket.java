@@ -1,22 +1,18 @@
 package org.qortal.api.websocket;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketException;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketClose;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
-import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
-import org.eclipse.jetty.websocket.api.annotations.WebSocket;
+import org.eclipse.jetty.websocket.api.annotations.*;
 import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.controller.Controller;
 import org.qortal.event.Event;
 import org.qortal.event.EventBus;
 import org.qortal.event.Listener;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.concurrent.atomic.AtomicReference;
 
 @WebSocket
 @SuppressWarnings("serial")

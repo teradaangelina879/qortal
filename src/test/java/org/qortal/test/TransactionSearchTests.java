@@ -1,9 +1,5 @@
 package org.qortal.test;
 
-import static org.junit.Assert.*;
-
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
@@ -14,6 +10,10 @@ import org.qortal.test.common.AccountUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.transaction.Transaction.TransactionType;
+
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 public class TransactionSearchTests extends Common {
 

@@ -1,14 +1,5 @@
 package org.qortal.controller;
 
-import java.math.BigInteger;
-import java.security.SecureRandom;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
@@ -34,6 +25,15 @@ import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
+
+import java.math.BigInteger;
+import java.security.SecureRandom;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public class Synchronizer extends Thread {
 

@@ -1,14 +1,5 @@
 package org.qortal.test;
 
-import static org.junit.Assert.*;
-
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
-import java.util.stream.Collectors;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,13 +8,23 @@ import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.account.AccountData;
+import org.qortal.repository.AccountRepository.BalanceOrdering;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.repository.AccountRepository.BalanceOrdering;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.test.common.TestAccount;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class AccountBalanceTests extends Common {
 

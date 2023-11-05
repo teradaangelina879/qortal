@@ -1,14 +1,13 @@
 package org.qortal.data.network;
 
-import java.util.Arrays;
-import java.util.Objects;
+import org.qortal.account.PublicKeyAccount;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
-
-import org.qortal.account.PublicKeyAccount;
+import java.util.Arrays;
+import java.util.Objects;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

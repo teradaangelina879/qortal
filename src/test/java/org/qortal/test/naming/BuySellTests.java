@@ -1,9 +1,5 @@
 package org.qortal.test.naming;
 
-import static org.junit.Assert.*;
-
-import java.util.Random;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +18,10 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.utils.Amounts;
-import org.qortal.utils.NTP;
+
+import java.util.Random;
+
+import static org.junit.Assert.*;
 
 public class BuySellTests extends Common {
 

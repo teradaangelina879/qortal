@@ -1,15 +1,7 @@
 package org.qortal.data.transaction;
 
-import java.math.BigInteger;
-import java.util.Arrays;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.xml.bind.annotation.XmlTransient;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.voting.PollData;
@@ -17,8 +9,10 @@ import org.qortal.data.voting.VoteOnPollData;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
+import javax.xml.bind.annotation.*;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import java.math.BigInteger;
+import java.util.Arrays;
 
 /*
  * If you encounter an error like:

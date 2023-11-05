@@ -1,13 +1,12 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
+import org.qortal.transform.Transformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-
-import org.qortal.transform.Transformer;
-
-import com.google.common.primitives.Ints;
 
 public class ArbitraryDataMessage extends Message {
 

@@ -1,16 +1,15 @@
 package org.qortal.gui;
 
-import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.awt.image.BufferedImage;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SplashFrame {
 

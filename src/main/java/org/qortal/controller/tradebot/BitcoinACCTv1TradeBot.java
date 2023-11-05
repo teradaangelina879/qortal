@@ -1,33 +1,14 @@
 package org.qortal.controller.tradebot;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.AddressFormatException;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionOutput;
+import org.bitcoinj.core.*;
 import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.asset.Asset;
-import org.qortal.crosschain.ACCT;
-import org.qortal.crosschain.AcctMode;
-import org.qortal.crosschain.Bitcoin;
-import org.qortal.crosschain.BitcoinACCTv1;
-import org.qortal.crosschain.ForeignBlockchainException;
-import org.qortal.crosschain.SupportedBlockchain;
-import org.qortal.crosschain.BitcoinyHTLC;
+import org.qortal.crosschain.*;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -45,6 +26,14 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Performing cross-chain trading steps on behalf of user.

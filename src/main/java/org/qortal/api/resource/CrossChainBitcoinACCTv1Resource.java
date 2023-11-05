@@ -7,17 +7,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.Arrays;
-import java.util.Random;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -27,9 +16,9 @@ import org.qortal.api.model.CrossChainBuildRequest;
 import org.qortal.api.model.CrossChainDualSecretRequest;
 import org.qortal.api.model.CrossChainTradeRequest;
 import org.qortal.asset.Asset;
+import org.qortal.crosschain.AcctMode;
 import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crosschain.Bitcoiny;
-import org.qortal.crosschain.AcctMode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -52,6 +41,15 @@ import org.qortal.transform.transaction.DeployAtTransactionTransformer;
 import org.qortal.transform.transaction.MessageTransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.Arrays;
+import java.util.Random;
 
 @Path("/crosschain/BitcoinACCTv1")
 @Tag(name = "Cross-Chain (BitcoinACCTv1)")

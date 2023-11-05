@@ -1,12 +1,12 @@
 package org.qortal.controller;
 
+import org.eclipse.jetty.websocket.api.Session;
+import org.qortal.data.transaction.ChatTransactionData;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.eclipse.jetty.websocket.api.Session;
-import org.qortal.data.transaction.ChatTransactionData;
 
 public class ChatNotifier {
 

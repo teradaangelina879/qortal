@@ -8,17 +8,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.bitcoinj.core.Transaction;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -28,6 +17,15 @@ import org.qortal.api.model.crosschain.DigibyteSendRequest;
 import org.qortal.crosschain.Digibyte;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.SimpleTransaction;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
 
 @Path("/crosschain/dgb")
 @Tag(name = "Cross-Chain (Digibyte)")

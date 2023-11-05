@@ -1,18 +1,18 @@
 package org.qortal.test.common.transaction;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.asset.Asset;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.TransactionData;
 import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
+import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.utils.Amounts;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArbitraryTestTransaction extends TestTransaction {
 

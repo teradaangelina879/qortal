@@ -1,24 +1,20 @@
 package org.qortal.utils;
 
-import java.io.IOException;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
-
 import org.apache.commons.net.ntp.NTPUDPClient;
 import org.apache.commons.net.ntp.NtpV3Packet;
 import org.apache.commons.net.ntp.TimeInfo;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class NTP implements Runnable {
 

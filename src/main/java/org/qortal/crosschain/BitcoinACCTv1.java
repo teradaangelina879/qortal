@@ -1,17 +1,8 @@
 package org.qortal.crosschain;
 
-import static org.ciyam.at.OpCode.calcOffset;
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-
-import org.ciyam.at.API;
-import org.ciyam.at.CompilationException;
-import org.ciyam.at.FunctionCode;
-import org.ciyam.at.MachineState;
-import org.ciyam.at.OpCode;
-import org.ciyam.at.Timestamp;
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Bytes;
+import org.ciyam.at.*;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.at.QortalFunctionCode;
@@ -25,8 +16,11 @@ import org.qortal.repository.Repository;
 import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Bytes;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.ciyam.at.OpCode.calcOffset;
 
 /**
  * Cross-chain trade AT

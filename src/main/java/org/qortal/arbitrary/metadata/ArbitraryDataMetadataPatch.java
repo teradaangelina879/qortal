@@ -5,7 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.qortal.arbitrary.ArbitraryDataDiff.*;
+import org.qortal.arbitrary.ArbitraryDataDiff.ModifiedPath;
 import org.qortal.repository.DataException;
 import org.qortal.utils.Base58;
 

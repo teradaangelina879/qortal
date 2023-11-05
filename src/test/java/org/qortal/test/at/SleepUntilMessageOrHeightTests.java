@@ -1,16 +1,6 @@
 package org.qortal.test.at;
 
-import static org.junit.Assert.*;
-
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-
-import org.ciyam.at.CompilationException;
-import org.ciyam.at.FunctionCode;
-import org.ciyam.at.MachineState;
-import org.ciyam.at.OpCode;
-import org.ciyam.at.Timestamp;
+import org.ciyam.at.*;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,6 +26,12 @@ import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.BitTwiddling;
+
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class SleepUntilMessageOrHeightTests extends Common {
 

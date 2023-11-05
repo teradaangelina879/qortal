@@ -1,14 +1,14 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.data.transaction.GroupApprovalTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+
+import java.util.Collections;
+import java.util.List;
 
 public class GroupApprovalTransaction extends Transaction {
 

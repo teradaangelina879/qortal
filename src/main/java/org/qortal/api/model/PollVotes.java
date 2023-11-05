@@ -1,13 +1,12 @@
 package org.qortal.api.model;
 
-import java.util.List;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.qortal.data.voting.VoteOnPollData;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-
-import org.qortal.data.voting.VoteOnPollData;
+import java.util.List;
 
 @Schema(description = "Poll vote info, including voters")
 // All properties to be converted to JSON via JAX-RS

@@ -1,12 +1,11 @@
 package org.qortal.api.model.crosschain;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.qortal.crosschain.SupportedBlockchain;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
-import org.qortal.crosschain.SupportedBlockchain;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 @XmlAccessorType(XmlAccessType.FIELD)
 public class TradeBotCreateRequest {

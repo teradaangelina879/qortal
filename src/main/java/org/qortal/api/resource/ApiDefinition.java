@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.security.SecuritySchemes;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import org.qortal.api.Security;
 
 @OpenAPIDefinition(

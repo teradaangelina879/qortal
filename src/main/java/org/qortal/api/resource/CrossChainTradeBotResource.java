@@ -9,16 +9,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.api.ApiError;
@@ -31,10 +21,10 @@ import org.qortal.asset.Asset;
 import org.qortal.controller.Controller;
 import org.qortal.controller.tradebot.AcctTradeBot;
 import org.qortal.controller.tradebot.TradeBot;
-import org.qortal.crosschain.ForeignBlockchain;
-import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
+import org.qortal.crosschain.ForeignBlockchain;
+import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.crosschain.CrossChainTradeData;
@@ -47,6 +37,14 @@ import org.qortal.repository.RepositoryManager;
 import org.qortal.transaction.Transaction;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Path("/crosschain/tradebot")
 @Tag(name = "Cross-Chain (Trade-Bot)")

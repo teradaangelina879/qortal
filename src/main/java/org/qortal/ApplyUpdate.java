@@ -1,5 +1,14 @@
 package org.qortal;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qortal.api.ApiKey;
+import org.qortal.api.ApiRequest;
+import org.qortal.controller.AutoUpdate;
+import org.qortal.settings.Settings;
+
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
@@ -9,15 +18,6 @@ import java.nio.file.StandardCopyOption;
 import java.security.Security;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.qortal.api.ApiKey;
-import org.qortal.api.ApiRequest;
-import org.qortal.controller.AutoUpdate;
-import org.qortal.settings.Settings;
 
 import static org.qortal.controller.AutoUpdate.AGENTLIB_JVM_HOLDER_ARG;
 

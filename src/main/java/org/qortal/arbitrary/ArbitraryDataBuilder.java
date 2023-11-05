@@ -2,6 +2,7 @@ package org.qortal.arbitrary;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.DataNotPublishedException;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
@@ -11,7 +12,6 @@ import org.qortal.data.transaction.ArbitraryTransactionData.Method;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;

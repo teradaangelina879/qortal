@@ -1,9 +1,9 @@
 package org.qortal.network.message;
 
+import org.qortal.transform.block.BlockTransformer;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-
-import org.qortal.transform.block.BlockTransformer;
 
 public class GetBlockMessage extends Message {
 

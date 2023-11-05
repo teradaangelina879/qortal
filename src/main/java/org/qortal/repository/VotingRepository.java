@@ -1,9 +1,9 @@
 package org.qortal.repository;
 
-import java.util.List;
-
 import org.qortal.data.voting.PollData;
 import org.qortal.data.voting.VoteOnPollData;
+
+import java.util.List;
 
 public interface VotingRepository {
 

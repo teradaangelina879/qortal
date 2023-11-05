@@ -1,5 +1,9 @@
 package org.qortal.utils;
 
+import com.google.common.primitives.Ints;
+import org.qortal.transform.TransformationException;
+import org.qortal.transform.Transformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -8,11 +12,6 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-
-import org.qortal.transform.TransformationException;
-import org.qortal.transform.Transformer;
-
-import com.google.common.primitives.Ints;
 
 public class Serialization {
 

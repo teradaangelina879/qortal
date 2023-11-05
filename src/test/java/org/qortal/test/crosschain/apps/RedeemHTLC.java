@@ -1,23 +1,16 @@
 package org.qortal.test.crosschain.apps;
 
-import java.util.Arrays;
-import java.util.List;
-
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionOutput;
+import com.google.common.hash.HashCode;
+import org.bitcoinj.core.*;
 import org.bitcoinj.script.Script.ScriptType;
 import org.qortal.crosschain.Bitcoin;
 import org.qortal.crosschain.Bitcoiny;
-import org.qortal.crosschain.Litecoin;
 import org.qortal.crosschain.BitcoinyHTLC;
+import org.qortal.crosschain.Litecoin;
 import org.qortal.crypto.Crypto;
 
-import com.google.common.hash.HashCode;
+import java.util.Arrays;
+import java.util.List;
 
 public class RedeemHTLC {
 

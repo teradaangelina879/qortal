@@ -1,16 +1,11 @@
 package org.qortal.controller.tradebot;
 
-import java.awt.TrayIcon.MessageType;
-import java.security.SecureRandom;
-import java.util.*;
-import java.util.function.Supplier;
-
+import com.google.common.primitives.Longs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.ECKey;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
-import org.qortal.api.resource.TransactionsResource;
 import org.qortal.controller.Controller;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.tradebot.AcctTradeBot.ResponseResult;
@@ -39,7 +34,10 @@ import org.qortal.transaction.Transaction;
 import org.qortal.utils.ByteArray;
 import org.qortal.utils.NTP;
 
-import com.google.common.primitives.Longs;
+import java.awt.TrayIcon.MessageType;
+import java.security.SecureRandom;
+import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Performing cross-chain trading steps on behalf of user.

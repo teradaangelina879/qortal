@@ -1,13 +1,11 @@
 package org.qortal.repository;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Set;
-
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.utils.ByteArray;
+
+import java.util.List;
+import java.util.Set;
 
 public interface ATRepository {
 

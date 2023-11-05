@@ -1,11 +1,5 @@
 package org.qortal.controller.arbitrary;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
@@ -28,6 +22,12 @@ import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.Base58;
 import org.qortal.utils.ListUtils;
 import org.qortal.utils.NTP;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 
 public class ArbitraryDataManager extends Thread {
 
@@ -540,6 +540,17 @@ public class ArbitraryDataManager extends Thread {
 			return false;
 		}
 		return true;
+	}
+
+	public void onExpiredArbitraryTransaction(ArbitraryTransactionData arbitraryTransactionData) {
+		if (arbitraryTransactionData.getName() == null) {
+			// No name, so we don't care about this transaction
+			return;
+		}
+
+		// Add to queue for update/deletion
+		ArbitraryDataCacheManager.getInstance().addToUpdateQueue(arbitraryTransactionData);
+
 	}
 
 	public int getPowDifficulty() {

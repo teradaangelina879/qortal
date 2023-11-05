@@ -1,8 +1,5 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
 import org.qortal.account.Account;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.TransactionData;
@@ -10,6 +7,9 @@ import org.qortal.data.transaction.TransferAssetTransactionData;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+
+import java.util.Collections;
+import java.util.List;
 
 public class TransferAssetTransaction extends Transaction {
 

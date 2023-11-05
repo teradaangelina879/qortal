@@ -1,20 +1,19 @@
 package org.qortal.test.crosschain;
 
-import static org.junit.Assert.*;
-
+import com.google.common.primitives.Longs;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.qortal.crosschain.Bitcoin;
+import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.Litecoin;
 import org.qortal.crypto.Crypto;
-import org.qortal.crosschain.BitcoinyHTLC;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
-import com.google.common.primitives.Longs;
+import static org.junit.Assert.*;
 
 public class HtlcTests extends Common {
 

@@ -18,6 +18,9 @@ public class ArbitraryResourceMetadata {
     private List<String> files;
     private String mimeType;
 
+    // Only included when updating database
+    private ArbitraryResourceData arbitraryResourceData;
+
     public ArbitraryResourceMetadata() {
     }
 
@@ -59,5 +62,53 @@ public class ArbitraryResourceMetadata {
 
     public List<String> getFiles() {
         return this.files;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getTitle() {
+        return this.title;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public List<String> getTags() {
+        return this.tags;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+
+        // Also set categoryName
+        if (category != null) {
+            this.categoryName = category.getName();
+        }
+    }
+
+    public Category getCategory() {
+        return this.category;
+    }
+
+    public boolean hasMetadata() {
+        return title != null || description != null || tags != null || category != null || files != null || mimeType != null;
+    }
+
+    public void setArbitraryResourceData(ArbitraryResourceData arbitraryResourceData) {
+        this.arbitraryResourceData = arbitraryResourceData;
+    }
+    public ArbitraryResourceData getArbitraryResourceData() {
+        return this.arbitraryResourceData;
     }
 }

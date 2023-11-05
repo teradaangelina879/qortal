@@ -1,5 +1,6 @@
 package org.qortal.arbitrary.misc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.FilenameUtils;
 import org.json.JSONObject;
 import org.qortal.arbitrary.ArbitraryDataRenderer;
@@ -12,8 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;

@@ -1,8 +1,6 @@
 package org.qortal.transaction;
 
-import java.util.Arrays;
-import java.util.List;
-
+import com.google.common.primitives.Bytes;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
 import org.qortal.block.BlockChain;
@@ -17,7 +15,8 @@ import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.AtTransactionTransformer;
 import org.qortal.utils.Amounts;
 
-import com.google.common.primitives.Bytes;
+import java.util.Arrays;
+import java.util.List;
 
 public class AtTransaction extends Transaction {
 

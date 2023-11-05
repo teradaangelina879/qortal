@@ -2,7 +2,6 @@ package org.qortal.network.task;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import org.qortal.network.Network;
 import org.qortal.network.Peer;
 import org.qortal.utils.ExecuteProduceConsume.Task;

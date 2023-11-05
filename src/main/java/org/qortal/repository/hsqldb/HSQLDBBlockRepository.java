@@ -1,20 +1,19 @@
 package org.qortal.repository.hsqldb;
 
+import org.qortal.api.model.BlockSignerSummary;
+import org.qortal.data.block.BlockData;
+import org.qortal.data.block.BlockSummaryData;
+import org.qortal.data.block.BlockTransactionData;
+import org.qortal.data.transaction.TransactionData;
+import org.qortal.repository.BlockRepository;
+import org.qortal.repository.DataException;
+import org.qortal.repository.TransactionRepository;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import org.qortal.api.model.BlockSignerSummary;
-import org.qortal.data.block.BlockData;
-import org.qortal.data.block.BlockSummaryData;
-import org.qortal.data.block.BlockTransactionData;
-import org.qortal.data.block.BlockArchiveData;
-import org.qortal.data.transaction.TransactionData;
-import org.qortal.repository.BlockRepository;
-import org.qortal.repository.DataException;
-import org.qortal.repository.TransactionRepository;
 
 public class HSQLDBBlockRepository implements BlockRepository {
 

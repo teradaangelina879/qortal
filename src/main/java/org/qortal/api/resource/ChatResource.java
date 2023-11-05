@@ -1,5 +1,6 @@
 package org.qortal.api.resource;
 
+import com.google.common.primitives.Bytes;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -9,14 +10,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
@@ -38,7 +31,11 @@ import org.qortal.transform.transaction.ChatTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 
-import com.google.common.primitives.Bytes;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
 
 import static org.qortal.data.chat.ChatMessage.Encoding;
 

@@ -1,9 +1,17 @@
 package org.qortal.gui;
 
-import java.awt.AWTError;
-import java.awt.AWTException;
-import java.awt.SystemTray;
-import java.awt.TrayIcon;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
+import org.qortal.globalization.Translator;
+import org.qortal.settings.Settings;
+import org.qortal.utils.RandomizeList;
+import org.qortal.utils.URLViewer;
+
+import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
@@ -20,22 +28,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import javax.swing.JDialog;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPopupMenu;
-import javax.swing.SwingWorker;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.qortal.controller.Controller;
-import org.qortal.globalization.Translator;
-import org.qortal.settings.Settings;
-import org.qortal.utils.RandomizeList;
-import org.qortal.utils.URLViewer;
 
 public class SysTray {
 

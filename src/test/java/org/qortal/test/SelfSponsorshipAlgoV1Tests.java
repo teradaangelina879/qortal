@@ -15,17 +15,23 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
 import org.qortal.settings.Settings;
-import org.qortal.test.common.*;
+import org.qortal.test.common.AccountUtils;
+import org.qortal.test.common.BlockUtils;
+import org.qortal.test.common.Common;
+import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.TransferPrivsTransaction;
 import org.qortal.utils.NTP;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 import static org.junit.Assert.*;
 import static org.qortal.test.common.AccountUtils.fee;
-import static org.qortal.transaction.Transaction.ValidationResult.*;
+import static org.qortal.transaction.Transaction.ValidationResult.ACCOUNT_NOT_TRANSFERABLE;
+import static org.qortal.transaction.Transaction.ValidationResult.OK;
 
 public class SelfSponsorshipAlgoV1Tests extends Common {
 

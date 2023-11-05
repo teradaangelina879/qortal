@@ -1,8 +1,6 @@
 package org.qortal.test.apps;
 
-import java.math.BigDecimal;
-import java.security.Security;
-
+import io.druid.extendedset.intset.ConciseSet;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.block.BlockChain;
@@ -19,7 +17,8 @@ import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.Base58;
 import org.roaringbitmap.IntIterator;
 
-import io.druid.extendedset.intset.ConciseSet;
+import java.math.BigDecimal;
+import java.security.Security;
 
 public class DecodeOnlineAccounts {
 

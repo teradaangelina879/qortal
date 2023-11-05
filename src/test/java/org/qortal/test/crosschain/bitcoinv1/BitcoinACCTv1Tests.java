@@ -1,16 +1,13 @@
 package org.qortal.test.crosschain.bitcoinv1;
 
-import static org.junit.Assert.*;
-
-import java.util.function.Function;
-
+import com.google.common.hash.HashCode;
 import org.junit.Test;
 import org.qortal.account.Account;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.crosschain.ACCT;
-import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crosschain.AcctMode;
+import org.qortal.crosschain.BitcoinACCTv1;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
@@ -24,7 +21,10 @@ import org.qortal.test.crosschain.ACCTTests;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
 
-import com.google.common.hash.HashCode;
+import java.util.function.Function;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class BitcoinACCTv1Tests extends ACCTTests {
 

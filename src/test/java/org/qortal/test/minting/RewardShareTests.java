@@ -1,7 +1,5 @@
 package org.qortal.test.minting;
 
-import static org.junit.Assert.*;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,6 +16,8 @@ import org.qortal.test.common.TransactionUtils;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.Base58;
+
+import static org.junit.Assert.*;
 
 public class RewardShareTests extends Common {
 

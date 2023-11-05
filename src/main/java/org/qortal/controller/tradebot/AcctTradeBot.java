@@ -1,7 +1,5 @@
 package org.qortal.controller.tradebot;
 
-import java.util.List;
-
 import org.qortal.api.model.crosschain.TradeBotCreateRequest;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.ForeignBlockchainException;
@@ -10,6 +8,8 @@ import org.qortal.data.crosschain.CrossChainTradeData;
 import org.qortal.data.crosschain.TradeBotData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
+
+import java.util.List;
 
 public interface AcctTradeBot {
 

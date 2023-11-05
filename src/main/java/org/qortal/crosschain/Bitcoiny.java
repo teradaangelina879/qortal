@@ -1,24 +1,9 @@
 package org.qortal.crosschain;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
+import com.google.common.hash.HashCode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.AddressFormatException;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.Context;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.InsufficientMoneyException;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Sha256Hash;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionOutput;
-import org.bitcoinj.core.UTXO;
-import org.bitcoinj.core.UTXOProvider;
-import org.bitcoinj.core.UTXOProviderException;
+import org.bitcoinj.core.*;
 import org.bitcoinj.crypto.ChildNumber;
 import org.bitcoinj.crypto.DeterministicHierarchy;
 import org.bitcoinj.crypto.DeterministicKey;
@@ -32,9 +17,10 @@ import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
-
-import com.google.common.hash.HashCode;
 import org.qortal.utils.NTP;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
 public abstract class Bitcoiny implements ForeignBlockchain {

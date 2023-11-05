@@ -1,10 +1,9 @@
 package org.qortal.test.crosschain.litecoinv1;
 
+import com.google.common.hash.HashCode;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.LitecoinACCTv1;
 import org.qortal.test.crosschain.ACCTTests;
-
-import com.google.common.hash.HashCode;
 
 public class LitecoinACCTv1Tests extends ACCTTests {
 

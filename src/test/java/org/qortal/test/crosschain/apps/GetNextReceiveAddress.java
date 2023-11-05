@@ -1,7 +1,5 @@
 package org.qortal.test.crosschain.apps;
 
-import java.security.Security;
-
 import org.bitcoinj.core.AddressFormatException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
@@ -10,6 +8,8 @@ import org.qortal.crosschain.Bitcoiny;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.Litecoin;
 import org.qortal.settings.Settings;
+
+import java.security.Security;
 
 public class GetNextReceiveAddress {
 
