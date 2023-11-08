@@ -398,6 +398,25 @@ public class PirateWallet {
         return null;
     }
 
+    public String getWalletSeed(String entropy58) {
+        // Decode entropy to bytes
+        byte[] myEntropyBytes = Base58.decode(entropy58);
+
+        // Pirate library uses base64 encoding
+        String myEntropy64 = Base64.toBase64String(myEntropyBytes);
+
+        // Derive seed phrase from entropy bytes
+        String mySeedResponse = LiteWalletJni.getseedphrasefromentropyb64(myEntropy64);
+        JSONObject mySeedJson =  new JSONObject(mySeedResponse);
+        String mySeedPhrase = null;
+        if (mySeedJson.has("seedPhrase")) {
+            mySeedPhrase = mySeedJson.getString("seedPhrase");
+
+            return mySeedPhrase;
+        }
+        return null;
+    }
+
     public PirateLightClient.Server getRandomServer() {
         PirateChain.PirateChainNet pirateChainNet = Settings.getInstance().getPirateChainNet();
         Collection<PirateLightClient.Server> servers = pirateChainNet.getServers();
