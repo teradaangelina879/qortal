@@ -3,7 +3,8 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.qortal.arbitrary.ArbitraryDataDiff.*;
+import org.qortal.arbitrary.ArbitraryDataDiff.DiffType;
+import org.qortal.arbitrary.ArbitraryDataDiff.ModifiedPath;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataPatch;
 import org.qortal.arbitrary.patch.UnifiedDiffPatch;
 import org.qortal.repository.DataException;
@@ -12,7 +13,10 @@ import org.qortal.utils.FilesystemUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.UUID;
 

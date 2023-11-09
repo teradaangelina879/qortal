@@ -1,35 +1,22 @@
 package org.qortal.api.restricted.resource;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.qortal.api.Security;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
+import org.qortal.arbitrary.ArbitraryDataRenderer;
+import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.misc.Service;
+import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
+import org.qortal.settings.Settings;
+
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import java.io.*;
-import java.nio.file.Paths;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.qortal.api.ApiError;
-import org.qortal.api.ApiExceptionFactory;
-import org.qortal.api.Security;
-import org.qortal.arbitrary.misc.Service;
-import org.qortal.arbitrary.*;
-import org.qortal.arbitrary.exception.MissingDataException;
-import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
-import org.qortal.data.transaction.ArbitraryTransactionData.*;
-import org.qortal.repository.DataException;
-import org.qortal.arbitrary.ArbitraryDataFile.*;
-import org.qortal.settings.Settings;
-import org.qortal.utils.Base58;
 
 
 @Path("/render")

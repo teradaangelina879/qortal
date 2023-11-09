@@ -9,7 +9,7 @@ import java.util.List;
 public class ArbitraryResourceNameInfo {
 
 	public String name;
-	public List<ArbitraryResourceInfo> resources = new ArrayList<>();
+	public List<ArbitraryResourceData> resources = new ArrayList<>();
 
 	public ArbitraryResourceNameInfo() {
 	}

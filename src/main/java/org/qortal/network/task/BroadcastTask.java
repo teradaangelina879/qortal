@@ -1,9 +1,6 @@
 package org.qortal.network.task;
 
 import org.qortal.controller.Controller;
-import org.qortal.network.Network;
-import org.qortal.network.Peer;
-import org.qortal.network.message.Message;
 import org.qortal.utils.ExecuteProduceConsume.Task;
 
 public class BroadcastTask implements Task {

@@ -1,7 +1,5 @@
 package org.qortal.crypto;
 
-import java.security.SecureRandom;
-
 import org.bouncycastle.crypto.Digest;
 import org.bouncycastle.crypto.digests.SHA512Digest;
 import org.bouncycastle.math.ec.rfc7748.X25519;
@@ -10,6 +8,8 @@ import org.bouncycastle.math.raw.Interleave;
 import org.bouncycastle.math.raw.Nat;
 import org.bouncycastle.math.raw.Nat256;
 import org.bouncycastle.util.Arrays;
+
+import java.security.SecureRandom;
 
 /**
  * Duplicate of {@link org.bouncycastle.math.ec.rfc8032.Ed25519},

@@ -1,6 +1,8 @@
 package org.qortal.test.serialization;
 
-import org.junit.Ignore;
+import com.google.common.hash.HashCode;
+import io.druid.extendedset.intset.ConciseSet;
+import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.data.transaction.TransactionData;
@@ -15,12 +17,6 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.Serialization;
 
-import com.google.common.hash.HashCode;
-
-import io.druid.extendedset.intset.ConciseSet;
-
-import static org.junit.Assert.*;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -28,7 +24,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
-import org.junit.Before;
+import static org.junit.Assert.assertEquals;
 
 public class SerializationTests extends Common {
 

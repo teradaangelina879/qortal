@@ -1,28 +1,23 @@
 package org.qortal.test.crosschain;
 
-import static org.junit.Assert.*;
-
-import java.security.Security;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.Address;
 import org.bitcoinj.params.TestNet3Params;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
-import org.qortal.crosschain.ForeignBlockchainException;
-import org.qortal.crosschain.BitcoinyTransaction;
-import org.qortal.crosschain.ElectrumX;
-import org.qortal.crosschain.TransactionHash;
-import org.qortal.crosschain.UnspentOutput;
 import org.qortal.crosschain.Bitcoin.BitcoinNet;
+import org.qortal.crosschain.*;
 import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.utils.BitTwiddling;
 
-import com.google.common.hash.HashCode;
+import java.security.Security;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.Assert.*;
 
 public class ElectrumXTests {
 

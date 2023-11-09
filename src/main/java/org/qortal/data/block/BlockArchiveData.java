@@ -1,7 +1,5 @@
 package org.qortal.data.block;
 
-import org.qortal.block.Block;
-
 public class BlockArchiveData {
 
 	// Properties

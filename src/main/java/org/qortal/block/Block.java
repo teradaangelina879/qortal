@@ -1,19 +1,8 @@
 package org.qortal.block;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.*;
-import java.util.stream.Collectors;
-
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
+import io.druid.extendedset.intset.ConciseSet;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,16 +12,12 @@ import org.qortal.account.PrivateKeyAccount;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
 import org.qortal.at.AT;
-import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.block.BlockChain.AccountLevelShareBin;
+import org.qortal.block.BlockChain.BlockTimingByHeight;
 import org.qortal.controller.OnlineAccountsManager;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.Qortal25519Extras;
-import org.qortal.data.account.AccountBalanceData;
-import org.qortal.data.account.AccountData;
-import org.qortal.data.account.EligibleQoraHolderData;
-import org.qortal.data.account.QortFromQoraData;
-import org.qortal.data.account.RewardShareData;
+import org.qortal.data.account.*;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.block.BlockData;
@@ -56,10 +41,19 @@ import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 import org.qortal.utils.NTP;
 
-import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Longs;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import io.druid.extendedset.intset.ConciseSet;
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public class Block {
 

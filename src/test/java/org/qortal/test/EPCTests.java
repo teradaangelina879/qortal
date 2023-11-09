@@ -1,5 +1,9 @@
 package org.qortal.test;
 
+import org.junit.Test;
+import org.qortal.utils.ExecuteProduceConsume;
+import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -8,10 +12,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import org.junit.Test;
-import org.qortal.utils.ExecuteProduceConsume;
-import org.qortal.utils.ExecuteProduceConsume.StatsSnapshot;
 
 import static org.junit.Assert.fail;
 

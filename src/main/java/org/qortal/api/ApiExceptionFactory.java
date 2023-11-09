@@ -1,8 +1,8 @@
 package org.qortal.api;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.qortal.globalization.Translator;
+
+import javax.servlet.http.HttpServletRequest;
 
 public enum ApiExceptionFactory {
 	INSTANCE;

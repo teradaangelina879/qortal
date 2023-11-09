@@ -1,8 +1,8 @@
 package org.qortal.repository;
 
-import java.util.List;
-
 import org.qortal.data.naming.NameData;
+
+import java.util.List;
 
 public interface NameRepository {
 

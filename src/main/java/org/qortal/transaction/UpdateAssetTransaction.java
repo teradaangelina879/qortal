@@ -1,8 +1,6 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
+import com.google.common.base.Utf8;
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
@@ -13,7 +11,8 @@ import org.qortal.data.transaction.UpdateAssetTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 
-import com.google.common.base.Utf8;
+import java.util.Collections;
+import java.util.List;
 
 public class UpdateAssetTransaction extends Transaction {
 

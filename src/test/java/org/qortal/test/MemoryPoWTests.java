@@ -6,9 +6,9 @@ import org.qortal.crypto.MemoryPoW;
 import org.qortal.repository.DataException;
 import org.qortal.test.common.Common;
 
-import static org.junit.Assert.*;
-
 import java.util.Random;
+
+import static org.junit.Assert.*;
 
 @Ignore
 public class MemoryPoWTests {

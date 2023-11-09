@@ -1,6 +1,6 @@
 package org.qortal.arbitrary;
 
-import org.qortal.arbitrary.ArbitraryDataFile.*;
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.metadata.ArbitraryDataMetadataCache;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;

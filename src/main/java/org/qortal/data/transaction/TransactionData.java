@@ -1,15 +1,7 @@
 package org.qortal.data.transaction;
 
-import java.math.BigInteger;
-import java.util.Arrays;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlSeeAlso;
-import javax.xml.bind.annotation.XmlTransient;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.voting.PollData;
@@ -17,8 +9,10 @@ import org.qortal.data.voting.VoteOnPollData;
 import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
+import javax.xml.bind.annotation.*;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import java.math.BigInteger;
+import java.util.Arrays;
 
 /*
  * If you encounter an error like:
@@ -75,6 +69,9 @@ public abstract class TransactionData {
 	@Schema(description = "groupID for this transaction")
 	protected int txGroupId;
 
+	@Schema(description = "recipient for this transaction")
+	protected String recipient;
+
 	// Not always present
 	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true, description = "height of block containing transaction")
 	protected Integer blockHeight;
@@ -105,7 +102,7 @@ public abstract class TransactionData {
 	/** Constructor for use by transaction subclasses. */
 	protected TransactionData(TransactionType type, BaseTransactionData baseTransactionData) {
 		this.type = type;
-
+		this.recipient = baseTransactionData.recipient;
 		this.timestamp = baseTransactionData.timestamp;
 		this.txGroupId = baseTransactionData.txGroupId;
 		this.reference = baseTransactionData.reference;
@@ -134,6 +131,10 @@ public abstract class TransactionData {
 
 	public int getTxGroupId() {
 		return this.txGroupId;
+	}
+
+	public String getRecipient() {
+		return this.recipient;
 	}
 
 	public void setTxGroupId(int txGroupId) {
@@ -250,5 +251,4 @@ public abstract class TransactionData {
 
 		return Arrays.equals(this.signature, otherTransactionData.signature);
 	}
-
 }

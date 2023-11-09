@@ -1,10 +1,10 @@
 package org.qortal.repository;
 
-import java.util.List;
-
 import org.qortal.data.chat.ActiveChats;
 import org.qortal.data.chat.ChatMessage;
 import org.qortal.data.transaction.ChatTransactionData;
+
+import java.util.List;
 
 import static org.qortal.data.chat.ChatMessage.Encoding;
 

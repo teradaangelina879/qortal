@@ -3,7 +3,10 @@ package org.qortal.controller.arbitrary;
 import org.qortal.arbitrary.ArbitraryDataResource;
 import org.qortal.utils.NTP;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 public class ArbitraryDataRenderManager extends Thread {
 

@@ -17,19 +17,15 @@ import org.qortal.data.transaction.TransferPrivsTransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.test.common.AccountUtils;
-import org.qortal.test.common.BlockUtils;
-import org.qortal.test.common.Common;
-import org.qortal.test.common.TestAccount;
-import org.qortal.test.common.TransactionUtils;
+import org.qortal.test.common.*;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.Amounts;
 
-import static org.junit.Assert.*;
-
 import java.util.List;
 import java.util.Random;
+
+import static org.junit.Assert.*;
 
 @Ignore(value = "Doesn't work, to be fixed later")
 public class TransferPrivsTests extends Common {

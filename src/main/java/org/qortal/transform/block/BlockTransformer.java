@@ -1,13 +1,8 @@
 package org.qortal.transform.block;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+import io.druid.extendedset.intset.ConciseSet;
 import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
@@ -23,10 +18,13 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Base58;
 import org.qortal.utils.Serialization;
 
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-
-import io.druid.extendedset.intset.ConciseSet;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class BlockTransformer extends Transformer {
 

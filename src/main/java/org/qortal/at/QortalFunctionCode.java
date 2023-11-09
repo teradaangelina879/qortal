@@ -1,9 +1,5 @@
 package org.qortal.at;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.ciyam.at.ExecutionException;
@@ -16,6 +12,10 @@ import org.qortal.crypto.Crypto;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.settings.Settings;
+
+import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Qortal-specific CIYAM-AT Functions.

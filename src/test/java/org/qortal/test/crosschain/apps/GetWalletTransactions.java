@@ -1,15 +1,15 @@
 package org.qortal.test.crosschain.apps;
 
-import java.security.Security;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import org.bitcoinj.core.AddressFormatException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.crosschain.*;
 import org.qortal.settings.Settings;
+
+import java.security.Security;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class GetWalletTransactions {
 

@@ -1,5 +1,7 @@
 package org.qortal.test;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.Account;
@@ -17,8 +19,6 @@ import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 
-import static org.junit.Assert.*;
-
 import java.lang.reflect.Field;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,8 +29,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.*;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import static org.junit.Assert.*;
 
 public class RepositoryTests extends Common {
 

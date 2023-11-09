@@ -1,36 +1,20 @@
 package org.qortal.group;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.Arrays;
-import java.util.Map;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.controller.Controller;
 import org.qortal.crypto.Crypto;
-import org.qortal.data.group.GroupAdminData;
-import org.qortal.data.group.GroupBanData;
-import org.qortal.data.group.GroupData;
-import org.qortal.data.group.GroupInviteData;
-import org.qortal.data.group.GroupJoinRequestData;
-import org.qortal.data.group.GroupMemberData;
-import org.qortal.data.transaction.AddGroupAdminTransactionData;
-import org.qortal.data.transaction.CancelGroupBanTransactionData;
-import org.qortal.data.transaction.CancelGroupInviteTransactionData;
-import org.qortal.data.transaction.CreateGroupTransactionData;
-import org.qortal.data.transaction.GroupBanTransactionData;
-import org.qortal.data.transaction.GroupInviteTransactionData;
-import org.qortal.data.transaction.GroupKickTransactionData;
-import org.qortal.data.transaction.JoinGroupTransactionData;
-import org.qortal.data.transaction.LeaveGroupTransactionData;
-import org.qortal.data.transaction.RemoveGroupAdminTransactionData;
-import org.qortal.data.transaction.TransactionData;
-import org.qortal.data.transaction.UpdateGroupTransactionData;
+import org.qortal.data.group.*;
+import org.qortal.data.transaction.*;
 import org.qortal.repository.DataException;
 import org.qortal.repository.GroupRepository;
 import org.qortal.repository.Repository;
+
+import java.util.Arrays;
+import java.util.Map;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public class Group {
 

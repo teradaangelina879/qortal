@@ -1,13 +1,13 @@
 package org.qortal.repository.hsqldb;
 
+import org.qortal.data.naming.NameData;
+import org.qortal.repository.DataException;
+import org.qortal.repository.NameRepository;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.qortal.data.naming.NameData;
-import org.qortal.repository.DataException;
-import org.qortal.repository.NameRepository;
 
 public class HSQLDBNameRepository implements NameRepository {
 

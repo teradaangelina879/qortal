@@ -1,12 +1,11 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
+import org.qortal.transform.block.BlockTransformer;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import org.qortal.transform.block.BlockTransformer;
-
-import com.google.common.primitives.Ints;
 
 public class GetSignaturesV2Message extends Message {
 

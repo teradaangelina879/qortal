@@ -1,14 +1,5 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import static org.qortal.transaction.Transaction.TransactionType.*;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
@@ -27,6 +18,15 @@ import org.qortal.transaction.Transaction.ApprovalStatus;
 import org.qortal.transaction.Transaction.TransactionType;
 import org.qortal.utils.Base58;
 import org.qortal.utils.Unicode;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
+
+import static org.qortal.transaction.Transaction.TransactionType.*;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
 

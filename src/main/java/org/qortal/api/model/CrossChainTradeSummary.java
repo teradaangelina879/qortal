@@ -1,12 +1,11 @@
 package org.qortal.api.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.qortal.data.crosschain.CrossChainTradeData;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-
-import org.qortal.data.crosschain.CrossChainTradeData;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

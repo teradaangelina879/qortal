@@ -1,13 +1,8 @@
 package org.qortal.repository;
 
-import java.util.List;
+import org.qortal.data.group.*;
 
-import org.qortal.data.group.GroupAdminData;
-import org.qortal.data.group.GroupBanData;
-import org.qortal.data.group.GroupData;
-import org.qortal.data.group.GroupInviteData;
-import org.qortal.data.group.GroupJoinRequestData;
-import org.qortal.data.group.GroupMemberData;
+import java.util.List;
 
 public interface GroupRepository {
 

@@ -1,24 +1,10 @@
 package org.qortal.crosschain;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.AddressFormatException;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.Context;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.InsufficientMoneyException;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Sha256Hash;
-import org.bitcoinj.core.Transaction;
-import org.bitcoinj.core.TransactionOutput;
-import org.bitcoinj.core.UTXO;
-import org.bitcoinj.core.UTXOProvider;
-import org.bitcoinj.core.UTXOProviderException;
+import org.bitcoinj.core.*;
 import org.bitcoinj.crypto.ChildNumber;
 import org.bitcoinj.crypto.DeterministicHierarchy;
 import org.bitcoinj.crypto.DeterministicKey;
@@ -32,9 +18,10 @@ import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.BitTwiddling;
-
-import com.google.common.hash.HashCode;
 import org.qortal.utils.NTP;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /** Bitcoin-like (Bitcoin, Litecoin, etc.) support */
 public abstract class Bitcoiny implements ForeignBlockchain {
@@ -488,6 +475,37 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		}
 	}
 
+	public List<AddressInfo> getWalletAddressInfos(String key58) throws ForeignBlockchainException {
+		List<AddressInfo> infos = new ArrayList<>();
+
+		for(DeterministicKey key : getWalletKeys(key58)) {
+			infos.add(buildAddressInfo(key));
+		}
+
+		return infos.stream()
+				.sorted(new PathComparator(1))
+				.collect(Collectors.toList());
+	}
+
+	public AddressInfo buildAddressInfo(DeterministicKey key) throws ForeignBlockchainException  {
+
+		Address address = Address.fromKey(this.params, key, ScriptType.P2PKH);
+
+		int transactionCount = getAddressTransactions(ScriptBuilder.createOutputScript(address).getProgram(), true).size();
+
+		return new AddressInfo(
+				address.toString(),
+				toIntegerList( key.getPath()),
+				summingUnspentOutputs(address.toString()),
+				key.getPathAsString(),
+				transactionCount);
+	}
+
+	private static  List<Integer> toIntegerList(ImmutableList<ChildNumber> path) {
+
+		return path.stream().map(ChildNumber::num).collect(Collectors.toList());
+	}
+
 	public Set<String> getWalletAddresses(String key58) throws ForeignBlockchainException {
 		synchronized (this) {
 			Context.propagate(bitcoinjContext);
@@ -543,6 +561,61 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			} while (true);
 
 			return keySet;
+		}
+	}
+
+	private List<DeterministicKey> getWalletKeys(String key58) throws ForeignBlockchainException {
+		synchronized (this) {
+			Context.propagate(bitcoinjContext);
+
+			Wallet wallet = walletFromDeterministicKey58(key58);
+			DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
+
+			keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
+			keyChain.maybeLookAhead();
+
+			List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
+
+			int unusedCounter = 0;
+			int ki = 0;
+			do {
+				boolean areAllKeysUnused = true;
+
+				for (; ki < keys.size(); ++ki) {
+					DeterministicKey dKey = keys.get(ki);
+
+					// Check for transactions
+					Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
+					byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
+
+					// Ask for transaction history - if it's empty then key has never been used
+					List<TransactionHash> historicTransactionHashes = this.getAddressTransactions(script, false);
+
+					if (!historicTransactionHashes.isEmpty()) {
+						areAllKeysUnused = false;
+					}
+				}
+
+				if (areAllKeysUnused) {
+					// No transactions
+					if (unusedCounter >= Settings.getInstance().getGapLimit()) {
+						// ... and we've hit our search limit
+						break;
+					}
+					// We haven't hit our search limit yet so increment the counter and keep looking
+					unusedCounter += WALLET_KEY_LOOKAHEAD_INCREMENT;
+				} else {
+					// Some keys in this batch were used, so reset the counter
+					unusedCounter = 0;
+				}
+
+				// Generate some more keys
+				keys.addAll(generateMoreKeys(keyChain));
+
+				// Process new keys
+			} while (true);
+
+			return keys;
 		}
 	}
 
@@ -816,6 +889,13 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		public NetworkParameters getParams() {
 			return this.bitcoiny.params;
 		}
+	}
+
+	private Long summingUnspentOutputs(String walletAddress) throws ForeignBlockchainException {
+		return this.getUnspentOutputs(walletAddress).stream()
+				.map(TransactionOutput::getValue)
+				.mapToLong(Coin::longValue)
+				.sum();
 	}
 
 	// Utility methods for others

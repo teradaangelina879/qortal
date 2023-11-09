@@ -8,26 +8,26 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.util.List;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.bitcoinj.core.Transaction;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
 import org.qortal.api.ApiExceptionFactory;
 import org.qortal.api.Security;
+import org.qortal.api.model.crosschain.AddressRequest;
 import org.qortal.api.model.crosschain.RavencoinSendRequest;
-import org.qortal.crosschain.Ravencoin;
+import org.qortal.crosschain.AddressInfo;
 import org.qortal.crosschain.ForeignBlockchainException;
+import org.qortal.crosschain.Ravencoin;
 import org.qortal.crosschain.SimpleTransaction;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
 
 @Path("/crosschain/rvn")
 @Tag(name = "Cross-Chain (Ravencoin)")
@@ -145,6 +145,44 @@ public class CrossChainRavencoinResource {
 
 		try {
 			return ravencoin.getWalletTransactions(key58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
+		}
+	}
+
+	@POST
+	@Path("/addressinfos")
+	@Operation(
+			summary = "Returns information for each address for a hierarchical, deterministic BIP32 wallet",
+			description = "Supply BIP32 'm' private/public key in base58, starting with 'xprv'/'xpub' for mainnet, 'tprv'/'tpub' for testnet",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.APPLICATION_JSON,
+							schema = @Schema(
+									implementation = AddressRequest.class
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(array = @ArraySchema( schema = @Schema( implementation = AddressInfo.class ) ) )
+					)
+			}
+
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public List<AddressInfo> getRavencoinAddressInfos(@HeaderParam(Security.API_KEY_HEADER) String apiKey, AddressRequest addressRequest) {
+		Security.checkApiCallAllowed(request);
+
+		Ravencoin ravencoin = Ravencoin.getInstance();
+
+		if (!ravencoin.isValidDeterministicKey(addressRequest.xpub58))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+
+		try {
+			return ravencoin.getWalletAddressInfos(addressRequest.xpub58);
 		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE);
 		}

@@ -1,10 +1,5 @@
 package org.qortal.account;
 
-import static org.qortal.utils.Amounts.prettyAmount;
-
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.block.BlockChain;
@@ -16,6 +11,11 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.settings.Settings;
 import org.qortal.utils.Base58;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+import static org.qortal.utils.Amounts.prettyAmount;
 
 @XmlAccessorType(XmlAccessType.NONE) // Stops JAX-RS errors when unmarshalling blockchain config
 public class Account {

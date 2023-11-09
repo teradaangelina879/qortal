@@ -3,7 +3,7 @@ package org.qortal.arbitrary;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
+import org.qortal.arbitrary.ArbitraryDataFile.ResourceIdType;
 import org.qortal.arbitrary.exception.DataNotPublishedException;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.arbitrary.misc.Service;
@@ -11,11 +11,11 @@ import org.qortal.controller.arbitrary.ArbitraryDataBuildManager;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.crypto.AES;
 import org.qortal.data.transaction.ArbitraryTransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.*;
+import org.qortal.data.transaction.ArbitraryTransactionData.Compression;
+import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.arbitrary.ArbitraryDataFile.*;
 import org.qortal.settings.Settings;
 import org.qortal.transform.Transformer;
 import org.qortal.utils.*;
@@ -66,7 +66,7 @@ public class ArbitraryDataReader {
     // TODO: all builds could be handled by the build queue (even synchronous ones), to avoid the need for this
     private static Map<String, Long> inProgress = Collections.synchronizedMap(new HashMap<>());
 
-    public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) {
+    public ArbitraryDataReader(String resourceId, ResourceIdType resourceIdType, Service service, String identifier) throws DataException {
         // Ensure names are always lowercase
         if (resourceIdType == ResourceIdType.NAME) {
             resourceId = resourceId.toLowerCase();
@@ -90,11 +90,16 @@ public class ArbitraryDataReader {
         this.canRequestMissingFiles = true;
     }
 
-    private Path buildWorkingPath() {
+    private Path buildWorkingPath() throws DataException {
         // Use the user-specified temp dir, as it is deterministic, and is more likely to be located on reusable storage hardware
         String baseDir = Settings.getInstance().getTempDataPath();
         String identifier = this.identifier != null ?  this.identifier : "default";
-        return Paths.get(baseDir, "reader", this.resourceIdType.toString(), this.resourceId, this.service.toString(), identifier);
+
+        try {
+            return Paths.get(baseDir, "reader", this.resourceIdType.toString(), StringUtils.sanitizeString(this.resourceId), this.service.toString(), StringUtils.sanitizeString(identifier));
+        } catch (InvalidPathException e) {
+            throw new DataException(String.format("Invalid path: %s", e.getMessage()));
+        }
     }
 
     public boolean isCachedDataAvailable() {
@@ -240,7 +245,7 @@ public class ArbitraryDataReader {
         try {
             Files.createDirectories(this.workingPath);
         } catch (IOException e) {
-            throw new DataException("Unable to create temp directory");
+            throw new DataException(String.format("Unable to create temp directory %s: %s", this.workingPath, e.getMessage()));
         }
     }
 

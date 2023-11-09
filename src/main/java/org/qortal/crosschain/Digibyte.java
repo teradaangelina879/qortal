@@ -1,10 +1,5 @@
 package org.qortal.crosschain;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumMap;
-import java.util.Map;
-
 import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Context;
 import org.bitcoinj.core.NetworkParameters;
@@ -14,6 +9,11 @@ import org.libdohj.params.DigibyteMainNetParams;
 import org.qortal.crosschain.ElectrumX.Server;
 import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
 import org.qortal.settings.Settings;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
+import java.util.Map;
 
 public class Digibyte extends Bitcoiny {
 
@@ -43,14 +43,17 @@ public class Digibyte extends Bitcoiny {
 			@Override
 			public Collection<Server> getServers() {
 				return Arrays.asList(
-						// Servers chosen on NO BASIS WHATSOEVER from various sources!
-						// Status verified at https://1209k.com/bitcoin-eye/ele.php?chain=dgb
-						new Server("electrum.qortal.link", Server.ConnectionType.SSL, 55002),
-						new Server("electrum-dgb.qortal.online", ConnectionType.SSL, 50002),
-						new Server("electrum1-dgb.qortal.online", ConnectionType.SSL, 50002),
-						new Server("electrum1.cipig.net", ConnectionType.SSL, 20059),
-						new Server("electrum2.cipig.net", ConnectionType.SSL, 20059),
-						new Server("electrum3.cipig.net", ConnectionType.SSL, 20059));
+					// Servers chosen on NO BASIS WHATSOEVER from various sources!
+					// Status verified at https://1209k.com/bitcoin-eye/ele.php?chain=dgb
+					new Server("electrum.qortal.link", Server.ConnectionType.SSL, 55002),
+					new Server("electrum1-dgb.qortal.online", Server.ConnectionType.SSL, 50002),
+					new Server("electrum2-dgb.qortal.online", Server.ConnectionType.SSL, 50002),
+					new Server("electrum3-dgb.qortal.online", Server.ConnectionType.SSL, 40002),
+					new Server("electrum4-dgb.qortal.online", Server.ConnectionType.SSL, 40002),
+					new Server("electrum1.cipig.net", Server.ConnectionType.SSL, 20059),
+					new Server("electrum2.cipig.net", Server.ConnectionType.SSL, 20059),
+					new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20059)
+				);
 			}
 
 			@Override
@@ -94,8 +97,9 @@ public class Digibyte extends Bitcoiny {
 			@Override
 			public Collection<Server> getServers() {
 				return Arrays.asList(
-						new Server("localhost", ConnectionType.TCP, 50001),
-						new Server("localhost", ConnectionType.SSL, 50002));
+					new Server("localhost", Server.ConnectionType.TCP, 50001),
+					new Server("localhost", Server.ConnectionType.SSL, 50002)
+				);
 			}
 
 			@Override

@@ -1,12 +1,5 @@
 package org.qortal.payment;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import org.qortal.account.Account;
 import org.qortal.account.PublicKeyAccount;
 import org.qortal.asset.Asset;
@@ -19,6 +12,9 @@ import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.Amounts;
+
+import java.util.*;
+import java.util.Map.Entry;
 
 public class Payment {
 

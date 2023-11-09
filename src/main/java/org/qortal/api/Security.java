@@ -5,11 +5,10 @@ import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.settings.Settings;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
-import javax.servlet.http.HttpServletRequest;
 
 public abstract class Security {
 

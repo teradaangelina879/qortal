@@ -1,6 +1,9 @@
 package org.qortal.repository.hsqldb;
 
-import static org.qortal.utils.Amounts.prettyAmount;
+import org.qortal.asset.Asset;
+import org.qortal.data.account.*;
+import org.qortal.repository.AccountRepository;
+import org.qortal.repository.DataException;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -9,10 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.qortal.asset.Asset;
-import org.qortal.data.account.*;
-import org.qortal.repository.AccountRepository;
-import org.qortal.repository.DataException;
+import static org.qortal.utils.Amounts.prettyAmount;
 
 public class HSQLDBAccountRepository implements AccountRepository {
 

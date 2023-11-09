@@ -1,16 +1,15 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
+import org.qortal.network.PeerAddress;
+import org.qortal.settings.Settings;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.qortal.network.PeerAddress;
-import org.qortal.settings.Settings;
-
-import com.google.common.primitives.Ints;
 
 // NOTE: this message supports hostnames, literal IP addresses (IPv4 and IPv6) with port numbers
 public class PeersV2Message extends Message {

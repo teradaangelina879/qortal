@@ -1,10 +1,5 @@
 package org.qortal.transaction;
 
-import java.math.BigInteger;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Predicate;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
@@ -30,11 +25,15 @@ import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.NTP;
 
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigInteger;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public abstract class Transaction {
 

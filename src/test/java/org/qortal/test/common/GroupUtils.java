@@ -1,11 +1,7 @@
 package org.qortal.test.common;
 
 import org.qortal.account.PrivateKeyAccount;
-import org.qortal.data.transaction.BaseTransactionData;
-import org.qortal.data.transaction.CreateGroupTransactionData;
-import org.qortal.data.transaction.GroupApprovalTransactionData;
-import org.qortal.data.transaction.JoinGroupTransactionData;
-import org.qortal.data.transaction.TransactionData;
+import org.qortal.data.transaction.*;
 import org.qortal.group.Group;
 import org.qortal.group.Group.ApprovalThreshold;
 import org.qortal.repository.DataException;

@@ -1,17 +1,17 @@
 package org.qortal.repository.hsqldb;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.qortal.controller.Controller;
+import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
+import org.qortal.gui.SplashFrame;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.stream.Collectors;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.qortal.controller.Controller;
-import org.qortal.controller.tradebot.BitcoinACCTv1TradeBot;
-import org.qortal.gui.SplashFrame;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -901,7 +901,7 @@ public class HSQLDBDatabaseUpdates {
 				case 37:
 					// ARBITRARY transaction updates for off-chain data storage
 
-					// We may want to use a nonce rather than a transaction fee on the data chain
+					// We may want to use a nonce rather than a transaction fee for ARBITRARY transactions
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD nonce INT NOT NULL DEFAULT 0");
 					// We need to know the total size of the data file(s) associated with each transaction
 					stmt.execute("ALTER TABLE ArbitraryTransactions ADD size INT NOT NULL DEFAULT 0");
@@ -1004,6 +1004,49 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX TransactionHeightSequenceIndex on Transactions (block_height, block_sequence)");
 					break;
 
+				case 48:
+					// We need to keep a local cache of arbitrary resources (items published to QDN), for easier searching.
+					// IMPORTANT: this is a cache of the last known state of a resource (both confirmed
+					// and valid unconfirmed). It cannot be assumed that all nodes will contain the same state at a
+					// given block height, and therefore must NOT be used for any consensus/validation code. It is
+					// simply a cache, to avoid having to query the raw transactions and the metadata in flat files
+					// when serving API requests.
+					// ARBITRARY transactions aren't really suitable for updating resources in the same way we'd update
+					// names or groups for instance, as there is no distinction between creations and updates, and metadata
+					// is off-chain. Plus, QDN allows (valid) unconfirmed data to be queried and viewed. It is very
+					// easy to keep a cache of the latest transaction's data, but anything more than that would need
+					// considerable thought (and most likely a rewrite).
+
+					stmt.execute("CREATE TABLE ArbitraryResourcesCache (service SMALLINT NOT NULL, "
+							+ "name RegisteredName NOT NULL, identifier VARCHAR(64), size INT NOT NULL, "
+							+ "status INTEGER DEFAULT 1, created_when EpochMillis NOT NULL, updated_when EpochMillis, "
+							+ "PRIMARY KEY (service, name, identifier))");
+					// For finding resources by service.
+					stmt.execute("CREATE INDEX ArbitraryResourcesServiceIndex ON ArbitraryResourcesCache (service)");
+					// For finding resources by name.
+					stmt.execute("CREATE INDEX ArbitraryResourcesNameIndex ON ArbitraryResourcesCache (name)");
+					// For finding resources by identifier.
+					stmt.execute("CREATE INDEX ArbitraryResourcesIdentifierIndex ON ArbitraryResourcesCache (identifier)");
+					// For finding resources by creation date (the default column when ordering).
+					stmt.execute("CREATE INDEX ArbitraryResourcesCreatedIndex ON ArbitraryResourcesCache (created_when)");
+					// Use a separate table space as this table will be very large.
+					stmt.execute("SET TABLE ArbitraryResourcesCache NEW SPACE");
+
+					stmt.execute("CREATE TABLE ArbitraryMetadataCache (service SMALLINT NOT NULL, "
+							+ "name RegisteredName NOT NULL, identifier VARCHAR(64), "
+							+ "title VARCHAR(80), description VARCHAR(240), category VARCHAR(64), "
+							+ "tag1 VARCHAR(20), tag2 VARCHAR(20), tag3 VARCHAR(20), tag4 VARCHAR(20), tag5 VARCHAR(20), "
+							+ "PRIMARY KEY (service, name, identifier), FOREIGN KEY (service, name, identifier) "
+							+ "REFERENCES ArbitraryResourcesCache (service, name, identifier) ON DELETE CASCADE)");
+					// For finding metadata by title.
+					stmt.execute("CREATE INDEX ArbitraryMetadataTitleIndex ON ArbitraryMetadataCache (title)");
+
+					// For finding arbitrary transactions by service
+					stmt.execute("CREATE INDEX ArbitraryServiceIndex ON ArbitraryTransactions (service)");
+					// For finding arbitrary transactions by identifier
+					stmt.execute("CREATE INDEX ArbitraryIdentifierIndex ON ArbitraryTransactions (identifier)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
@@ -1014,5 +1057,4 @@ public class HSQLDBDatabaseUpdates {
 		LOGGER.info(() -> String.format("HSQLDB repository updated to version %d", databaseVersion + 1));
 		return true;
 	}
-
 }

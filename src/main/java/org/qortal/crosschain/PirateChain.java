@@ -4,12 +4,6 @@ import cash.z.wallet.sdk.rpc.CompactFormats;
 import com.google.common.hash.HashCode;
 import com.rust.litewalletjni.LiteWalletJni;
 import org.bitcoinj.core.*;
-import org.bitcoinj.crypto.ChildNumber;
-import org.bitcoinj.crypto.DeterministicKey;
-import org.bitcoinj.script.Script;
-import org.bitcoinj.script.ScriptBuilder;
-import org.bitcoinj.wallet.DeterministicKeyChain;
-import org.bitcoinj.wallet.Wallet;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -56,11 +50,14 @@ public class PirateChain extends Bitcoiny {
 			@Override
 			public Collection<Server> getServers() {
 				return Arrays.asList(
-						// Servers chosen on NO BASIS WHATSOEVER from various sources!
-						new Server("wallet-arrr1.qortal.online", ConnectionType.SSL, 443),
-						new Server("wallet-arrr2.qortal.online", ConnectionType.SSL, 443),
-						new Server("wallet-arrr3.qortal.online", ConnectionType.SSL, 443),
-						new Server("lightd.pirate.black", ConnectionType.SSL, 443));
+					// Servers chosen on NO BASIS WHATSOEVER from various sources!
+					new Server("wallet-arrr1.qortal.online", Server.ConnectionType.SSL, 443),
+					new Server("wallet-arrr2.qortal.online", Server.ConnectionType.SSL, 443),
+					new Server("wallet-arrr3.qortal.online", Server.ConnectionType.SSL, 443),
+					new Server("wallet-arrr4.qortal.online", Server.ConnectionType.SSL, 443),
+					new Server("wallet-arrr5.qortal.online", Server.ConnectionType.SSL, 443),
+					new Server("lightd.pirate.black", Server.ConnectionType.SSL, 443)
+				);
 			}
 
 			@Override
@@ -104,8 +101,9 @@ public class PirateChain extends Bitcoiny {
 			@Override
 			public Collection<Server> getServers() {
 				return Arrays.asList(
-						new Server("localhost", ConnectionType.TCP, 9067),
-						new Server("localhost", ConnectionType.SSL, 443));
+					new Server("localhost", Server.ConnectionType.TCP, 9067),
+					new Server("localhost", Server.ConnectionType.SSL, 443)
+				);
 			}
 
 			@Override
@@ -355,6 +353,30 @@ public class PirateChain extends Bitcoiny {
 			walletController.ensureNotNullSeed();
 
 			return walletController.getCurrentWallet().getWalletAddress();
+		}
+	}
+
+	public String getPrivateKey(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureNotNullSeed();
+                        walletController.getCurrentWallet().unlock();
+
+			return walletController.getCurrentWallet().getPrivateKey();
+		}
+	}
+
+	public String getWalletSeed(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureNotNullSeed();
+                        walletController.getCurrentWallet().unlock();
+
+			return walletController.getCurrentWallet().getWalletSeed(entropy58);
 		}
 	}
 

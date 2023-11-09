@@ -12,24 +12,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import java.io.*;
-import java.net.FileNameMap;
-import java.net.URLConnection;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.LogManager;
@@ -45,11 +27,15 @@ import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
 import org.qortal.arbitrary.misc.Category;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.controller.Controller;
+import org.qortal.controller.arbitrary.ArbitraryDataCacheManager;
 import org.qortal.controller.arbitrary.ArbitraryDataRenderManager;
 import org.qortal.controller.arbitrary.ArbitraryDataStorageManager;
 import org.qortal.controller.arbitrary.ArbitraryMetadataManager;
 import org.qortal.data.account.AccountData;
-import org.qortal.data.arbitrary.*;
+import org.qortal.data.arbitrary.ArbitraryCategoryInfo;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -66,6 +52,25 @@ import org.qortal.transform.TransformationException;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
 import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.*;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.*;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.net.FileNameMap;
+import java.net.URLConnection;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 @Path("/arbitrary")
 @Tag(name = "Arbitrary")
@@ -86,12 +91,12 @@ public class ArbitraryResource {
 					"- If default is set to true, only resources without identifiers will be returned.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> getResources(
+	public List<ArbitraryResourceData> getResources(
 			@QueryParam("service") Service service,
 			@QueryParam("name") String name,
 			@QueryParam("identifier") String identifier,
@@ -133,18 +138,12 @@ public class ArbitraryResource {
 				}
 			}
 
-			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
+			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
+					.getArbitraryResources(service, identifier, names, defaultRes, followedOnly, excludeBlocked,
+							includeMetadata, includeStatus, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
-			}
-
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -161,24 +160,30 @@ public class ArbitraryResource {
 					"If default is set to true, only resources without identifiers will be returned.",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> searchResources(
+	public List<ArbitraryResourceData> searchResources(
 			@QueryParam("service") Service service,
-			@Parameter(description = "Query (searches both name and identifier fields)") @QueryParam("query") String query,
+			@Parameter(description = "Query (searches name, identifier, title and description fields)") @QueryParam("query") String query,
 			@Parameter(description = "Identifier (searches identifier field only)") @QueryParam("identifier") String identifier,
 			@Parameter(description = "Name (searches name field only)") @QueryParam("name") List<String> names,
+			@Parameter(description = "Title (searches title metadata field only)") @QueryParam("title") String title,
+			@Parameter(description = "Description (searches description metadata field only)") @QueryParam("description") String description,
 			@Parameter(description = "Prefix only (if true, only the beginning of fields are matched)") @QueryParam("prefix") Boolean prefixOnly,
 			@Parameter(description = "Exact match names only (if true, partial name matches are excluded)") @QueryParam("exactmatchnames") Boolean exactMatchNamesOnly,
 			@Parameter(description = "Default resources (without identifiers) only") @QueryParam("default") Boolean defaultResource,
+			@Parameter(description = "Search mode") @QueryParam("mode") SearchMode mode,
+			@Parameter(description = "Min level") @QueryParam("minlevel") Integer minLevel,
 			@Parameter(description = "Filter names by list (exact matches only)") @QueryParam("namefilter") String nameListFilter,
 			@Parameter(description = "Include followed names only") @QueryParam("followedonly") Boolean followedOnly,
 			@Parameter(description = "Exclude blocked content") @QueryParam("excludeblocked") Boolean excludeBlocked,
 			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
 			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
+			@Parameter(description = "Creation date before timestamp") @QueryParam("before") Long before,
+			@Parameter(description = "Creation date after timestamp") @QueryParam("after") Long after,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@Parameter(ref = "reverse") @QueryParam("reverse") Boolean reverse) {
@@ -206,18 +211,13 @@ public class ArbitraryResource {
 				names = null;
 			}
 
-			List<ArbitraryResourceInfo> resources = repository.getArbitraryRepository()
-					.searchArbitraryResources(service, query, identifier, names, usePrefixOnly, exactMatchNames, defaultRes, followedOnly, excludeBlocked, limit, offset, reverse);
+			List<ArbitraryResourceData> resources = repository.getArbitraryRepository()
+					.searchArbitraryResources(service, query, identifier, names, title, description, usePrefixOnly,
+							exactMatchNames, defaultRes, mode, minLevel, followedOnly, excludeBlocked, includeMetadata, includeStatus,
+							before, after, limit, offset, reverse);
 
 			if (resources == null) {
 				return new ArrayList<>();
-			}
-
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -238,16 +238,14 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getDefaultResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-															@PathParam("service") Service service,
+	public ArbitraryResourceStatus getDefaultResourceStatus(@PathParam("service") Service service,
 															@PathParam("name") String name,
 															@QueryParam("build") Boolean build) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, null, null);
 
-		return ArbitraryTransactionUtils.getStatus(service, name, null, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, null, build, true);
 	}
 
 	@GET
@@ -261,14 +259,12 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public FileProperties getResourceProperties(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-											  @PathParam("service") Service service,
-											  @PathParam("name") String name,
-											  @PathParam("identifier") String identifier) {
+	public FileProperties getResourceProperties(@PathParam("service") Service service,
+											    @PathParam("name") String name,
+											    @PathParam("identifier") String identifier) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, null);
 
 		return this.getFileProperties(service, name, identifier);
 	}
@@ -284,17 +280,15 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public ArbitraryResourceStatus getResourceStatus(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-													 @PathParam("service") Service service,
+	public ArbitraryResourceStatus getResourceStatus(@PathParam("service") Service service,
 													 @PathParam("name") String name,
 													 @PathParam("identifier") String identifier,
 													 @QueryParam("build") Boolean build) {
 
 		if (!Settings.getInstance().isQDNAuthBypassEnabled())
-			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, apiKey);
+			Security.requirePriorAuthorizationOrApiKey(request, name, service, identifier, null);
 
-		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build);
+		return ArbitraryTransactionUtils.getStatus(service, name, identifier, build, true);
 	}
 
 
@@ -479,21 +473,19 @@ public class ArbitraryResource {
 			summary = "List arbitrary resources hosted by this node",
 			responses = {
 					@ApiResponse(
-							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceInfo.class))
+							content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ArbitraryResourceData.class))
 					)
 			}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<ArbitraryResourceInfo> getHostedResources(
+	public List<ArbitraryResourceData> getHostedResources(
 			@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-			@Parameter(description = "Include status") @QueryParam("includestatus") Boolean includeStatus,
-			@Parameter(description = "Include metadata") @QueryParam("includemetadata") Boolean includeMetadata,
 			@Parameter(ref = "limit") @QueryParam("limit") Integer limit,
 			@Parameter(ref = "offset") @QueryParam("offset") Integer offset,
 			@QueryParam("query") String query) {
 		Security.checkApiCallAllowed(request);
 
-		List<ArbitraryResourceInfo> resources = new ArrayList<>();
+		List<ArbitraryResourceData> resources = new ArrayList<>();
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			
@@ -509,20 +501,13 @@ public class ArbitraryResource {
 				if (transactionData.getService() == null) {
 					continue;
 				}
-				ArbitraryResourceInfo arbitraryResourceInfo = new ArbitraryResourceInfo();
-				arbitraryResourceInfo.name = transactionData.getName();
-				arbitraryResourceInfo.service = transactionData.getService();
-				arbitraryResourceInfo.identifier = transactionData.getIdentifier();
-				if (!resources.contains(arbitraryResourceInfo)) {
-					resources.add(arbitraryResourceInfo);
+				ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+				arbitraryResourceData.name = transactionData.getName();
+				arbitraryResourceData.service = transactionData.getService();
+				arbitraryResourceData.identifier = transactionData.getIdentifier();
+				if (!resources.contains(arbitraryResourceData)) {
+					resources.add(arbitraryResourceData);
 				}
-			}
-
-			if (includeStatus != null && includeStatus) {
-				resources = ArbitraryTransactionUtils.addStatusToResources(resources);
-			}
-			if (includeMetadata != null && includeMetadata) {
-				resources = ArbitraryTransactionUtils.addMetadataToResources(resources);
 			}
 
 			return resources;
@@ -551,8 +536,14 @@ public class ArbitraryResource {
 								  @PathParam("identifier") String identifier) {
 
 		Security.checkApiCallAllowed(request);
-		ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
-		return resource.delete(false);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ArbitraryDataResource resource = new ArbitraryDataResource(name, ResourceIdType.NAME, service, identifier);
+			return resource.delete(repository, false);
+
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@POST
@@ -644,9 +635,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-								   @PathParam("service") Service service,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @QueryParam("filepath") String filepath,
 								   @QueryParam("encoding") String encoding,
@@ -679,9 +668,7 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
-	public HttpServletResponse get(@HeaderParam(Security.API_KEY_HEADER) String apiKey,
-								   @PathParam("service") Service service,
+	public HttpServletResponse get(@PathParam("service") Service service,
 								   @PathParam("name") String name,
 								   @PathParam("identifier") String identifier,
 								   @QueryParam("filepath") String filepath,
@@ -692,7 +679,7 @@ public class ArbitraryResource {
 
 		// Authentication can be bypassed in the settings, for those running public QDN nodes
 		if (!Settings.getInstance().isQDNAuthBypassEnabled()) {
-			Security.checkApiCallAllowed(request, apiKey);
+			Security.checkApiCallAllowed(request, null);
 		}
 
 		return this.download(service, name, identifier, filepath, encoding, rebuild, async, attempts);
@@ -717,7 +704,6 @@ public class ArbitraryResource {
 					)
 			}
 	)
-	@SecurityRequirement(name = "apiKey")
 	public ArbitraryResourceMetadata getMetadata(@PathParam("service") Service service,
 							  					 @PathParam("name") String name,
 							  					 @PathParam("identifier") String identifier) {
@@ -1127,6 +1113,36 @@ public class ArbitraryResource {
 	}
 
 
+	@POST
+	@Path("/resources/cache/rebuild")
+	@Operation(
+			summary = "Rebuild arbitrary resources cache from transactions",
+			responses = {
+					@ApiResponse(
+							description = "true on success",
+							content = @Content(
+									mediaType = MediaType.TEXT_PLAIN,
+									schema = @Schema(
+											type = "boolean"
+									)
+							)
+					)
+			}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String rebuildCache(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ArbitraryDataCacheManager.getInstance().buildArbitraryResourcesCache(repository, true);
+
+			return "true";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		}
+	}
+
+
 	// Shared methods
 
 	private String preview(String directoryPath, Service service) {
@@ -1275,8 +1291,8 @@ public class ArbitraryResource {
 
 	private HttpServletResponse download(Service service, String name, String identifier, String filepath, String encoding, boolean rebuild, boolean async, Integer maxAttempts) {
 
-		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
+			ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 
 			int attempts = 0;
 			if (maxAttempts == null) {
@@ -1382,8 +1398,8 @@ public class ArbitraryResource {
 	}
 
 	private FileProperties getFileProperties(Service service, String name, String identifier) {
-		ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 		try {
+			ArbitraryDataReader arbitraryDataReader = new ArbitraryDataReader(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
 			arbitraryDataReader.loadSynchronously(false);
 			java.nio.file.Path outputPath = arbitraryDataReader.getFilePath();
 			if (outputPath == null) {

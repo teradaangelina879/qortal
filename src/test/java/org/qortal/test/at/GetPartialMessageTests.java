@@ -1,9 +1,5 @@
 package org.qortal.test.at;
 
-import static org.junit.Assert.*;
-
-import java.nio.ByteBuffer;
-
 import org.ciyam.at.CompilationException;
 import org.ciyam.at.FunctionCode;
 import org.ciyam.at.MachineState;
@@ -27,6 +23,10 @@ import org.qortal.test.common.Common;
 import org.qortal.test.common.TransactionUtils;
 import org.qortal.transaction.DeployAtTransaction;
 import org.qortal.transaction.MessageTransaction;
+
+import java.nio.ByteBuffer;
+
+import static org.junit.Assert.assertArrayEquals;
 
 public class GetPartialMessageTests extends Common {
 

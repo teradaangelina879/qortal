@@ -1,11 +1,6 @@
 package org.qortal.repository.hsqldb;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-
+import com.google.common.primitives.Longs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.controller.Controller;
@@ -15,7 +10,11 @@ import org.qortal.repository.ATRepository;
 import org.qortal.repository.DataException;
 import org.qortal.utils.ByteArray;
 
-import com.google.common.primitives.Longs;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class HSQLDBATRepository implements ATRepository {
 

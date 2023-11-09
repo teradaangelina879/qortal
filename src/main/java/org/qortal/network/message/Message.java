@@ -1,9 +1,8 @@
 package org.qortal.network.message;
 
+import com.google.common.primitives.Ints;
 import org.qortal.crypto.Crypto;
 import org.qortal.network.Network;
-
-import com.google.common.primitives.Ints;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

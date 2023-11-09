@@ -1,18 +1,17 @@
 package org.qortal.repository.hsqldb.transaction;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-
-import org.qortal.arbitrary.misc.Service;
 import org.qortal.data.PaymentData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
+import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.TransactionData;
-import org.qortal.data.transaction.ArbitraryTransactionData.DataType;
 import org.qortal.repository.DataException;
 import org.qortal.repository.hsqldb.HSQLDBRepository;
 import org.qortal.repository.hsqldb.HSQLDBSaver;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 
 public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepository {
 

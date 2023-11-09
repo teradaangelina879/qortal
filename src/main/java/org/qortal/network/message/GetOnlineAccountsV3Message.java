@@ -6,7 +6,9 @@ import org.qortal.transform.Transformer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * For requesting online accounts info from remote peer, given our list of online accounts.

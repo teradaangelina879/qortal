@@ -1,7 +1,6 @@
 package org.qortal.test.crosschain.litecoinv1;
 
-import java.math.BigDecimal;
-
+import com.google.common.hash.HashCode;
 import org.bitcoinj.core.ECKey;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.asset.Asset;
@@ -22,7 +21,7 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.Amounts;
 import org.qortal.utils.Base58;
 
-import com.google.common.hash.HashCode;
+import java.math.BigDecimal;
 
 public class DeployAT {
 

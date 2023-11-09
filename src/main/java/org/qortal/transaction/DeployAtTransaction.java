@@ -1,8 +1,6 @@
 package org.qortal.transaction;
 
-import java.util.Collections;
-import java.util.List;
-
+import com.google.common.base.Utf8;
 import org.ciyam.at.MachineState;
 import org.ciyam.at.Timestamp;
 import org.qortal.account.Account;
@@ -18,10 +16,11 @@ import org.qortal.data.transaction.TransactionData;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.transform.TransformationException;
-import org.qortal.utils.Amounts;
 import org.qortal.transform.transaction.TransactionTransformer;
+import org.qortal.utils.Amounts;
 
-import com.google.common.base.Utf8;
+import java.util.Collections;
+import java.util.List;
 
 public class DeployAtTransaction extends Transaction {
 

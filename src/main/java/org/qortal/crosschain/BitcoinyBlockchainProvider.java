@@ -1,6 +1,6 @@
 package org.qortal.crosschain;
 
-import cash.z.wallet.sdk.rpc.CompactFormats.*;
+import cash.z.wallet.sdk.rpc.CompactFormats.CompactBlock;
 
 import java.util.List;
 

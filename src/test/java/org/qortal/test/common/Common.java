@@ -1,24 +1,5 @@
 package org.qortal.test.common;
 
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.SecureRandom;
-import java.security.Security;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,14 +12,28 @@ import org.qortal.block.BlockChain;
 import org.qortal.data.account.AccountBalanceData;
 import org.qortal.data.asset.AssetData;
 import org.qortal.data.group.GroupData;
+import org.qortal.repository.AccountRepository.BalanceOrdering;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryFactory;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.repository.AccountRepository.BalanceOrdering;
 import org.qortal.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qortal.settings.Settings;
 import org.qortal.utils.NTP;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.SecureRandom;
+import java.security.Security;
+import java.util.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
+import static org.junit.Assert.*;
 
 public class Common {
 

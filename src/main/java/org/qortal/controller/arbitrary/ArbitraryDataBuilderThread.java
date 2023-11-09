@@ -5,12 +5,16 @@ import org.apache.logging.log4j.Logger;
 import org.qortal.arbitrary.ArbitraryDataBuildQueueItem;
 import org.qortal.arbitrary.exception.MissingDataException;
 import org.qortal.controller.Controller;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.repository.DataException;
+import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.NTP;
 
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Map;
+
+import static org.qortal.data.arbitrary.ArbitraryResourceStatus.Status.NOT_PUBLISHED;
 
 
 public class ArbitraryDataBuilderThread implements Runnable {
@@ -65,6 +69,14 @@ public class ArbitraryDataBuilderThread implements Runnable {
 
                     // Ignore builds that have failed recently
                     if (buildManager.isInFailedBuildsList(queueItem)) {
+                        this.removeFromQueue(queueItem);
+                        continue;
+                    }
+
+                    // Get status before build
+                    ArbitraryResourceStatus arbitraryResourceStatus = ArbitraryTransactionUtils.getStatus(queueItem.getService(), queueItem.getResourceId(), queueItem.getIdentifier(), false, true);
+                    if (arbitraryResourceStatus.getStatus() == NOT_PUBLISHED) {
+                        // No point in building a non-existent resource
                         this.removeFromQueue(queueItem);
                         continue;
                     }

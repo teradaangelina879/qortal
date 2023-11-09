@@ -1,12 +1,11 @@
 package org.qortal.data.group;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.qortal.group.Group.ApprovalThreshold;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
-
-import org.qortal.group.Group.ApprovalThreshold;
-
-import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)

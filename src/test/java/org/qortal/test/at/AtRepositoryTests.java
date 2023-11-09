@@ -1,9 +1,5 @@
 package org.qortal.test.at;
 
-import static org.junit.Assert.*;
-
-import java.util.List;
-
 import org.ciyam.at.MachineState;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,6 +13,10 @@ import org.qortal.test.common.AtUtils;
 import org.qortal.test.common.BlockUtils;
 import org.qortal.test.common.Common;
 import org.qortal.transaction.DeployAtTransaction;
+
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class AtRepositoryTests extends Common {
 

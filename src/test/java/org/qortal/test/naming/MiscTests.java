@@ -1,30 +1,35 @@
 package org.qortal.test.naming;
 
-import static org.junit.Assert.*;
-
-import java.util.Arrays;
-import java.util.List;
-
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.account.PrivateKeyAccount;
 import org.qortal.api.AmountTypeAdapter;
 import org.qortal.block.BlockChain;
-import org.qortal.block.BlockChain.*;
+import org.qortal.block.BlockChain.UnitFeesByTimestamp;
 import org.qortal.controller.BlockMinter;
-import org.qortal.data.transaction.*;
+import org.qortal.data.transaction.PaymentTransactionData;
+import org.qortal.data.transaction.RegisterNameTransactionData;
+import org.qortal.data.transaction.TransactionData;
+import org.qortal.data.transaction.UpdateNameTransactionData;
 import org.qortal.naming.Name;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
 import org.qortal.repository.RepositoryManager;
-import org.qortal.test.common.*;
+import org.qortal.test.common.BlockUtils;
+import org.qortal.test.common.Common;
+import org.qortal.test.common.TransactionUtils;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.PaymentTransaction;
 import org.qortal.transaction.RegisterNameTransaction;
 import org.qortal.transaction.Transaction;
 import org.qortal.transaction.Transaction.ValidationResult;
 import org.qortal.utils.NTP;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class MiscTests extends Common {
 

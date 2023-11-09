@@ -1,23 +1,9 @@
 package org.qortal.crosschain;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-
-import org.bitcoinj.core.Address;
-import org.bitcoinj.core.Coin;
-import org.bitcoinj.core.ECKey;
-import org.bitcoinj.core.LegacyAddress;
-import org.bitcoinj.core.NetworkParameters;
-import org.bitcoinj.core.Transaction;
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Bytes;
+import org.bitcoinj.core.*;
 import org.bitcoinj.core.Transaction.SigHash;
-import org.bitcoinj.core.TransactionInput;
-import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.script.Script;
 import org.bitcoinj.script.ScriptBuilder;
@@ -27,8 +13,8 @@ import org.qortal.crypto.Crypto;
 import org.qortal.utils.Base58;
 import org.qortal.utils.BitTwiddling;
 
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Bytes;
+import java.util.*;
+import java.util.function.Function;
 
 public class BitcoinyHTLC {
 

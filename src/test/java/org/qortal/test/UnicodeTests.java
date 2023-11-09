@@ -1,10 +1,11 @@
 package org.qortal.test;
 
-import static org.junit.Assert.*;
-import static org.qortal.utils.Unicode.*;
-
 import org.junit.Test;
 import org.qortal.utils.Unicode;
+
+import static org.junit.Assert.*;
+import static org.qortal.utils.Unicode.NO_BREAK_SPACE;
+import static org.qortal.utils.Unicode.ZERO_WIDTH_SPACE;
 
 public class UnicodeTests {
 

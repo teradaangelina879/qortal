@@ -2,7 +2,6 @@ package org.qortal.arbitrary.metadata;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.JSONException;
 import org.qortal.repository.DataException;
 
 import java.io.BufferedWriter;

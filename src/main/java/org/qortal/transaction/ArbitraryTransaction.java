@@ -1,23 +1,28 @@
 package org.qortal.transaction;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
+import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.arbitrary.ArbitraryDataResource;
+import org.qortal.arbitrary.metadata.ArbitraryDataTransactionMetadata;
+import org.qortal.arbitrary.misc.Service;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.arbitrary.ArbitraryDataManager;
 import org.qortal.controller.repository.NamesDatabaseIntegrityCheck;
 import org.qortal.crypto.Crypto;
 import org.qortal.crypto.MemoryPoW;
 import org.qortal.data.PaymentData;
+import org.qortal.data.arbitrary.ArbitraryResourceData;
+import org.qortal.data.arbitrary.ArbitraryResourceMetadata;
+import org.qortal.data.arbitrary.ArbitraryResourceStatus;
 import org.qortal.data.naming.NameData;
 import org.qortal.data.transaction.ArbitraryTransactionData;
 import org.qortal.data.transaction.TransactionData;
 import org.qortal.payment.Payment;
 import org.qortal.repository.DataException;
 import org.qortal.repository.Repository;
-import org.qortal.arbitrary.ArbitraryDataFile;
+import org.qortal.repository.RepositoryManager;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.Transformer;
 import org.qortal.transform.transaction.ArbitraryTransactionTransformer;
@@ -25,7 +30,14 @@ import org.qortal.transform.transaction.TransactionTransformer;
 import org.qortal.utils.ArbitraryTransactionUtils;
 import org.qortal.utils.NTP;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 public class ArbitraryTransaction extends Transaction {
+
+	private static final Logger LOGGER = LogManager.getLogger(ArbitraryTransaction.class);
 
 	// Properties
 	private ArbitraryTransactionData arbitraryTransactionData;
@@ -250,14 +262,8 @@ public class ArbitraryTransaction extends Transaction {
 		// We may need to move files from the misc_ folder
 		ArbitraryTransactionUtils.checkAndRelocateMiscFiles(arbitraryTransactionData);
 
-		// If the data is local, we need to perform a few actions
-		if (isDataLocal()) {
-
-			// We have the data for this transaction, so invalidate the cache
-			if (arbitraryTransactionData.getName() != null) {
-				ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
-			}
-		}
+		// Update caches
+		updateCaches();
 	}
 
 	@Override
@@ -277,6 +283,35 @@ public class ArbitraryTransaction extends Transaction {
 	public void process() throws DataException {
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments());
+
+		// Update caches
+		this.updateCaches();
+	}
+
+	private void updateCaches() {
+		// Very important to use a separate repository instance from the one being used for validation/processing
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// If the data is local, we need to perform a few actions
+			if (isDataLocal()) {
+
+				// We have the data for this transaction, so invalidate the file cache
+				if (arbitraryTransactionData.getName() != null) {
+					ArbitraryDataManager.getInstance().invalidateCache(arbitraryTransactionData);
+				}
+			}
+
+			// Add/update arbitrary resource caches, but don't update the status as this involves time-consuming
+			// disk reads, and is more prone to failure. The status will be updated on metadata retrieval, or when
+			// accessing the resource.
+			this.updateArbitraryResourceCache(repository);
+			this.updateArbitraryMetadataCache(repository);
+
+			repository.saveChanges();
+
+		} catch (Exception e) {
+			// Log and ignore all exceptions. The cache is updated from other places too, and can be rebuilt if needed.
+			LOGGER.info("Unable to update arbitrary caches", e);
+		}
 	}
 
 	@Override
@@ -312,6 +347,168 @@ public class ArbitraryTransaction extends Transaction {
 			return this.repository.getArbitraryRepository().fetchData(this.transactionData.getSignature());
 		}
 		return null;
+	}
+
+	/**
+	 * Update the arbitrary resources cache.
+	 * This finds the latest transaction and replaces the
+	 * majority of the data in the cache. The current
+	 * transaction is used for the created time,
+	 * if it has a lower timestamp than the existing value.
+	 * It's also used to identify the correct
+	 * service/name/identifier combination.
+	 *
+	 * @throws DataException
+	 */
+	public void updateArbitraryResourceCache(Repository repository) throws DataException {
+		// Don't cache resources without a name (such as auto updates)
+		if (arbitraryTransactionData.getName() == null) {
+			return;
+		}
+
+		Service service = arbitraryTransactionData.getService();
+		String name = arbitraryTransactionData.getName();
+		String identifier = arbitraryTransactionData.getIdentifier();
+
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
+
+		// In the cache we store null identifiers as "default", as it is part of the primary key
+		if (identifier == null) {
+			identifier = "default";
+		}
+
+		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+		arbitraryResourceData.service = service;
+		arbitraryResourceData.name = name;
+		arbitraryResourceData.identifier = identifier;
+
+		// Get the latest transaction
+		ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(arbitraryTransactionData.getName(), arbitraryTransactionData.getService(), null, arbitraryTransactionData.getIdentifier());
+		if (latestTransactionData == null) {
+			// We don't have a latest transaction, so delete from cache
+			repository.getArbitraryRepository().delete(arbitraryResourceData);
+			return;
+		}
+
+		// Get existing cached entry if it exists
+		ArbitraryResourceData existingArbitraryResourceData = repository.getArbitraryRepository()
+				.getArbitraryResource(service, name, identifier);
+
+		// Check for existing cached data
+		if (existingArbitraryResourceData == null) {
+			// Nothing exists yet, so set creation date from the current transaction (it will be reduced later if needed)
+			arbitraryResourceData.created = arbitraryTransactionData.getTimestamp();
+			arbitraryResourceData.updated = null;
+		}
+		else {
+			// An entry already exists - update created time from current transaction if this is older
+			arbitraryResourceData.created = Math.min(existingArbitraryResourceData.created, arbitraryTransactionData.getTimestamp());
+
+			// Set updated time to the latest transaction's timestamp, unless it matches the creation time
+			if (existingArbitraryResourceData.created == latestTransactionData.getTimestamp()) {
+				// Latest transaction matches created time, so it hasn't been updated
+				arbitraryResourceData.updated = null;
+			}
+			else {
+				arbitraryResourceData.updated = latestTransactionData.getTimestamp();
+			}
+		}
+
+		arbitraryResourceData.size = latestTransactionData.getSize();
+
+		// Save
+		repository.getArbitraryRepository().save(arbitraryResourceData);
+	}
+
+	public void updateArbitraryResourceStatus(Repository repository) throws DataException {
+		// Don't cache resources without a name (such as auto updates)
+		if (arbitraryTransactionData.getName() == null) {
+			return;
+		}
+
+		Service service = arbitraryTransactionData.getService();
+		String name = arbitraryTransactionData.getName();
+		String identifier = arbitraryTransactionData.getIdentifier();
+
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
+
+		// In the cache we store null identifiers as "default", as it is part of the primary key
+		if (identifier == null) {
+			identifier = "default";
+		}
+
+		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+		arbitraryResourceData.service = service;
+		arbitraryResourceData.name = name;
+		arbitraryResourceData.identifier = identifier;
+
+		// Update status
+		ArbitraryDataResource resource = new ArbitraryDataResource(name, ArbitraryDataFile.ResourceIdType.NAME, service, identifier);
+		ArbitraryResourceStatus arbitraryResourceStatus = resource.getStatus(repository);
+		ArbitraryResourceStatus.Status status = arbitraryResourceStatus != null ? arbitraryResourceStatus.getStatus() : null;
+		repository.getArbitraryRepository().setStatus(arbitraryResourceData, status);
+	}
+
+	public void updateArbitraryMetadataCache(Repository repository) throws DataException {
+		// Get the latest transaction
+		ArbitraryTransactionData latestTransactionData = repository.getArbitraryRepository().getLatestTransaction(arbitraryTransactionData.getName(), arbitraryTransactionData.getService(), null, arbitraryTransactionData.getIdentifier());
+		if (latestTransactionData == null) {
+			// We don't have a latest transaction, so give up
+			return;
+		}
+
+		Service service = latestTransactionData.getService();
+		String name = latestTransactionData.getName();
+		String identifier = latestTransactionData.getIdentifier();
+
+		if (service == null) {
+			// Unsupported service - ignore this resource
+			return;
+		}
+
+		// In the cache we store null identifiers as "default", as it is part of the primary key
+		if (identifier == null) {
+			identifier = "default";
+		}
+
+		ArbitraryResourceData arbitraryResourceData = new ArbitraryResourceData();
+		arbitraryResourceData.service = service;
+		arbitraryResourceData.name = name;
+		arbitraryResourceData.identifier = identifier;
+
+		// Update metadata for latest transaction if it is local
+		if (latestTransactionData.getMetadataHash() != null) {
+			ArbitraryDataFile metadataFile = ArbitraryDataFile.fromHash(latestTransactionData.getMetadataHash(), latestTransactionData.getSignature());
+			if (metadataFile.exists()) {
+				ArbitraryDataTransactionMetadata transactionMetadata = new ArbitraryDataTransactionMetadata(metadataFile.getFilePath());
+				try {
+					transactionMetadata.read();
+
+					ArbitraryResourceMetadata metadata = new ArbitraryResourceMetadata();
+					metadata.setArbitraryResourceData(arbitraryResourceData);
+					metadata.setTitle(transactionMetadata.getTitle());
+					metadata.setDescription(transactionMetadata.getDescription());
+					metadata.setCategory(transactionMetadata.getCategory());
+					metadata.setTags(transactionMetadata.getTags());
+					repository.getArbitraryRepository().save(metadata);
+
+				} catch (IOException e) {
+					// Ignore, as we can add it again later
+				}
+			} else {
+				// We don't have a local copy of this metadata file, so delete it from the cache
+				// It will be re-added if the file later arrives via the network
+				ArbitraryResourceMetadata metadata = new ArbitraryResourceMetadata();
+				metadata.setArbitraryResourceData(arbitraryResourceData);
+				repository.getArbitraryRepository().delete(metadata);
+			}
+		}
 	}
 
 }

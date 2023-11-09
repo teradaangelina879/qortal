@@ -1,13 +1,13 @@
 package org.qortal.test.api;
 
-import static org.junit.Assert.*;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.qortal.api.resource.ArbitraryResource;
 import org.qortal.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qortal.arbitrary.misc.Service;
 import org.qortal.test.common.ApiCommon;
+
+import static org.junit.Assert.assertNotNull;
 
 public class ArbitraryApiTests extends ApiCommon {
 

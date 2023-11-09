@@ -8,15 +8,12 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
-import org.qortal.api.*;
+import org.qortal.api.ApiError;
+import org.qortal.api.ApiErrors;
+import org.qortal.api.ApiExceptionFactory;
+import org.qortal.api.Security;
 import org.qortal.api.model.ListRequest;
-import org.qortal.crypto.Crypto;
-import org.qortal.data.account.AccountData;
 import org.qortal.list.ResourceListManager;
-import org.qortal.repository.DataException;
-import org.qortal.repository.Repository;
-import org.qortal.repository.RepositoryManager;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;

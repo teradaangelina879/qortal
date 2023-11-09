@@ -1,14 +1,14 @@
 package org.qortal.test.apps;
 
+import org.qortal.api.ApiError;
+import org.qortal.globalization.Translator;
+import org.qortal.transaction.Transaction.ValidationResult;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.qortal.api.ApiError;
-import org.qortal.globalization.Translator;
-import org.qortal.transaction.Transaction.ValidationResult;
 
 public class CheckTranslations {
 
