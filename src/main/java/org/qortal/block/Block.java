@@ -370,83 +370,107 @@ public class Block {
 
 		int height = parentBlockData.getHeight() + 1;
 		long timestamp = calcTimestamp(parentBlockData, minter.getPublicKey(), minterLevel);
-		long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
 
-		// Fetch our list of online accounts, removing any that are missing a nonce
-		List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
-		onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
+		Long onlineAccountsTimestamp = OnlineAccountsManager.getCurrentOnlineAccountTimestamp();
+		byte[] encodedOnlineAccounts = new byte[0];
+		int onlineAccountsCount = 0;
+		byte[] onlineAccountsSignatures = null;
+		
+		if (isBatchRewardDistributionBlock(height)) {
+			// Batch reward distribution block - copy online accounts from recent block with highest online accounts count
 
-		// After feature trigger, remove any online accounts that are level 0
-		if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
-			onlineAccounts.removeIf(a -> {
-				try {
-					return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
-				} catch (DataException e) {
-					// Something went wrong, so remove the account
-					return true;
-				}
-			});
+			int firstBlock = height - BlockChain.getInstance().getBlockRewardBatchAccountsBlockCount();
+			int lastBlock = height - 1;
+			BlockData highOnlineAccountsBlock = repository.getBlockRepository().getBlockInRangeWithHighestOnlineAccountsCount(firstBlock, lastBlock);
+			encodedOnlineAccounts = highOnlineAccountsBlock.getEncodedOnlineAccounts();
+			onlineAccountsCount = highOnlineAccountsBlock.getOnlineAccountsCount();
+			// No point in copying signatures since these aren't revalidated, and because of this onlineAccountsTimestamp must be null too
+			onlineAccountsSignatures = null;
+			onlineAccountsTimestamp = null;
 		}
+		else if (isOnlineAccountsBlock(height)) {
+			// Standard online accounts block - add online accounts in regular way
 
-		if (onlineAccounts.isEmpty()) {
-			LOGGER.debug("No online accounts - not even our own?");
-			return null;
-		}
+			// Fetch our list of online accounts, removing any that are missing a nonce
+			List<OnlineAccountData> onlineAccounts = OnlineAccountsManager.getInstance().getOnlineAccounts(onlineAccountsTimestamp);
+			onlineAccounts.removeIf(a -> a.getNonce() == null || a.getNonce() < 0);
 
-		// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
-		// This is up to 100x faster than querying each index separately. For 4150 reward share keys, it
-		// was taking around 5000ms to query individually, vs 50ms using this approach.
-		List<byte[]> allRewardSharePublicKeys = repository.getAccountRepository().getRewardSharePublicKeys();
-
-		// Map using index into sorted list of reward-shares as key
-		Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
-		for (OnlineAccountData onlineAccountData : onlineAccounts) {
-			Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
-			if (accountIndex == null)
-				// Online account (reward-share) with current timestamp but reward-share cancelled
-				continue;
-
-			indexedOnlineAccounts.put(accountIndex, onlineAccountData);
-		}
-		List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
-		accountIndexes.sort(null);
-
-		// Convert to compressed integer set
-		ConciseSet onlineAccountsSet = new ConciseSet();
-		onlineAccountsSet = onlineAccountsSet.convert(accountIndexes);
-		byte[] encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
-		int onlineAccountsCount = onlineAccountsSet.size();
-
-		// Collate all signatures
-		Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
-				.stream()
-				.map(OnlineAccountData::getSignature)
-				.collect(Collectors.toList());
-
-		// Aggregated, single signature
-		byte[] onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
-
-		// Add nonces to the end of the online accounts signatures
-		try {
-			// Create ordered list of nonce values
-			List<Integer> nonces = new ArrayList<>();
-			for (int i = 0; i < onlineAccountsCount; ++i) {
-				Integer accountIndex = accountIndexes.get(i);
-				OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
-				nonces.add(onlineAccountData.getNonce());
+			// After feature trigger, remove any online accounts that are level 0
+			if (height >= BlockChain.getInstance().getOnlineAccountMinterLevelValidationHeight()) {
+				onlineAccounts.removeIf(a -> {
+					try {
+						return Account.getRewardShareEffectiveMintingLevel(repository, a.getPublicKey()) == 0;
+					} catch (DataException e) {
+						// Something went wrong, so remove the account
+						return true;
+					}
+				});
 			}
 
-			// Encode the nonces to a byte array
-			byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+			if (onlineAccounts.isEmpty()) {
+				LOGGER.debug("No online accounts - not even our own?");
+				return null;
+			}
 
-			// Append the encoded nonces to the encoded online account signatures
-			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-			outputStream.write(onlineAccountsSignatures);
-			outputStream.write(encodedNonces);
-			onlineAccountsSignatures = outputStream.toByteArray();
+			// Load sorted list of reward share public keys into memory, so that the indexes can be obtained.
+			// This is up to 100x faster than querying each index separately. For 4150 reward share keys, it
+			// was taking around 5000ms to query individually, vs 50ms using this approach.
+			List<byte[]> allRewardSharePublicKeys = repository.getAccountRepository().getRewardSharePublicKeys();
+
+			// Map using index into sorted list of reward-shares as key
+			Map<Integer, OnlineAccountData> indexedOnlineAccounts = new HashMap<>();
+			for (OnlineAccountData onlineAccountData : onlineAccounts) {
+				Integer accountIndex = getRewardShareIndex(onlineAccountData.getPublicKey(), allRewardSharePublicKeys);
+				if (accountIndex == null)
+					// Online account (reward-share) with current timestamp but reward-share cancelled
+					continue;
+
+				indexedOnlineAccounts.put(accountIndex, onlineAccountData);
+			}
+			List<Integer> accountIndexes = new ArrayList<>(indexedOnlineAccounts.keySet());
+			accountIndexes.sort(null);
+
+			// Convert to compressed integer set
+			ConciseSet onlineAccountsSet = new ConciseSet();
+			onlineAccountsSet = onlineAccountsSet.convert(accountIndexes);
+			encodedOnlineAccounts = BlockTransformer.encodeOnlineAccounts(onlineAccountsSet);
+			onlineAccountsCount = onlineAccountsSet.size();
+
+			// Collate all signatures
+			Collection<byte[]> signaturesToAggregate = indexedOnlineAccounts.values()
+					.stream()
+					.map(OnlineAccountData::getSignature)
+					.collect(Collectors.toList());
+
+			// Aggregated, single signature
+			onlineAccountsSignatures = Qortal25519Extras.aggregateSignatures(signaturesToAggregate);
+
+			// Add nonces to the end of the online accounts signatures
+			try {
+				// Create ordered list of nonce values
+				List<Integer> nonces = new ArrayList<>();
+				for (int i = 0; i < onlineAccountsCount; ++i) {
+					Integer accountIndex = accountIndexes.get(i);
+					OnlineAccountData onlineAccountData = indexedOnlineAccounts.get(accountIndex);
+					nonces.add(onlineAccountData.getNonce());
+				}
+
+				// Encode the nonces to a byte array
+				byte[] encodedNonces = BlockTransformer.encodeOnlineAccountNonces(nonces);
+
+				// Append the encoded nonces to the encoded online account signatures
+				ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+				outputStream.write(onlineAccountsSignatures);
+				outputStream.write(encodedNonces);
+				onlineAccountsSignatures = outputStream.toByteArray();
+			} catch (TransformationException | IOException e) {
+				return null;
+			}
+
 		}
-		catch (TransformationException | IOException e) {
-			return null;
+		else {
+			// No online accounts should be included in this block
+			onlineAccountsTimestamp = null;
 		}
 
 		byte[] minterSignature = minter.sign(BlockTransformer.getBytesForMinterSignature(parentBlockData,
@@ -1058,6 +1082,40 @@ public class Block {
 		if (accountIndexes.size() != this.blockData.getOnlineAccountsCount())
 			return ValidationResult.ONLINE_ACCOUNTS_INVALID;
 
+		// Online accounts should only be included in designated blocks; all others must be empty
+		if (!this.isOnlineAccountsBlock()) {
+			if (this.blockData.getOnlineAccountsCount() != 0 || accountIndexes.size() != 0) {
+				return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+			// Not a designated online accounts block and account count is 0. Everything is correct so no need to validate further.
+			return ValidationResult.OK;
+		}
+
+		// If this is a batch reward distribution block, ensure that online accounts have been copied from the correct previous block
+		if (this.isBatchRewardDistributionBlock()) {
+			int firstBlock = this.getBlockData().getHeight() - BlockChain.getInstance().getBlockRewardBatchAccountsBlockCount();
+			int lastBlock = this.getBlockData().getHeight() - 1;
+			BlockData highOnlineAccountsBlock = repository.getBlockRepository().getBlockInRangeWithHighestOnlineAccountsCount(firstBlock, lastBlock);
+
+			if (this.blockData.getOnlineAccountsCount() != highOnlineAccountsBlock.getOnlineAccountsCount()) {
+				return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+			if (!Arrays.equals(this.blockData.getEncodedOnlineAccounts(), highOnlineAccountsBlock.getEncodedOnlineAccounts())) {
+				return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+			if (this.blockData.getOnlineAccountsSignatures() != null) {
+				// Signatures are excluded to reduce block size
+				return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+			if (this.blockData.getOnlineAccountsTimestamp() != null) {
+				// Online accounts timestamp must be null, because no signatures are included
+				return ValidationResult.ONLINE_ACCOUNTS_INVALID;
+			}
+
+			// Online accounts have been correctly copied, and were already validated in earlier block, so consider them valid
+			return ValidationResult.OK;
+		}
+
 		List<RewardShareData> onlineRewardShares = repository.getAccountRepository().getRewardSharesByIndexes(accountIndexes.toArray());
 		if (onlineRewardShares == null)
 			return ValidationResult.ONLINE_ACCOUNT_UNKNOWN;
@@ -1477,11 +1535,15 @@ public class Block {
 		LOGGER.trace(() -> String.format("Processing block %d", this.blockData.getHeight()));
 
 		if (this.blockData.getHeight() > 1) {
-			// Increase account levels
-			increaseAccountLevels();
 
-			// Distribute block rewards, including transaction fees, before transactions processed
-			processBlockRewards();
+			// Account levels and block rewards are only processed on block reward distribution blocks
+			if (this.isRewardDistributionBlock()) {
+				// Increase account levels
+				increaseAccountLevels();
+
+				// Distribute block rewards, including transaction fees, before transactions processed
+				processBlockRewards();
+			}
 
 			if (this.blockData.getHeight() == 212937)
 				// Apply fix for block 212937
@@ -1541,9 +1603,13 @@ public class Block {
 		}
 
 		// Increase blocks minted count for all accounts
+		int delta = 1;
+		if (this.isBatchRewardDistributionActive()) {
+			delta = BlockChain.getInstance().getBlockRewardBatchSize();
+		}
 
 		// Batch update in repository
-		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +1);
+		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), +delta);
 
 		// Keep track of level bumps in case we need to apply to other entries
 		Map<String, Integer> bumpedAccounts = new HashMap<>();
@@ -1593,8 +1659,32 @@ public class Block {
 	protected void processBlockRewards() throws DataException {
 		// General block reward
 		long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
-		// Add transaction fees
+
+		if (this.isBatchRewardDistributionActive()) {
+			// Batch distribution is active - so multiply the reward by the batch size
+			reward *= BlockChain.getInstance().getBlockRewardBatchSize();
+
+			if (!this.isRewardDistributionBlock()) {
+				// Shouldn't ever happen, but checking here for safety
+				throw new DataException("Attempted to distribute a batch reward in a non-reward-distribution block");
+			}
+
+			// Add transaction fees since last distribution block
+			int firstBlock = this.getBlockData().getHeight() - BlockChain.getInstance().getBlockRewardBatchSize() + 1;
+			int lastBlock = this.blockData.getHeight() - 1;
+			Long totalFees = repository.getBlockRepository().getTotalFeesInBlockRange(firstBlock, lastBlock);
+			if (totalFees == null) {
+				throw new DataException("Unable to calculate total fees for block range");
+			}
+			reward += totalFees;
+			LOGGER.debug("Total fees for range {} - {} when processing: {}", firstBlock, lastBlock, totalFees);
+		}
+
+		// Add transaction fees for this block (it was excluded from the range above as it's not in the repository yet)
 		reward += this.blockData.getTotalFees();
+		LOGGER.debug("Total fees when processing block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
+
+		LOGGER.debug("Block reward when processing block {}: {}", this.blockData.getHeight(), reward);
 
 		// Nothing to reward?
 		if (reward <= 0)
@@ -1752,11 +1842,14 @@ public class Block {
 			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
 				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
 
-			// Block rewards, including transaction fees, removed after transactions undone
-			orphanBlockRewards();
+			// Account levels and block rewards are only processed/orphaned on block reward distribution blocks
+			if (this.isRewardDistributionBlock()) {
+				// Block rewards, including transaction fees, removed after transactions undone
+				orphanBlockRewards();
 
-			// Decrease account levels
-			decreaseAccountLevels();
+				// Decrease account levels
+				decreaseAccountLevels();
+			}
 		}
 
 		// Delete block from blockchain
@@ -1832,8 +1925,32 @@ public class Block {
 	protected void orphanBlockRewards() throws DataException {
 		// General block reward
 		long reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
-		// Add transaction fees
+
+		if (this.isBatchRewardDistributionActive()) {
+			// Batch distribution is active - so multiply the reward by the batch size
+			reward *= BlockChain.getInstance().getBlockRewardBatchSize();
+
+			if (!this.isRewardDistributionBlock()) {
+				// Shouldn't ever happen, but checking here for safety
+				throw new DataException("Attempted to orphan batched rewards in a non-reward-distribution block");
+			}
+
+			// Add transaction fees since last distribution block
+			int firstBlock = this.getBlockData().getHeight() - BlockChain.getInstance().getBlockRewardBatchSize() + 1;
+			int lastBlock = this.blockData.getHeight() - 1;
+			Long totalFees = repository.getBlockRepository().getTotalFeesInBlockRange(firstBlock, lastBlock);
+			if (totalFees == null) {
+				throw new DataException("Unable to calculate total fees for block range");
+			}
+			reward += totalFees;
+			LOGGER.debug("Total fees for range {} - {} when orphaning: {}", firstBlock, lastBlock, totalFees);
+		}
+
+		// Add transaction fees for this block (it was excluded from the range above as it's not in the repository yet)
 		reward += this.blockData.getTotalFees();
+		LOGGER.debug("Total fees when orphaning block {}: {}", this.blockData.getHeight(), this.blockData.getTotalFees());
+
+		LOGGER.debug("Block reward when orphaning block {}: {}", this.blockData.getHeight(), reward);
 
 		// Nothing to reward?
 		if (reward <= 0)
@@ -1874,9 +1991,13 @@ public class Block {
 		}
 
 		// Decrease blocks minted count for all accounts
+		int delta = 1;
+		if (this.isBatchRewardDistributionActive()) {
+			delta = BlockChain.getInstance().getBlockRewardBatchSize();
+		}
 
 		// Batch update in repository
-		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), -1);
+		repository.getAccountRepository().modifyMintedBlockCounts(allUniqueExpandedAccounts.stream().map(AccountData::getAddress).collect(Collectors.toList()), -delta);
 
 		for (AccountData accountData : allUniqueExpandedAccounts) {
 			// Adjust count locally (in Java)
@@ -1898,6 +2019,105 @@ public class Block {
 				}
 		}
 	}
+
+
+	/**
+	 * Specifies whether the batch reward feature trigger has activated yet.
+	 * Note that the exact block of the feature trigger activation will return false,
+	 * because this is actually the very last block with non-batched reward distributions.
+	 *
+	 * @return true if active, false if batch rewards feature trigger height not reached yet.
+	 */
+	public boolean isBatchRewardDistributionActive() {
+		return Block.isBatchRewardDistributionActive(this.blockData.getHeight());
+	}
+	public static boolean isBatchRewardDistributionActive(int height) {
+		// Once the getBlockRewardBatchStartHeight is reached, reward distributions per block must stop.
+		// Note the > instead of >= below, as the first batch distribution isn't until 1000 blocks *after* the
+		// start height. The block exactly matching the start height is not batched.
+		return height > BlockChain.getInstance().getBlockRewardBatchStartHeight();
+	}
+
+
+	/**
+	 * Specifies whether rewards are distributed in this block, via ANY method (batch or single).
+	 *
+	 * @return true if rewards are to be distributed in this block.
+	 */
+	public boolean isRewardDistributionBlock() {
+		return Block.isRewardDistributionBlock(this.blockData.getHeight());
+	}
+
+	public static boolean isRewardDistributionBlock(int height) {
+		// Up to and *including* the start height (feature trigger), the rewards are distributed in every block
+		if (!Block.isBatchRewardDistributionActive(height)) {
+			return true;
+		}
+
+		// After the start height (feature trigger) the rewards are distributed in blocks that are multiples of the batch size
+		return height % BlockChain.getInstance().getBlockRewardBatchSize() == 0;
+	}
+
+
+	/**
+	 * Specifies whether BATCH rewards are distributed in this block.
+	 *
+	 * @return true if a batch distribution will occur, false if a single no distribution will occur.
+	 */
+	public boolean isBatchRewardDistributionBlock() {
+		return Block.isBatchRewardDistributionBlock(this.blockData.getHeight());
+	}
+
+	public static boolean isBatchRewardDistributionBlock(int height) {
+		// Up to and *including* the start height (feature trigger), batch reward distribution isn't active yet
+		if (!Block.isBatchRewardDistributionActive(height)) {
+			return false;
+		}
+
+		// After the start height (feature trigger) the rewards are distributed in blocks that are multiples of the batch size
+		return height % BlockChain.getInstance().getBlockRewardBatchSize() == 0;
+	}
+
+
+	/**
+	 * Specifies whether online accounts are to be included in this block.
+	 *
+	 * @return true if online accounts should be included, false if they should be excluded.
+	 */
+	public boolean isOnlineAccountsBlock() {
+		return Block.isOnlineAccountsBlock(this.getBlockData().getHeight());
+	}
+
+	private static boolean isOnlineAccountsBlock(int height) {
+		// After feature trigger, only certain blocks contain online accounts
+		if (height >= BlockChain.getInstance().getBlockRewardBatchStartHeight()) {
+			final int leadingBlockCount = BlockChain.getInstance().getBlockRewardBatchAccountsBlockCount();
+			return height >= (getNextBatchDistributionBlockHeight(height) - leadingBlockCount);
+		}
+		// Before feature trigger, all blocks contain online accounts
+		return true;
+	}
+
+
+	/**
+	 *
+	 * @param currentHeight
+	 *
+	 * @return the next height of a batch reward distribution. Must only be called after the
+	 * batch reward feature trigger has activated. It is not useful prior to this.
+	 */
+	private static int getNextBatchDistributionBlockHeight(int currentHeight) {
+		final int batchSize = BlockChain.getInstance().getBlockRewardBatchSize();
+		if (currentHeight % batchSize == 0) {
+			// Already a reward distribution block
+			return currentHeight;
+		} else {
+			// Calculate the difference needed to reach the next distribution block
+			final int difference = batchSize - (currentHeight % batchSize);
+			return currentHeight + difference;
+		}
+	}
+
 
 	private static class BlockRewardCandidate {
 		public final String description;

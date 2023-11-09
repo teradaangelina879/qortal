@@ -1017,7 +1017,9 @@ public class Settings {
 	}
 
 	public int getPruneBlockLimit() {
-		return this.pruneBlockLimit;
+		// Never prune more than twice the block reward batch size, as the data is needed when processing/orphaning
+		int minPruneBlockLimit = BlockChain.getInstance().getBlockRewardBatchSize() * 2;
+		return Math.max(this.pruneBlockLimit, minPruneBlockLimit);
 	}
 
 	public long getAtStatesPruneInterval() {

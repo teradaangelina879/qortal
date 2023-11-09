@@ -189,8 +189,16 @@ public class BlockData implements Serializable {
 		return this.encodedOnlineAccounts;
 	}
 
+	public void setEncodedOnlineAccounts(byte[] encodedOnlineAccounts) {
+		this.encodedOnlineAccounts = encodedOnlineAccounts;
+	}
+
 	public int getOnlineAccountsCount() {
 		return this.onlineAccountsCount;
+	}
+
+	public void setOnlineAccountsCount(int onlineAccountsCount) {
+		this.onlineAccountsCount = onlineAccountsCount;
 	}
 
 	public Long getOnlineAccountsTimestamp() {
