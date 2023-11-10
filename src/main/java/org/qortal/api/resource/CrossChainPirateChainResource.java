@@ -222,6 +222,77 @@ public class CrossChainPirateChainResource {
 		}
 	}
 
+	@POST
+	@Path("/walletprivatekey")
+	@Operation(
+			summary = "Returns main wallet private key",
+			description = "Supply 32 bytes of entropy, Base58 encoded",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string",
+									description = "32 bytes of entropy, Base58 encoded",
+									example = "5oSXF53qENtdUyKhqSxYzP57m6RhVFP9BJKRr9E5kRGV"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", description = "Private Key String"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String getPirateChainPrivateKey(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String entropy58) {
+		Security.checkApiCallAllowed(request);
+
+		PirateChain pirateChain = PirateChain.getInstance();
+
+		try {
+			return pirateChain.getPrivateKey(entropy58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, e.getMessage());
+		}
+	}
+
+	@POST
+	@Path("/walletseedphrase")
+	@Operation(
+			summary = "Returns main wallet seedphrase",
+			description = "Supply 32 bytes of entropy, Base58 encoded",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string",
+									description = "32 bytes of entropy, Base58 encoded",
+									example = "5oSXF53qENtdUyKhqSxYzP57m6RhVFP9BJKRr9E5kRGV"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", description = "Wallet Seedphrase String"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public String getPirateChainWalletSeed(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String entropy58) {
+		Security.checkApiCallAllowed(request);
+
+		PirateChain pirateChain = PirateChain.getInstance();
+
+		try {
+			return pirateChain.getWalletSeed(entropy58);
+		} catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, e.getMessage());
+		}
+	}
 
 	@POST
 	@Path("/syncstatus")

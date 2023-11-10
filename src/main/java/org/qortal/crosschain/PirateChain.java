@@ -356,6 +356,30 @@ public class PirateChain extends Bitcoiny {
 		}
 	}
 
+	public String getPrivateKey(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureNotNullSeed();
+                        walletController.getCurrentWallet().unlock();
+
+			return walletController.getCurrentWallet().getPrivateKey();
+		}
+	}
+
+	public String getWalletSeed(String entropy58) throws ForeignBlockchainException {
+		synchronized (this) {
+			PirateChainWalletController walletController = PirateChainWalletController.getInstance();
+			walletController.initWithEntropy58(entropy58);
+			walletController.ensureInitialized();
+			walletController.ensureNotNullSeed();
+                        walletController.getCurrentWallet().unlock();
+
+			return walletController.getCurrentWallet().getWalletSeed(entropy58);
+		}
+	}
+
 	public String getUnusedReceiveAddress(String key58) throws ForeignBlockchainException {
 		// For now, return the main wallet address
 		// FUTURE: generate an unused one
