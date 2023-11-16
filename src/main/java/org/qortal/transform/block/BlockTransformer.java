@@ -458,6 +458,10 @@ public class BlockTransformer extends Transformer {
 	}
 
 	public static ConciseSet decodeOnlineAccounts(byte[] encodedOnlineAccounts) {
+		if (encodedOnlineAccounts.length == 0) {
+			return new ConciseSet();
+		}
+
 		int[] words = new int[encodedOnlineAccounts.length / 4];
 		ByteBuffer.wrap(encodedOnlineAccounts).asIntBuffer().get(words);
 		return new ConciseSet(words, false);

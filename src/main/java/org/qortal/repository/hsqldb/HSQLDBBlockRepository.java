@@ -357,6 +357,36 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public Long getTotalFeesInBlockRange(int firstBlockHeight, int lastBlockHeight) throws DataException {
+		String sql = "SELECT SUM(total_fees) AS sum_total_fees FROM Blocks WHERE height BETWEEN ? AND ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, firstBlockHeight, lastBlockHeight)) {
+			if (resultSet == null)
+				return null;
+
+			long totalFees = resultSet.getLong(1);
+
+			return totalFees;
+		} catch (SQLException e) {
+			throw new DataException("Error fetching total fees in block range from repository", e);
+		}
+	}
+
+	@Override
+	public BlockData getBlockInRangeWithHighestOnlineAccountsCount(int firstBlockHeight, int lastBlockHeight) throws DataException {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height BETWEEN ? AND ? "
+				+ "ORDER BY online_accounts_count DESC, height ASC "
+				+ "LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, firstBlockHeight, lastBlockHeight)) {
+			return getBlockFromResultSet(resultSet);
+
+		} catch (SQLException e) {
+			throw new DataException("Error fetching highest online accounts block in range from repository", e);
+		}
+	}
+
+	@Override
 	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
 		String sql = "SELECT signature, height, minter, online_accounts_count, minted_when, transaction_count, reference "
 				+ "FROM Blocks WHERE height BETWEEN ? AND ?";
