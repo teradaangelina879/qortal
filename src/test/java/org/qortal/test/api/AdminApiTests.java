@@ -35,7 +35,7 @@ public class AdminApiTests extends ApiCommon {
 		// Set localAuthBypassEnabled to true, since we don't need to test authentication here
 		FieldUtils.writeField(Settings.getInstance(), "localAuthBypassEnabled", true, true);
 
-		assertNotNull(this.adminResource.summary("testApiKey"));
+		assertNotNull(this.adminResource.summary());
 	}
 
 	@Test
