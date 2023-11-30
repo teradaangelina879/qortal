@@ -31,6 +31,8 @@ public abstract class BitcoinyTests extends Common {
 
 	protected abstract String getDeterministicKey58();
 
+	protected abstract String getDeterministicPublicKey58();
+
 	protected abstract String getRecipient();
 
 	@Before
@@ -161,5 +163,17 @@ public abstract class BitcoinyTests extends Common {
 		System.out.println("address count = " + addressInfos.size() );
 		System.out.println( "address infos ..." );
 		addressInfos.forEach( System.out::println );
+	}
+
+	@Test
+	public void testWalletSpendingCandidateAddresses() throws ForeignBlockchainException {
+
+		String xpub58 = getDeterministicPublicKey58();
+
+		List<String> candidateAddresses = this.bitcoiny.getSpendingCandidateAddresses(xpub58);
+
+		System.out.println("candidate address count = " + candidateAddresses.size() );
+		System.out.println( "candidate addresses ..." );
+		candidateAddresses.forEach( System.out::println );
 	}
 }

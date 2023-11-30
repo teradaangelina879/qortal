@@ -33,6 +33,11 @@ public class DogecoinTests extends BitcoinyTests {
 	}
 
 	@Override
+	protected String getDeterministicPublicKey58() {
+		return "dgub8rqf3khHiPeYE3cNn3Y4DQQ411nAnFpuSUPt5k5GJZQsydsTLkaf4onaWn4N8pHvrV3oNMEATKoPGTFZwm2Uhh7Dy9gYwA7rkSv6oLofbag";
+	}
+
+	@Override
 	protected String getRecipient() {
 		return null;
 	}
