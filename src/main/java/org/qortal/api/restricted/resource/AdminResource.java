@@ -268,10 +268,7 @@ public class AdminResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	@SecurityRequirement(name = "apiKey")
-	public ActivitySummary summary(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
-		Security.checkApiCallAllowed(request);
-
+	public ActivitySummary summary() {
 		ActivitySummary summary = new ActivitySummary();
 		
 		long now = NTP.getTime();
