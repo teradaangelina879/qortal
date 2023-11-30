@@ -33,11 +33,6 @@ public class LitecoinTests extends BitcoinyTests {
 	}
 
 	@Override
-	protected String getDeterministicPublicKey58() {
-		return "tpubDCxs3oB9X7XJYkQGU6gfPwd4h3NEiBGA8mfD1aEbZiG5x3BTH4cJqszDP6dtoHPPjZNEj5jPxuSWHCvjg9AHz4dNg6w5vQhv1B8KwWKpxoz";
-	}
-
-	@Override
 	protected String getRecipient() {
 		return "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 	}
