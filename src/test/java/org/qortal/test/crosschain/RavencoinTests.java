@@ -33,6 +33,11 @@ public class RavencoinTests extends BitcoinyTests {
 	}
 
 	@Override
+	protected String getDeterministicPublicKey58() {
+		return "xpub661MyMwAqRbcEt3Ge1wNmkagyb1J7yTQu4Kquvy77Ycg2iPoh7Urg8s9Jdwp7YmrqGkDKJpUVjsZXSSsQgmAVUC17ZVQQeoWMzm7vDTt1y7";
+	}
+
+	@Override
 	protected String getRecipient() {
 		return null;
 	}

@@ -44,6 +44,11 @@ public class PirateChainTests extends BitcoinyTests {
 	}
 
 	@Override
+	protected String getDeterministicPublicKey58() {
+		return null;
+	}
+
+	@Override
 	protected String getRecipient() {
 		return null;
 	}
@@ -250,4 +255,8 @@ public class PirateChainTests extends BitcoinyTests {
 	@Test
 	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testWalletAddressInfos() throws ForeignBlockchainException {}
+
+	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
+	public void testWalletSpendingCandidateAddresses() throws ForeignBlockchainException {}
 }
