@@ -336,6 +336,30 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	}
 
 	/**
+	 * Get Spending Candidate Addresses
+	 *
+	 * @param key58 public master key
+	 * @return the addresses this instance will look at when building a spend
+	 * @throws ForeignBlockchainException
+	 */
+	public List<String> getSpendingCandidateAddresses(String key58) throws ForeignBlockchainException {
+
+		Wallet wallet = Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
+		wallet.setUTXOProvider(new WalletAwareUTXOProvider(this, wallet));
+
+		// from Wallet.getStoredOutputsFromUTXOProvider()
+		List<ECKey> spendingKeys = wallet.getImportedKeys();
+		spendingKeys.addAll(wallet.getActiveKeyChain().getLeafKeys());
+
+		List<String> spendingCandidateAddresses
+				= spendingKeys.stream()
+					.map(spendingKey -> Address.fromKey(this.params, spendingKey, ScriptType.P2PKH ).toString())
+					.collect(Collectors.toList());
+
+		return spendingCandidateAddresses;
+	}
+
+	/**
 	 * Returns bitcoinj transaction sending <tt>amount</tt> to <tt>recipient</tt> using default fees.
 	 *
 	 * @param xprv58 BIP32 private key
@@ -478,8 +502,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	public List<AddressInfo> getWalletAddressInfos(String key58) throws ForeignBlockchainException {
 		List<AddressInfo> infos = new ArrayList<>();
 
+		List<String> candidates = this.getSpendingCandidateAddresses(key58);
+
 		for(DeterministicKey key : getWalletKeys(key58)) {
-			infos.add(buildAddressInfo(key));
+			infos.add(buildAddressInfo(key, candidates));
 		}
 
 		return infos.stream()
@@ -487,7 +513,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				.collect(Collectors.toList());
 	}
 
-	public AddressInfo buildAddressInfo(DeterministicKey key) throws ForeignBlockchainException  {
+	public AddressInfo buildAddressInfo(DeterministicKey key, List<String> candidates) throws ForeignBlockchainException  {
 
 		Address address = Address.fromKey(this.params, key, ScriptType.P2PKH);
 
@@ -498,7 +524,8 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 				toIntegerList( key.getPath()),
 				summingUnspentOutputs(address.toString()),
 				key.getPathAsString(),
-				transactionCount);
+				transactionCount,
+				candidates.contains(address.toString()));
 	}
 
 	private static  List<Integer> toIntegerList(ImmutableList<ChildNumber> path) {

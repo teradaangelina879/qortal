@@ -33,6 +33,11 @@ public class DigibyteTests extends BitcoinyTests {
 	}
 
 	@Override
+	protected String getDeterministicPublicKey58() {
+		return "xpub661MyMwAqRbcEnabTLX5uebYcsE3uG5y7ve9jn1VK8iY1MaU3YLoLJEe8sTu2YVav5Zka5qf2dmMssfxmXJTqZnazZL2kL7M2tNKwEoC34R";
+	}
+
+	@Override
 	protected String getRecipient() {
 		return "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 	}
