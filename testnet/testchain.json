@@ -27,6 +27,9 @@
 	"onlineAccountsModulusV2Timestamp": 0,
 	"selfSponsorshipAlgoV1SnapshotTimestamp": 9999999999999,
 	"mempowTransactionUpdatesTimestamp": 1692554400000,
+	"blockRewardBatchStartHeight": 10000,
+	"blockRewardBatchSize": 1000,
+	"blockRewardBatchAccountsBlockCount": 25,
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 5.00 },
 		{ "height": 259201, "reward": 4.75 },
@@ -69,8 +72,8 @@
 	],
 	"ciyamAtSettings": {
 		"feePerStep": "0.00000001",
-		"maxStepsPerRound": 500,
-		"stepsPerFunctionCall": 10,
+		"maxStepsPerRound": 1000,
+		"stepsPerFunctionCall": 100,
 		"minutesPerBlock": 1
 	},
 	"featureTriggers": {
@@ -89,11 +92,11 @@
 		"selfSponsorshipAlgoV1Height": 9999999,
 		"feeValidationFixTimestamp": 0,
 		"chatReferenceTimestamp": 0,
-		"arbitraryOptionalFeeTimestamp": 1678622400000
+		"arbitraryOptionalFeeTimestamp": 0
 	},
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": "1677572542000",
+		"timestamp": "1701874800000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "assetName": "QORT", "description": "QORTAL coin", "quantity": 0, "isDivisible": true, "data": "{}" },
 			{ "type": "ISSUE_ASSET", "assetName": "Legacy-QORA", "description": "Representative legacy QORA", "quantity": 0, "isDivisible": true, "data": "{}", "isUnspendable": true },
