@@ -522,6 +522,10 @@ public class QortalATAPI extends API {
 
 	/** Returns AT account's lastReference */
 	private byte[] getLastReference() {
+		// If we have transactions already, then use signature from last transaction
+		if (!this.transactions.isEmpty())
+			return this.transactions.get(this.transactions.size() - 1).getTransactionData().getSignature();
+
 		try {
 			// Look up AT's account's last reference from repository
 			Account atAccount = this.getATAccount();
