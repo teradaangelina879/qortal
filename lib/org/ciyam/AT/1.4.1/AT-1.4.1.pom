@@ -10,14 +10,13 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<skipTests>false</skipTests>
-
-		<maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
-		<maven-source-plugin.version>3.2.0</maven-source-plugin.version>
-		<maven-javadoc-plugin.version>3.3.1</maven-javadoc-plugin.version>
-		<maven-surefire-plugin.version>3.0.0-M4</maven-surefire-plugin.version>
-		<maven-jar-plugin.version>3.2.0</maven-jar-plugin.version>
-
-		<bouncycastle.version>1.64</bouncycastle.version>
+		<bouncycastle.version>1.69</bouncycastle.version>
+		<junit.version>4.13.2</junit.version>
+		<maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+		<maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
+		<maven-javadoc-plugin.version>3.6.3</maven-javadoc-plugin.version>
+		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
+		<maven-surefire-plugin.version>3.2.2</maven-surefire-plugin.version>
 	</properties>
 
 	<build>
@@ -117,7 +116,7 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.13</version>
+			<version>${junit.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
