@@ -20,17 +20,25 @@ public class PollVotes {
     @Schema(description = "Total number of votes")
     public Integer totalVotes;
 
+    @Schema(description = "Total weight of votes")
+    public Integer totalWeight;
+
     @Schema(description = "List of vote counts for each option")
     public List<OptionCount> voteCounts;
+
+    @Schema(description = "List of vote weights for each option")
+    public List<OptionWeight> voteWeights;
 
     // For JAX-RS
     protected PollVotes() {
     }
 
-    public PollVotes(List<VoteOnPollData> votes, Integer totalVotes, List<OptionCount> voteCounts) {
+    public PollVotes(List<VoteOnPollData> votes, Integer totalVotes, Integer totalWeight, List<OptionCount> voteCounts, List<OptionWeight> voteWeights) {
         this.votes = votes;
         this.totalVotes = totalVotes;
+        this.totalWeight = totalWeight;
         this.voteCounts = voteCounts;
+        this.voteWeights = voteWeights;
     }
 
     @Schema(description = "Vote info")
@@ -50,6 +58,26 @@ public class PollVotes {
         public OptionCount(String optionName, Integer voteCount) {
             this.optionName = optionName;
             this.voteCount = voteCount;
+        }
+    }
+
+    @Schema(description = "Vote weights")
+    // All properties to be converted to JSON via JAX-RS
+    @XmlAccessorType(XmlAccessType.FIELD)
+    public static class OptionWeight {
+        @Schema(description = "Option name")
+        public String optionName;
+
+        @Schema(description = "Vote weight")
+        public Integer voteWeight;
+
+        // For JAX-RS
+        protected OptionWeight() {
+        }
+
+        public OptionWeight(String optionName, Integer voteWeight) {
+            this.optionName = optionName;
+            this.voteWeight = voteWeight;
         }
     }
 }
