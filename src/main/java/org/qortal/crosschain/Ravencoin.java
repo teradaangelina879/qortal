@@ -7,7 +7,7 @@ import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.params.TestNet3Params;
 import org.libdohj.params.RavencoinMainNetParams;
 import org.qortal.crosschain.ElectrumX.Server;
-import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
+import org.qortal.crosschain.ChainableServer.ConnectionType;
 import org.qortal.settings.Settings;
 
 import java.util.Arrays;

@@ -9,7 +9,7 @@ import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.junit.Test;
 import org.qortal.crosschain.Bitcoin.BitcoinNet;
 import org.qortal.crosschain.*;
-import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
+import org.qortal.crosschain.ChainableServer.ConnectionType;
 import org.qortal.utils.BitTwiddling;
 
 import java.security.Security;

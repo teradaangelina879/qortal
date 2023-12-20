@@ -30,10 +30,9 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	private static final int RESPONSE_TIME_READINGS = 5;
 	private static final long MAX_AVG_RESPONSE_TIME = 500L; // ms
 
-	public static class Server {
+	public static class Server implements ChainableServer{
 		String hostname;
 
-		public enum ConnectionType { TCP, SSL }
 		ConnectionType connectionType;
 
 		int port;
@@ -65,6 +64,21 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 		}
 
 		@Override
+		public String getHostName() {
+			return this.hostname;
+		}
+
+		@Override
+		public int getPort() {
+			return this.port;
+		}
+
+		@Override
+		public ChainableServer.ConnectionType getConnectionType() {
+			return this.connectionType;
+		}
+
+		@Override
 		public boolean equals(Object other) {
 			if (other == this)
 				return true;
@@ -89,9 +103,9 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 			return String.format("%s:%s:%d", this.connectionType.name(), this.hostname, this.port);
 		}
 	}
-	private Set<Server> servers = new HashSet<>();
-	private List<Server> remainingServers = new ArrayList<>();
-	private Set<Server> uselessServers = Collections.synchronizedSet(new HashSet<>());
+	private Set<ChainableServer> servers = new HashSet<>();
+	private List<ChainableServer> remainingServers = new ArrayList<>();
+	private Set<ChainableServer> uselessServers = Collections.synchronizedSet(new HashSet<>());
 
 	private final String netId;
 	private final String expectedGenesisHash;
@@ -99,7 +113,7 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	private Bitcoiny blockchain;
 
 	private final Object serverLock = new Object();
-	private Server currentServer;
+	private ChainableServer currentServer;
 	private ManagedChannel channel;
 	private int nextId = 1;
 
@@ -525,6 +539,24 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 			throw new ForeignBlockchainException.NetworkException(String.format("Unexpected error code from Pirate Chain broadcastTransaction gRPC: %d", sendResponse.getErrorCode()));
 	}
 
+	@Override
+	public Set<ChainableServer> getServers() {
+		return this.servers;
+	}
+
+	@Override
+	public List<ChainableServer> getRemainingServers() {
+		return this.remainingServers;
+	}
+
+	@Override
+	public Set<ChainableServer> getUselessServers() {
+		return this.uselessServers;
+	}
+
+	@Override
+	public ChainableServer getCurrentServer() { return this.currentServer; }
+
 	// Class-private utility methods
 
 
@@ -544,7 +576,7 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 				if (!this.remainingServers.isEmpty()) {
 					long averageResponseTime = this.currentServer.averageResponseTime();
 					if (averageResponseTime > MAX_AVG_RESPONSE_TIME) {
-						LOGGER.info("Slow average response time {}ms from {} - trying another server...", averageResponseTime, this.currentServer.hostname);
+						LOGGER.info("Slow average response time {}ms from {} - trying another server...", averageResponseTime, this.currentServer.getHostName());
 						this.closeServer();
 						continue;
 					}
@@ -568,11 +600,11 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 			return true;
 
 		while (!this.remainingServers.isEmpty()) {
-			Server server = this.remainingServers.remove(RANDOM.nextInt(this.remainingServers.size()));
+			ChainableServer server = this.remainingServers.remove(RANDOM.nextInt(this.remainingServers.size()));
 			LOGGER.trace(() -> String.format("Connecting to %s", server));
 
 			try {
-				this.channel = ManagedChannelBuilder.forAddress(server.hostname, server.port).build();
+				this.channel = ManagedChannelBuilder.forAddress(server.getHostName(), server.getPort()).build();
 
 				CompactTxStreamerGrpc.CompactTxStreamerBlockingStub stub = CompactTxStreamerGrpc.newBlockingStub(this.channel);
 				LightdInfo lightdInfo = stub.getLightdInfo(Empty.newBuilder().build());
@@ -604,7 +636,7 @@ public class PirateLightClient extends BitcoinyBlockchainProvider {
 	 * Closes connection to <tt>server</tt> if it is currently connected server.
 	 * @param server
 	 */
-	private void closeServer(Server server) {
+	private void closeServer(ChainableServer server) {
 		synchronized (this.serverLock) {
 			if (this.currentServer == null || !this.currentServer.equals(server) || this.channel == null) {
 				return;

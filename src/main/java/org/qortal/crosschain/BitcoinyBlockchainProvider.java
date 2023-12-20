@@ -3,6 +3,7 @@ package org.qortal.crosschain;
 import cash.z.wallet.sdk.rpc.CompactFormats.CompactBlock;
 
 import java.util.List;
+import java.util.Set;
 
 public abstract class BitcoinyBlockchainProvider {
 
@@ -59,4 +60,11 @@ public abstract class BitcoinyBlockchainProvider {
 	/** Broadcasts raw, serialized, transaction bytes to network, returning success/failure. */
 	public abstract void broadcastTransaction(byte[] rawTransaction) throws ForeignBlockchainException;
 
+	public abstract Set<ChainableServer> getServers();
+
+	public abstract List<ChainableServer> getRemainingServers();
+
+	public abstract Set<ChainableServer> getUselessServers();
+
+	public abstract ChainableServer getCurrentServer();
 }

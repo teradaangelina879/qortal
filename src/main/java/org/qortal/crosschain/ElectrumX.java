@@ -43,12 +43,11 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private static final String VERBOSE_TRANSACTIONS_UNSUPPORTED_MESSAGE = "verbose transactions are currently unsupported";
 
 	private static final int RESPONSE_TIME_READINGS = 5;
-	private static final long MAX_AVG_RESPONSE_TIME = 1000L; // ms
+	private static final long MAX_AVG_RESPONSE_TIME = 2000L; // ms
 
-	public static class Server {
+	public static class Server implements ChainableServer {
 		String hostname;
 
-		public enum ConnectionType { TCP, SSL }
 		ConnectionType connectionType;
 
 		int port;
@@ -60,6 +59,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			this.port = port;
 		}
 
+		@Override
 		public void addResponseTime(long responseTime) {
 			while (this.responseTimes.size() > RESPONSE_TIME_READINGS) {
 				this.responseTimes.remove(0);
@@ -67,6 +67,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			this.responseTimes.add(responseTime);
 		}
 
+		@Override
 		public long averageResponseTime() {
 			if (this.responseTimes.size() < RESPONSE_TIME_READINGS) {
 				// Not enough readings yet
@@ -77,6 +78,21 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				return Double.valueOf(average.getAsDouble()).longValue();
 			}
 			return 0L;
+		}
+
+		@Override
+		public String getHostName() {
+			return this.hostname;
+		}
+
+		@Override
+		public int getPort() {
+			return this.port;
+		}
+
+		@Override
+		public ConnectionType getConnectionType() {
+			return this.connectionType;
 		}
 
 		@Override
@@ -104,9 +120,9 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			return String.format("%s:%s:%d", this.connectionType.name(), this.hostname, this.port);
 		}
 	}
-	private Set<Server> servers = new HashSet<>();
-	private List<Server> remainingServers = new ArrayList<>();
-	private Set<Server> uselessServers = Collections.synchronizedSet(new HashSet<>());
+	private Set<ChainableServer> servers = new HashSet<>();
+	private List<ChainableServer> remainingServers = new ArrayList<>();
+	private Set<ChainableServer> uselessServers = Collections.synchronizedSet(new HashSet<>());
 
 	private final String netId;
 	private final String expectedGenesisHash;
@@ -114,7 +130,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	private Bitcoiny blockchain;
 
 	private final Object serverLock = new Object();
-	private Server currentServer;
+	private ChainableServer currentServer;
 	private Socket socket;
 	private Scanner scanner;
 	private int nextId = 1;
@@ -638,7 +654,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 				if (!this.remainingServers.isEmpty()) {
 					long averageResponseTime = this.currentServer.averageResponseTime();
 					if (averageResponseTime > MAX_AVG_RESPONSE_TIME) {
-						LOGGER.info("Slow average response time {}ms from {} - trying another server...", averageResponseTime, this.currentServer.hostname);
+						LOGGER.info("Slow average response time {}ms from {} - trying another server...", averageResponseTime, this.currentServer.getHostName());
 						this.closeServer();
 						break;
 					}
@@ -663,20 +679,20 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 			return true;
 
 		while (!this.remainingServers.isEmpty()) {
-			Server server = this.remainingServers.remove(RANDOM.nextInt(this.remainingServers.size()));
+			ChainableServer server = this.remainingServers.remove(RANDOM.nextInt(this.remainingServers.size()));
 			LOGGER.trace(() -> String.format("Connecting to %s", server));
 
 			try {
-				SocketAddress endpoint = new InetSocketAddress(server.hostname, server.port);
+				SocketAddress endpoint = new InetSocketAddress(server.getHostName(), server.getPort());
 				int timeout = 5000; // ms
 
 				this.socket = new Socket();
 				this.socket.connect(endpoint, timeout);
 				this.socket.setTcpNoDelay(true);
 
-				if (server.connectionType == Server.ConnectionType.SSL) {
+				if (server.getConnectionType() == Server.ConnectionType.SSL) {
 					SSLSocketFactory factory = TrustlessSSLSocketFactory.getSocketFactory();
-					this.socket = factory.createSocket(this.socket, server.hostname, server.port, true);
+					this.socket = factory.createSocket(this.socket, server.getHostName(), server.getPort(), true);
 				}
 
 				this.scanner = new Scanner(this.socket.getInputStream());
@@ -832,7 +848,7 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 	 * Closes connection to <tt>server</tt> if it is currently connected server.
 	 * @param server
 	 */
-	private void closeServer(Server server) {
+	private void closeServer(ChainableServer server) {
 		synchronized (this.serverLock) {
 			if (this.currentServer == null || !this.currentServer.equals(server))
 				return;
@@ -857,4 +873,24 @@ public class ElectrumX extends BitcoinyBlockchainProvider {
 		}
 	}
 
+	@Override
+	public Set<ChainableServer> getServers() {
+		LOGGER.info("getting servers");
+		return servers;
+	}
+
+	@Override
+	public List<ChainableServer> getRemainingServers() {
+		return remainingServers;
+	}
+
+	@Override
+	public Set<ChainableServer> getUselessServers() {
+		return uselessServers;
+	}
+
+	@Override
+	public ChainableServer getCurrentServer() {
+		return currentServer;
+	}
 }

@@ -13,7 +13,7 @@ import org.libdohj.params.PirateChainMainNetParams;
 import org.qortal.api.model.crosschain.PirateChainSendRequest;
 import org.qortal.controller.PirateChainWalletController;
 import org.qortal.crosschain.PirateLightClient.Server;
-import org.qortal.crosschain.PirateLightClient.Server.ConnectionType;
+import org.qortal.crosschain.ChainableServer.ConnectionType;
 import org.qortal.crypto.Crypto;
 import org.qortal.settings.Settings;
 import org.qortal.transform.TransformationException;
