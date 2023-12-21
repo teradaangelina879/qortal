@@ -7,7 +7,7 @@ import org.libdohj.params.LitecoinMainNetParams;
 import org.libdohj.params.LitecoinRegTestParams;
 import org.libdohj.params.LitecoinTestNet3Params;
 import org.qortal.crosschain.ElectrumX.Server;
-import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
+import org.qortal.crosschain.ChainableServer.ConnectionType;
 import org.qortal.settings.Settings;
 
 import java.util.Arrays;

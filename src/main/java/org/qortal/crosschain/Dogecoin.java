@@ -6,7 +6,7 @@ import org.bitcoinj.core.NetworkParameters;
 import org.libdohj.params.DogecoinMainNetParams;
 import org.libdohj.params.DogecoinTestNet3Params;
 import org.qortal.crosschain.ElectrumX.Server;
-import org.qortal.crosschain.ElectrumX.Server.ConnectionType;
+import org.qortal.crosschain.ChainableServer.ConnectionType;
 import org.qortal.settings.Settings;
 
 import java.util.Arrays;

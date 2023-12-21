@@ -16,6 +16,7 @@ import org.qortal.api.model.crosschain.PirateChainSendRequest;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.PirateChain;
 import org.qortal.crosschain.SimpleTransaction;
+import org.qortal.crosschain.ServerConfigurationInfo;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -328,5 +329,26 @@ public class CrossChainPirateChainResource {
 		} catch (ForeignBlockchainException e) {
 			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, e.getMessage());
 		}
+	}
+
+	@GET
+	@Path("/serverinfos")
+	@Operation(
+			summary = "Returns current PirateChain server configuration",
+			description = "Returns current PirateChain server locations and use status",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									mediaType = MediaType.APPLICATION_JSON,
+									schema = @Schema(
+											implementation = ServerConfigurationInfo.class
+									)
+							)
+					)
+			}
+	)
+	public ServerConfigurationInfo getServerConfiguration() {
+
+		return CrossChainUtils.buildServerConfigurationInfo(PirateChain.getInstance());
 	}
 }

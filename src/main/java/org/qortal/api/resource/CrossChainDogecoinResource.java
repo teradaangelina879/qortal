@@ -19,6 +19,7 @@ import org.qortal.crosschain.AddressInfo;
 import org.qortal.crosschain.Dogecoin;
 import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.SimpleTransaction;
+import org.qortal.crosschain.ServerConfigurationInfo;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -283,4 +284,24 @@ public class CrossChainDogecoinResource {
 		return spendTransaction.getTxId().toString();
 	}
 
+	@GET
+	@Path("/serverinfos")
+	@Operation(
+			summary = "Returns current Dogecoin server configuration",
+			description = "Returns current Dogecoin server locations and use status",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									mediaType = MediaType.APPLICATION_JSON,
+									schema = @Schema(
+											implementation = ServerConfigurationInfo.class
+									)
+							)
+					)
+			}
+	)
+	public ServerConfigurationInfo getServerConfiguration() {
+
+		return CrossChainUtils.buildServerConfigurationInfo(Dogecoin.getInstance());
+	}
 }
