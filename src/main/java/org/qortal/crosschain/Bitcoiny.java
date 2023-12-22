@@ -11,6 +11,7 @@ import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.script.Script.ScriptType;
 import org.bitcoinj.script.ScriptBuilder;
 import org.bitcoinj.wallet.DeterministicKeyChain;
+import org.bitcoinj.wallet.KeyChain;
 import org.bitcoinj.wallet.SendRequest;
 import org.bitcoinj.wallet.Wallet;
 import org.qortal.api.model.SimpleForeignTransaction;
@@ -720,7 +721,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	}
 
 	/**
-	 * Returns first unused receive address given 'm' BIP32 key.
+	 * Returns first unused receive address given a BIP32 key.
 	 *
 	 * @param key58 BIP32/HD extended Bitcoin private/public key
 	 * @return P2PKH address
@@ -732,65 +733,15 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		Wallet wallet = walletFromDeterministicKey58(key58);
 		DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
-		keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
-		keyChain.maybeLookAhead();
-
-		final int keyChainPathSize = keyChain.getAccountPath().size();
-		List<DeterministicKey> keys = new ArrayList<>(keyChain.getLeafKeys());
-
-		int ki = 0;
 		do {
-			for (; ki < keys.size(); ++ki) {
-				DeterministicKey dKey = keys.get(ki);
-				List<ChildNumber> dKeyPath = dKey.getPath();
+			// the next receive funds address
+			Address address = Address.fromKey(this.params, keyChain.getKey(KeyChain.KeyPurpose.RECEIVE_FUNDS), ScriptType.P2PKH);
 
-				// If keyChain is based on 'm', then make sure dKey is m/0/ki - i.e. a 'receive' address, not 'change' (m/1/ki)
-				if (dKeyPath.size() != keyChainPathSize + 2 || dKeyPath.get(dKeyPath.size() - 2) != ChildNumber.ZERO)
-					continue;
+			// if zero transactions, return address
+			if( 0 == getAddressTransactions(ScriptBuilder.createOutputScript(address).getProgram(), true).size() )
+				return address.toString();
 
-				// Check unspent
-				Address address = Address.fromKey(this.params, dKey, ScriptType.P2PKH);
-				byte[] script = ScriptBuilder.createOutputScript(address).getProgram();
-
-				List<UnspentOutput> unspentOutputs = this.blockchainProvider.getUnspentOutputs(script, false);
-
-				/*
-				 * If there are no unspent outputs then either:
-				 * a) all the outputs have been spent
-				 * b) address has never been used
-				 *
-				 * For case (a) we want to remember not to check this address (key) again.
-				 */
-
-				if (unspentOutputs.isEmpty()) {
-					// If this is a known key that has been spent before, then we can skip asking for transaction history
-					if (this.spentKeys.contains(dKey)) {
-						wallet.getActiveKeyChain().markKeyAsUsed(dKey);
-						continue;
-					}
-
-					// Ask for transaction history - if it's empty then key has never been used
-					List<TransactionHash> historicTransactionHashes = this.blockchainProvider.getAddressTransactions(script, false);
-
-					if (!historicTransactionHashes.isEmpty()) {
-						// Fully spent key - case (a)
-						this.spentKeys.add(dKey);
-						wallet.getActiveKeyChain().markKeyAsUsed(dKey);
-						continue;
-					}
-
-					// Key never been used - case (b)
-					return address.toString();
-				}
-
-				// Key has unspent outputs, hence used, so no good to us
-				this.spentKeys.remove(dKey);
-			}
-
-			// Generate some more keys
-			keys.addAll(generateMoreKeys(keyChain));
-
-			// Process new keys
+			// else try the next receive funds address
 		} while (true);
 	}
 
