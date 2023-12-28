@@ -505,7 +505,7 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 		List<String> candidates = this.getSpendingCandidateAddresses(key58);
 
-		for(DeterministicKey key : getWalletKeys(key58)) {
+		for(DeterministicKey key : getOldWalletKeys(key58)) {
 			infos.add(buildAddressInfo(key, candidates));
 		}
 
@@ -592,11 +592,23 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 		}
 	}
 
-	private List<DeterministicKey> getWalletKeys(String key58) throws ForeignBlockchainException {
+	/**
+	 * Get Old Wallet Keys
+	 *
+	 * Get wallet keys using the old key generation algorithm. This is used for diagnosing and repairing wallets
+	 * created before 2024.
+	 *
+	 * @param masterPrivateKey
+	 *
+	 * @return the keys
+	 *
+	 * @throws ForeignBlockchainException
+	 */
+	private List<DeterministicKey> getOldWalletKeys(String masterPrivateKey) throws ForeignBlockchainException {
 		synchronized (this) {
 			Context.propagate(bitcoinjContext);
 
-			Wallet wallet = walletFromDeterministicKey58(key58);
+			Wallet wallet = walletFromDeterministicKey58(masterPrivateKey);
 			DeterministicKeyChain keyChain = wallet.getActiveKeyChain();
 
 			keyChain.setLookaheadSize(Bitcoiny.WALLET_KEY_LOOKAHEAD_INCREMENT);
@@ -998,4 +1010,52 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			return Wallet.fromWatchingKeyB58(this.params, key58, DeterministicHierarchy.BIP32_STANDARDISATION_TIME_SECS);
 	}
 
+	/**
+	 * Repair Wallet
+	 *
+	 * Repair wallets generated before 2024 by moving all the address balances to the first address.
+	 *
+	 * @param privateMasterKey
+	 *
+	 * @return the transaction Id of the spend operation that moves the balances or the exception name if an exception
+	 * is thrown
+	 *
+	 * @throws ForeignBlockchainException
+	 */
+	public String repairOldWallet(String privateMasterKey) throws ForeignBlockchainException {
+
+		// create a deterministic wallet to satisfy the bitcoinj API
+		Wallet wallet = Wallet.createDeterministic(this.bitcoinjContext, ScriptType.P2PKH);
+
+		// use the blockchain resources of this instance for UTXO provision
+		wallet.setUTXOProvider(new BitcoinyUTXOProvider( this ));
+
+		// import in each that is generated using the old key generation algorithm
+		List<DeterministicKey> walletKeys = getOldWalletKeys(privateMasterKey);
+
+		for( DeterministicKey key : walletKeys) {
+			wallet.importKey(ECKey.fromPrivate(key.getPrivKey()));
+		}
+
+		// get the primary receive address
+		Address firstAddress = Address.fromKey(this.params, walletKeys.get(0), ScriptType.P2PKH);
+
+		// send all the imported coins to the primary receive address
+		SendRequest sendRequest = SendRequest.emptyWallet(firstAddress);
+		sendRequest.feePerKb = this.getFeePerKb();
+
+		try {
+			// allow the wallet to build the send request transaction and broadcast
+			wallet.completeTx(sendRequest);
+			broadcastTransaction(sendRequest.tx);
+
+			// return the transaction Id
+			return sendRequest.tx.getTxId().toString();
+		}
+		catch( Exception e ) {
+			// log error and return exception name
+			LOGGER.error(e.getMessage(), e);
+			return e.getClass().getSimpleName();
+		}
+	}
 }

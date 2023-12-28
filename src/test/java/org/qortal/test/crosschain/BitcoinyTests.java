@@ -99,6 +99,14 @@ public abstract class BitcoinyTests extends Common {
 		transaction = bitcoiny.buildSpend(xprv58, recipient, amount);
 		assertNotNull(transaction);
 	}
+	@Test
+	public void testRepair() throws ForeignBlockchainException {
+		String xprv58 = getDeterministicKey58();
+
+		String transaction = bitcoiny.repairOldWallet(xprv58);
+
+		assertNotNull(transaction);
+	}
 
 	@Test
 	public void testGetWalletBalance() throws ForeignBlockchainException {

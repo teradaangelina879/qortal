@@ -258,6 +258,37 @@ public class AdminResource {
 	}
 
 	@GET
+	@Path("/bootstrap")
+	@Operation(
+		summary = "Bootstrap",
+		description = "Delete and download new database archive",
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@SecurityRequirement(name = "apiKey")
+	public String bootstrap(@HeaderParam(Security.API_KEY_HEADER) String apiKey) {
+		Security.checkApiCallAllowed(request);
+
+		new Thread(() -> {
+			// Short sleep to allow HTTP response body to be emitted
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// Not important
+			}
+
+			AutoUpdate.attemptBootstrap();
+
+		}).start();
+
+		return "true";
+	}
+
+	@GET
 	@Path("/summary")
 	@Operation(
 		summary = "Summary of activity past 24 hours",
