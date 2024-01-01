@@ -25,7 +25,9 @@ import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
 import org.qortal.controller.AutoUpdate;
+import org.qortal.controller.BootstrapNode;
 import org.qortal.controller.Controller;
+import org.qortal.controller.RestartNode;
 import org.qortal.controller.Synchronizer;
 import org.qortal.controller.Synchronizer.SynchronizationResult;
 import org.qortal.controller.repository.BlockArchiveRebuilder;
@@ -250,7 +252,7 @@ public class AdminResource {
 				// Not important
 			}
 
-			AutoUpdate.attemptRestart();
+			RestartNode.attemptToRestart();
 
 		}).start();
 
@@ -281,7 +283,7 @@ public class AdminResource {
 				// Not important
 			}
 
-			AutoUpdate.attemptBootstrap();
+			BootstrapNode.attemptToBootstrap();
 
 		}).start();
 
