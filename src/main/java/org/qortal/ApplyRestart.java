@@ -140,13 +140,13 @@ public class ApplyRestart {
 
 	private static void restartNode(String[] args) {
 		String javaHome = System.getProperty("java.home");
-		LOGGER.info(() -> String.format("Java home: %s", javaHome));
+		LOGGER.debug(() -> String.format("Java home: %s", javaHome));
 
 		Path javaBinary = Paths.get(javaHome, "bin", "java");
-		LOGGER.info(() -> String.format("Java binary: %s", javaBinary));
+		LOGGER.debug(() -> String.format("Java binary: %s", javaBinary));
 
 		Path exeLauncher = Paths.get(WINDOWS_EXE_LAUNCHER);
-		LOGGER.info(() -> String.format("Windows EXE launcher: %s", exeLauncher));
+		LOGGER.debug(() -> String.format("Windows EXE launcher: %s", exeLauncher));
 
 		List<String> javaCmd;
 		if (Files.exists(exeLauncher)) {
@@ -172,12 +172,12 @@ public class ApplyRestart {
 		}
 
 		try {
-			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
+			LOGGER.debug(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
 
 			ProcessBuilder processBuilder = new ProcessBuilder(javaCmd);
 
 			if (Files.exists(exeLauncher)) {
-				LOGGER.info(() -> String.format("Setting env %s to %s", JAVA_TOOL_OPTIONS_NAME, JAVA_TOOL_OPTIONS_VALUE));
+				LOGGER.debug(() -> String.format("Setting env %s to %s", JAVA_TOOL_OPTIONS_NAME, JAVA_TOOL_OPTIONS_VALUE));
 				processBuilder.environment().put(JAVA_TOOL_OPTIONS_NAME, JAVA_TOOL_OPTIONS_VALUE);
 			}
 

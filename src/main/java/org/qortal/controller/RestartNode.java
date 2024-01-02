@@ -75,7 +75,7 @@ public class RestartNode {
 			if (savedArgs != null)
 				javaCmd.addAll(Arrays.asList(savedArgs));
 
-			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
+			LOGGER.debug(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
 
 			SysTray.getInstance().showMessage(Translator.INSTANCE.translate("SysTray", "RESTARTING_NODE"),
 					Translator.INSTANCE.translate("SysTray", "APPLYING_RESTARTING_NODE"),

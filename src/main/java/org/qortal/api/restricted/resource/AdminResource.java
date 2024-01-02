@@ -24,7 +24,6 @@ import org.qortal.api.model.ActivitySummary;
 import org.qortal.api.model.NodeInfo;
 import org.qortal.api.model.NodeStatus;
 import org.qortal.block.BlockChain;
-import org.qortal.controller.AutoUpdate;
 import org.qortal.controller.BootstrapNode;
 import org.qortal.controller.Controller;
 import org.qortal.controller.RestartNode;
