@@ -6,42 +6,43 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qortal.api.ApiKey;
 import org.qortal.api.ApiRequest;
-import org.qortal.controller.AutoUpdate;
+import org.qortal.controller.BootstrapNode;
 import org.qortal.settings.Settings;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.Security;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.qortal.controller.AutoUpdate.AGENTLIB_JVM_HOLDER_ARG;
+import static org.qortal.controller.BootstrapNode.AGENTLIB_JVM_HOLDER_ARG;
 
-public class ApplyUpdate {
+public class ApplyBootstrap {
 
 	static {
-		// This static block will be called before others if using ApplyUpdate.main()
+		// This static block will be called before others if using ApplyBootstrap.main()
 
-		// Log into different files for auto-update - this has to be before LogManger.getLogger() calls
-		System.setProperty("log4j2.filenameTemplate", "log-apply-update.txt");
+		// Log into different files for bootstrap - this has to be before LogManger.getLogger() calls
+		System.setProperty("log4j2.filenameTemplate", "log-apply-bootstrap.txt");
 
 		// This must go before any calls to LogManager/Logger
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
-	private static final Logger LOGGER = LogManager.getLogger(ApplyUpdate.class);
-	private static final String JAR_FILENAME = AutoUpdate.JAR_FILENAME;
-	private static final String NEW_JAR_FILENAME = AutoUpdate.NEW_JAR_FILENAME;
+	private static final Logger LOGGER = LogManager.getLogger(ApplyBootstrap.class);
+	private static final String JAR_FILENAME = BootstrapNode.JAR_FILENAME;
 	private static final String WINDOWS_EXE_LAUNCHER = "qortal.exe";
 	private static final String JAVA_TOOL_OPTIONS_NAME = "JAVA_TOOL_OPTIONS";
 	private static final String JAVA_TOOL_OPTIONS_VALUE = "";
 
-	private static final long CHECK_INTERVAL = 30 * 1000L; // ms
-	private static final int MAX_ATTEMPTS = 12;
+	private static final long CHECK_INTERVAL = 15 * 1000L; // ms
+	private static final int MAX_ATTEMPTS = 20;
 
 	public static void main(String[] args) {
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
@@ -53,19 +54,19 @@ public class ApplyUpdate {
 		else
 			Settings.getInstance();
 
-		LOGGER.info("Applying update...");
+		LOGGER.info("Applying bootstrap...");
 
 		// Shutdown node using API
 		if (!shutdownNode())
 			return;
 
-		// Replace JAR
-		replaceJar();
+		// Delete db
+		deleteDB();
 
 		// Restart node
 		restartNode(args);
 
-		LOGGER.info("Exiting...");
+		LOGGER.info("Bootstrapping...");
 	}
 
 	private static boolean shutdownNode() {
@@ -101,8 +102,8 @@ public class ApplyUpdate {
 			if (response == null) {
 				// No response - consider node shut down
 				if (apiKeyNewlyGenerated) {
-					// API key was newly generated for this auto update, so we need to remove it
-					ApplyUpdate.removeGeneratedApiKey();
+					// API key was newly generated for bootstrapping node, so we need to remove it
+					ApplyBootstrap.removeGeneratedApiKey();
 				}
 				return true;
 			}
@@ -118,8 +119,8 @@ public class ApplyUpdate {
 		}
 
 		if (apiKeyNewlyGenerated) {
-			// API key was newly generated for this auto update, so we need to remove it
-			ApplyUpdate.removeGeneratedApiKey();
+			// API key was newly generated for bootstrapping node, so we need to remove it
+			ApplyBootstrap.removeGeneratedApiKey();
 		}
 
 		if (attempt == MAX_ATTEMPTS) {
@@ -134,49 +135,38 @@ public class ApplyUpdate {
 		try {
 			LOGGER.info("Removing newly generated API key...");
 
-			// Delete the API key since it was only generated for this auto update
+			// Delete the API key since it was only generated for bootstrapping node
 			ApiKey apiKey = new ApiKey();
 			apiKey.delete();
 
 		} catch (IOException e) {
-			LOGGER.error("Error loading or deleting API key: {}", e.getMessage());
+			LOGGER.info("Error loading or deleting API key: {}", e.getMessage());
 		}
 	}
 
-	private static void replaceJar() {
-		// Assuming current working directory contains the JAR files
-		Path realJar = Paths.get(JAR_FILENAME);
-		Path newJar = Paths.get(NEW_JAR_FILENAME);
+	private static void deleteDB() {
+		// Get the repository path from settings
+		String repositoryPath = Settings.getInstance().getRepositoryPath();
+		LOGGER.debug(String.format("Repository path: %s", repositoryPath));
 
-		if (!Files.exists(newJar)) {
-			LOGGER.warn(() -> String.format("Replacement JAR '%s' not found?", newJar));
-			return;
+		try {
+			Path directory = Paths.get(repositoryPath);
+			Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Files.delete(file);
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					Files.delete(dir);
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e) {
+			LOGGER.error("Error deleting DB: {}", e.getMessage());
 		}
-
-		int attempt;
-		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
-			final int attemptForLogging = attempt;
-			LOGGER.info(() -> String.format("Attempt #%d out of %d to replace JAR", attemptForLogging + 1, MAX_ATTEMPTS));
-
-			try {
-				Files.copy(newJar, realJar, StandardCopyOption.REPLACE_EXISTING);
-				break;
-			} catch (IOException e) {
-				LOGGER.info(() -> String.format("Unable to replace JAR: %s", e.getMessage()));
-
-				// Try again
-			}
-
-			try {
-				Thread.sleep(CHECK_INTERVAL);
-			} catch (InterruptedException e) {
-				LOGGER.warn("Ignoring interrupt...");
-				// Doggedly retry
-			}
-		}
-
-		if (attempt == MAX_ATTEMPTS)
-			LOGGER.error("Failed to replace JAR - giving up");
 	}
 
 	private static void restartNode(String[] args) {
@@ -213,7 +203,7 @@ public class ApplyUpdate {
 		}
 
 		try {
-			LOGGER.debug(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
+			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
 
 			ProcessBuilder processBuilder = new ProcessBuilder(javaCmd);
 
@@ -234,5 +224,4 @@ public class ApplyUpdate {
 			LOGGER.error(String.format("Failed to restart node (BAD): %s", e.getMessage()));
 		}
 	}
-
 }

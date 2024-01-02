@@ -37,7 +37,7 @@
 		<jsoup.version>1.17.1</jsoup.version>
 		<junit-jupiter-engine.version>5.10.0</junit-jupiter-engine.version>
 		<lifecycle-mapping.version>1.0.0</lifecycle-mapping.version>
-		<log4j.version>2.21.1</log4j.version>
+		<log4j.version>2.22.0</log4j.version>
 		<mail.version>1.5.0-b01</mail.version>
 		<maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
 		<maven-jar-plugin.version>3.3.0</maven-jar-plugin.version>
@@ -46,7 +46,7 @@
 		<maven-surefire-plugin.version>3.2.3</maven-surefire-plugin.version>
 		<package-info-maven-plugin.version>1.1.0</package-info-maven-plugin.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<protobuf.version>3.25.0</protobuf.version>
+		<protobuf.version>3.25.1</protobuf.version>
 		<replacer.version>1.5.3</replacer.version>
 		<reproducible-build-maven-plugin.version>0.16</reproducible-build-maven-plugin.version>
 		<simplemagic.version>1.17</simplemagic.version>
