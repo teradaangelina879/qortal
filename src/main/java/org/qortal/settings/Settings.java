@@ -68,8 +68,7 @@ public class Settings {
 		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
-		"node1.qortal.org", "node2.qortal.org", "node3.qortal.org", "node4.qortal.org", "node5.qortal.org",
-		"node6.qortal.org", "node7.qortal.org", "node8.qortal.org", "node9.qortal.org", "node10.qortal.org"
+		"none.exist.anymore"
 	};
 
 	// API-related
@@ -138,11 +137,11 @@ public class Settings {
 	private long repositoryCheckpointInterval = 60 * 60 * 1000L; // 1 hour (ms) default
 	/** Whether to show a notification when we perform repository 'checkpoint'. */
 	private boolean showCheckpointNotification = false;
-	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare */
-	private int blockCacheSize = 10;
+	/* How many blocks to cache locally. Defaulted to 10, which covers a typical Synchronizer request + a few spare - increased to 100 */
+	private int blockCacheSize = 100;
 
 	/** Maximum number of transactions for the block minter to include in a block */
-	private int maxTransactionsPerBlock = 50;
+	private int maxTransactionsPerBlock = 100;
 
 	/** How long to keep old, full, AT state data (ms). */
 	private long atStatesMaxLifetime = 5 * 24 * 60 * 60 * 1000L; // milliseconds
@@ -164,7 +163,7 @@ public class Settings {
 	private boolean lite = false;
 
 	/** Whether we should prune old data to reduce database size
-	 * This prevents the node from being able to serve older blocks */
+	 * This prevents the node from being able to serve older blocks - No longer used */
 	private boolean topOnly = false;
 	/** The amount of recent blocks we should keep when pruning */
 	private int pruneBlockLimit = 6000;
@@ -205,13 +204,13 @@ public class Settings {
 	/** Minimum number of peers to allow block minting / synchronization. */
 	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
-	private int minOutboundPeers = 16;
+	private int minOutboundPeers = 32;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 40;
+	private int maxPeers = 60;
 	/** Number of slots to reserve for short-lived QDN data transfers */
-	private int maxDataPeers = 4;
+	private int maxDataPeers = 5;
 	/** Maximum number of threads for network engine. */
-	private int maxNetworkThreadPoolSize = 120;
+	private int maxNetworkThreadPoolSize = 620;
 	/** Maximum number of threads for network proof-of-work compute, used during handshaking. */
 	private int networkPoWComputePoolSize = 2;
 	/** Maximum number of retry attempts if a peer fails to respond with the requested data */
@@ -269,7 +268,7 @@ public class Settings {
 	/** Repository storage path. */
 	private String repositoryPath = "db";
 	/** Repository connection pool size. Needs to be a bit bigger than maxNetworkThreadPoolSize */
-	private int repositoryConnectionPoolSize = 240;
+	private int repositoryConnectionPoolSize = 1920;
 	private List<String> fixedNetwork;
 
 	// Export/import
@@ -370,7 +369,7 @@ public class Settings {
 	/** Whether to allow public (decryptable) data to be stored */
 	private boolean publicDataEnabled = true;
 	/** Whether to allow private (non-decryptable) data to be stored */
-	private boolean privateDataEnabled = false;
+	private boolean privateDataEnabled = true;
 
 	/** Maximum total size of hosted data, in bytes. Unlimited if null */
 	private Long maxStorageCapacity = null;
