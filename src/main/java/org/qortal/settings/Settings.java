@@ -68,7 +68,7 @@ public class Settings {
 		"localhost", "127.0.0.1"
 	};
 	private String[] uiRemoteServers = new String[] {
-		"none.exist.anymore"
+		// None exist anymore
 	};
 
 	// API-related
