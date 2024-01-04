@@ -62,15 +62,6 @@ public class Settings {
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 	private String bindAddressFallback = "0.0.0.0"; // Some systems are unable to bind using IPv6
 
-	// UI servers
-	private int uiPort = 12388;
-	private String[] uiLocalServers = new String[] {
-		"localhost", "127.0.0.1"
-	};
-	private String[] uiRemoteServers = new String[] {
-		// None exist anymore
-	};
-
 	// API-related
 	private boolean apiEnabled = true;
 	private Integer apiPort;
@@ -617,18 +608,6 @@ public class Settings {
 
 	public String getLocaleLang() {
 		return this.localeLang;
-	}
-
-	public int getUiServerPort() {
-		return this.uiPort;
-	}
-
-	public String[] getLocalUiServers() {
-		return this.uiLocalServers;
-	}
-
-	public String[] getRemoteUiServers() {
-		return this.uiRemoteServers;
 	}
 
 	public boolean isApiEnabled() {
