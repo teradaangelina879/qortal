@@ -8,7 +8,7 @@
 * Build auto-update download: `tools/build-auto-update.sh` - uploads auto-update file into new git branch
 * Restart local node
 * Publish auto-update transaction using *private key* for **non-admin** member of "dev" group:
-	`tools/publish-auto-update.sh non-admin-dev-member-private-key-in-base58`
+	`tools/publish-auto-update.pl non-admin-dev-member-private-key-in-base58`
 * Wait for auto-update `ARBITRARY` transaction to be confirmed into a block
 * Have "dev" group admins 'approve' auto-update using `tools/approve-auto-update.sh`
 	This tool will prompt for *private key* of **admin** of "dev" group
