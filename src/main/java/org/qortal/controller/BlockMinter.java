@@ -474,6 +474,7 @@ public class BlockMinter extends Thread {
 
 		Iterator<TransactionData> unconfirmedTransactionsIterator = unconfirmedTransactions.iterator();
 		final long newBlockTimestamp = newBlock.getBlockData().getTimestamp();
+		final int newBlockHeight = newBlock.getBlockData().getHeight();
 		while (unconfirmedTransactionsIterator.hasNext()) {
 			TransactionData transactionData = unconfirmedTransactionsIterator.next();
 
@@ -481,6 +482,12 @@ public class BlockMinter extends Thread {
 			// Ignore transactions that have expired before this block - they will be cleaned up later
 			if (transactionData.getTimestamp() > newBlockTimestamp || Transaction.getDeadline(transactionData) <= newBlockTimestamp)
 				unconfirmedTransactionsIterator.remove();
+
+			// Ignore transactions that are unconfirmable at this block height
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			if (!transaction.isConfirmableAtHeight(newBlockHeight)) {
+				unconfirmedTransactionsIterator.remove();
+			}
 		}
 
 		// Sign to create block's signature, needed by Block.isValid()

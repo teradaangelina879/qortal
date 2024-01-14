@@ -20,6 +20,7 @@ import org.qortal.settings.Settings;
 import org.qortal.test.common.*;
 import org.qortal.test.common.transaction.TestTransaction;
 import org.qortal.transaction.DeployAtTransaction;
+import org.qortal.transaction.Transaction;
 import org.qortal.transform.TransformationException;
 import org.qortal.transform.block.BlockTransformer;
 import org.qortal.utils.NTP;
@@ -676,6 +677,122 @@ public class BatchRewardTests extends Common {
 
 			// It's a distribution block
 			assertTrue(block10.isBatchRewardDistributionBlock());
+		}
+	}
+
+	@Test
+	public void testUnconfirmableRewardShares() throws DataException, IllegalAccessException {
+		// test-settings-v2-reward-scaling.json has unconfirmable reward share feature trigger enabled from block 500
+		Common.useSettings("test-settings-v2-reward-scaling.json");
+
+		// Set reward batching to every 1000 blocks, starting at block 0, looking back the last 25 blocks for online accounts
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchStartHeight", 0, true);
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchSize", 1000, true);
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchAccountsBlockCount", 25, true);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+			PrivateKeyAccount chloe = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount dilbert = Common.getTestAccount(repository, "dilbert");
+
+			PrivateKeyAccount aliceSelfShare = Common.getTestAccount(repository, "alice-reward-share");
+			PrivateKeyAccount bobSelfShare = Common.getTestAccount(repository, "bob-reward-share");
+			PrivateKeyAccount chloeSelfShare = Common.getTestAccount(repository, "chloe-reward-share");
+
+			// Create self shares for bob, chloe and dilbert
+			AccountUtils.generateSelfShares(repository, List.of(bob, chloe, dilbert));
+
+			// Mint blocks 1-974 - these should have no online accounts or rewards
+			for (int i=1; i<974; i++) {
+				Block block = BlockUtils.mintBlockWithReorgs(repository, 2);
+				assertTrue(block.isBatchRewardDistributionActive());
+				assertFalse(block.isRewardDistributionBlock());
+				assertFalse(block.isBatchRewardDistributionBlock());
+				assertFalse(block.isOnlineAccountsBlock());
+				assertEquals(0, block.getBlockData().getOnlineAccountsCount());
+			}
+
+			// Mint blocks 975-998 - these should have online accounts but no rewards
+			for (int i=975; i<=998; i++) {
+				List<PrivateKeyAccount> onlineAccounts = Arrays.asList(aliceSelfShare, bobSelfShare, chloeSelfShare);
+				Block block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
+				assertTrue(block.isBatchRewardDistributionActive());
+				assertFalse(block.isRewardDistributionBlock());
+				assertFalse(block.isBatchRewardDistributionBlock());
+				assertTrue(block.isOnlineAccountsBlock());
+				assertEquals(3, block.getBlockData().getOnlineAccountsCount());
+			}
+
+			// Cancel Chloe's reward share
+			TransactionData transactionData = AccountUtils.createRewardShare(repository, chloe, chloe, -100, 10000000L);
+			TransactionUtils.signAndImportValid(repository, transactionData, chloe);
+
+			// Mint block 999 - Chloe's account should still be included as the reward share cancellation is delayed
+			List<PrivateKeyAccount> onlineAccounts = Arrays.asList(aliceSelfShare, bobSelfShare, chloeSelfShare);
+			Block block = BlockMinter.mintTestingBlock(repository, onlineAccounts.toArray(new PrivateKeyAccount[0]));
+			assertTrue(block.isBatchRewardDistributionActive());
+			assertFalse(block.isRewardDistributionBlock());
+			assertFalse(block.isBatchRewardDistributionBlock());
+			assertTrue(block.isOnlineAccountsBlock());
+			assertEquals(3, block.getBlockData().getOnlineAccountsCount());
+
+			// Mint block 1000
+			Block block1000 = BlockUtils.mintBlockWithReorgs(repository, 12);
+
+			// Online accounts should be included from block 999
+			assertEquals(3, block1000.getBlockData().getOnlineAccountsCount());
+
+			assertEquals(repository.getBlockRepository().getBlockchainHeight(), 1000);
+
+			// It's a distribution block (which is technically also an online accounts block)
+			assertTrue(block1000.isBatchRewardDistributionBlock());
+			assertTrue(block1000.isRewardDistributionBlock());
+			assertTrue(block1000.isBatchRewardDistributionActive());
+			assertTrue(block1000.isOnlineAccountsBlock());
+		}
+	}
+
+	@Test
+	public void testUnconfirmableRewardShareBlocks() throws DataException, IllegalAccessException {
+		// test-settings-v2-reward-scaling.json has unconfirmable reward share feature trigger enabled from block 500
+		Common.useSettings("test-settings-v2-reward-scaling.json");
+
+		// Set reward batching to every 1000 blocks, starting at block 0, looking back the last 25 blocks for online accounts
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchStartHeight", 0, true);
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchSize", 1000, true);
+		FieldUtils.writeField(BlockChain.getInstance(), "blockRewardBatchAccountsBlockCount", 25, true);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			PrivateKeyAccount bob = Common.getTestAccount(repository, "bob");
+			PrivateKeyAccount chloe = Common.getTestAccount(repository, "chloe");
+			PrivateKeyAccount dilbert = Common.getTestAccount(repository, "dilbert");
+
+			// Create self shares for bob, chloe and dilbert
+			AccountUtils.generateSelfShares(repository, List.of(bob, chloe, dilbert));
+
+			// Create transaction to cancel chloe's reward share
+			TransactionData rewardShareTransactionData = AccountUtils.createRewardShare(repository, chloe, chloe, -100, 10000000L);
+			Transaction rewardShareTransaction = Transaction.fromData(repository, rewardShareTransactionData);
+
+			// Mint a block
+			BlockUtils.mintBlock(repository);
+
+			// Check block heights up to 974 - transaction should be confirmable
+			for (int height=2; height<974; height++) {
+				assertEquals(true, rewardShareTransaction.isConfirmableAtHeight(height));
+			}
+
+			// Check block heights 975-1000 - transaction should not be confirmable
+			for (int height=975; height<1000; height++) {
+				assertEquals(false, rewardShareTransaction.isConfirmableAtHeight(height));
+			}
+
+			// Check block heights 1001-1974 - transaction should be confirmable again
+			for (int height=1001; height<1974; height++) {
+				assertEquals(true, rewardShareTransaction.isConfirmableAtHeight(height));
+			}
 		}
 	}
 

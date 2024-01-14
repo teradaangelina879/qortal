@@ -75,7 +75,8 @@ public class BlockChain {
 		selfSponsorshipAlgoV1Height,
 		feeValidationFixTimestamp,
 		chatReferenceTimestamp,
-		arbitraryOptionalFeeTimestamp;
+		arbitraryOptionalFeeTimestamp,
+		unconfirmableRewardSharesHeight;
 	}
 
 	// Custom transaction fees
@@ -554,6 +555,10 @@ public class BlockChain {
 
 	public long getArbitraryOptionalFeeTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.arbitraryOptionalFeeTimestamp.name()).longValue();
+	}
+
+	public int getUnconfirmableRewardSharesHeight() {
+		return this.featureTriggers.get(FeatureTrigger.unconfirmableRewardSharesHeight.name()).intValue();
 	}
 
 

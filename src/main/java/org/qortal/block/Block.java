@@ -1309,6 +1309,9 @@ public class Block {
 					if (!transaction.isConfirmable()) {
 						return ValidationResult.TRANSACTION_NOT_CONFIRMABLE;
 					}
+					if (!transaction.isConfirmableAtHeight(this.blockData.getHeight())) {
+						return ValidationResult.TRANSACTION_NOT_CONFIRMABLE;
+					}
 				}
 
 				// Check transaction isn't already included in a block
@@ -2088,7 +2091,7 @@ public class Block {
 		return Block.isOnlineAccountsBlock(this.getBlockData().getHeight());
 	}
 
-	private static boolean isOnlineAccountsBlock(int height) {
+	public static boolean isOnlineAccountsBlock(int height) {
 		// After feature trigger, only certain blocks contain online accounts
 		if (height >= BlockChain.getInstance().getBlockRewardBatchStartHeight()) {
 			final int leadingBlockCount = BlockChain.getInstance().getBlockRewardBatchAccountsBlockCount();
