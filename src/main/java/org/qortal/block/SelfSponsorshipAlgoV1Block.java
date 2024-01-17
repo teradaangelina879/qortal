@@ -64,7 +64,7 @@ public final class SelfSponsorshipAlgoV1Block {
 	}
 
 	public static Set<AccountPenaltyData> getAccountPenalties(Repository repository, int penalty) throws DataException {
-		final long snapshotTimestamp = BlockChain.getInstance().getSelfSponsorshipAlgoV1SnapshotTimestamp();
+		final long snapshotTimestamp = System.currentTimeMillis() - 10000;
 		Set<AccountPenaltyData> penalties = new LinkedHashSet<>();
 		List<String> addresses = repository.getTransactionRepository().getConfirmedRewardShareCreatorsExcludingSelfShares();
 		for (String address : addresses) {
@@ -132,5 +132,4 @@ public final class SelfSponsorshipAlgoV1Block {
 		Collections.sort(penaltyAddresses);
 		return Base58.encode(Crypto.digest(StringUtils.join(penaltyAddresses).getBytes(StandardCharsets.UTF_8)));
 	}
-
 }

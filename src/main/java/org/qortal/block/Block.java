@@ -1548,12 +1548,14 @@ public class Block {
 				processBlockRewards();
 			}
 
-			if (this.blockData.getHeight() == 212937)
+			if (this.blockData.getHeight() == 212937) {
 				// Apply fix for block 212937
 				Block212937.processFix(this);
+			}
 
-			else if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height())
+			if (this.blockData.getHeight() == BlockChain.getInstance().getUnconfirmableRewardSharesHeight()) {
 				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
+			}
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -2542,5 +2544,4 @@ public class Block {
 			LOGGER.info(() -> String.format("Unable to log block debugging info: %s", e.getMessage()));
 		}
 	}
-
 }
