@@ -2,6 +2,7 @@ package org.qortal.api.resource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.Coin;
 import org.qortal.crosschain.*;
 
 import java.util.ArrayList;
@@ -43,5 +44,45 @@ public class CrossChainUtils {
         }
 
         return infos;
+    }
+
+    /**
+     * Set Fee Per Kb
+     *
+     * @param bitcoiny the blockchain support
+     * @param fee the fee in satoshis
+     *
+     * @return the fee if valid
+     *
+     * @throws IllegalArgumentException if invalid
+     */
+    public static String setFeePerKb(Bitcoiny bitcoiny, String fee) throws IllegalArgumentException {
+
+        long satoshis = Long.parseLong(fee);
+        if( satoshis < 0 ) throw new IllegalArgumentException("can't set fee to negative number");
+
+        bitcoiny.setFeePerKb(Coin.valueOf(satoshis) );
+
+        return String.valueOf(bitcoiny.getFeePerKb().value);
+    }
+
+    /**
+     * Set Fee Ceiling
+     *
+     * @param bitcoiny the blockchain support
+     * @param fee the fee in satoshis
+     *
+     * @return the fee if valid
+     *
+     * @throws IllegalArgumentException if invalid
+     */
+    public static String setFeeCeiling(Bitcoiny bitcoiny, String fee)  throws IllegalArgumentException{
+
+        long satoshis = Long.parseLong(fee);
+        if( satoshis < 0 ) throw new IllegalArgumentException("can't set fee to negative number");
+
+        bitcoiny.setFeeCeiling( Long.parseLong(fee));
+
+        return String.valueOf(bitcoiny.getFeeCeiling());
     }
 }

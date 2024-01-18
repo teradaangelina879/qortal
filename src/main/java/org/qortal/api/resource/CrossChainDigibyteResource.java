@@ -265,4 +265,117 @@ public class CrossChainDigibyteResource {
 
 		return CrossChainUtils.buildServerConfigurationInfo(Digibyte.getInstance());
 	}
+
+	@GET
+	@Path("/feekb")
+	@Operation(
+			summary = "Returns Digibyte fee per Kb.",
+			description = "Returns Digibyte fee per Kb.",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									schema = @Schema(
+											type = "number"
+									)
+							)
+					)
+			}
+	)
+	public String getDigibyteFeePerKb() {
+		Digibyte digibyte = Digibyte.getInstance();
+
+		return String.valueOf(digibyte.getFeePerKb().value);
+	}
+
+	@POST
+	@Path("/updatefeekb")
+	@Operation(
+			summary = "Sets Digibyte fee per Kb.",
+			description = "Sets Digibyte fee per Kb.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number",
+									description = "the fee per Kb",
+									example = "100"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number", description = "fee"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA})
+	public String setDigibyteFeePerKb(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String fee) {
+		Security.checkApiCallAllowed(request);
+
+		Digibyte digibyte = Digibyte.getInstance();
+
+		try {
+			return CrossChainUtils.setFeePerKb(digibyte, fee);
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+	}
+
+	@GET
+	@Path("/feeceiling")
+	@Operation(
+			summary = "Returns Digibyte fee per Kb.",
+			description = "Returns Digibyte fee per Kb.",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									schema = @Schema(
+											type = "number"
+									)
+							)
+					)
+			}
+	)
+	public String getDigibyteFeeCeiling() {
+		Digibyte digibyte = Digibyte.getInstance();
+
+		return String.valueOf(digibyte.getFeeCeiling());
+	}
+
+	@POST
+	@Path("/updatefeeceiling")
+	@Operation(
+			summary = "Sets Digibyte fee ceiling.",
+			description = "Sets Digibyte fee ceiling.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number",
+									description = "the fee",
+									example = "100"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number", description = "fee"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA})
+	public String setDigibyteFeeCeiling(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String fee) {
+		Security.checkApiCallAllowed(request);
+
+		Digibyte digibyte = Digibyte.getInstance();
+
+		try {
+			return CrossChainUtils.setFeeCeiling(digibyte, fee);
+		}
+		catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+	}
 }

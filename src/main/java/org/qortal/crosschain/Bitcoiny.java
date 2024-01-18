@@ -53,12 +53,15 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 	/** Byte offset into raw block headers to block timestamp. */
 	private static final int TIMESTAMP_OFFSET = 4 + 32 + 32;
 
+	protected Coin feePerKb;
+
 	// Constructors and instance
 
-	protected Bitcoiny(BitcoinyBlockchainProvider blockchainProvider, Context bitcoinjContext, String currencyCode) {
+	protected Bitcoiny(BitcoinyBlockchainProvider blockchainProvider, Context bitcoinjContext, String currencyCode, Coin feePerKb) {
 		this.blockchainProvider = blockchainProvider;
 		this.bitcoinjContext = bitcoinjContext;
 		this.currencyCode = currencyCode;
+		this.feePerKb = feePerKb;
 
 		this.params = this.bitcoinjContext.getParams();
 	}
@@ -167,7 +170,11 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 
 	/** Returns fee per transaction KB. To be overridden for testnet/regtest. */
 	public Coin getFeePerKb() {
-		return this.bitcoinjContext.getFeePerKb();
+		return this.feePerKb;
+	}
+
+	public void setFeePerKb(Coin feePerKb) {
+		this.feePerKb = feePerKb;
 	}
 
 	/** Returns minimum order size in sats. To be overridden for coins that need to restrict order size. */
@@ -756,6 +763,10 @@ public abstract class Bitcoiny implements ForeignBlockchain {
 			// else try the next receive funds address
 		} while (true);
 	}
+
+	public abstract long getFeeCeiling();
+
+	public abstract void setFeeCeiling(long fee);
 
 	// UTXOProvider support
 
