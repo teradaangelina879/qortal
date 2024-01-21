@@ -48,8 +48,7 @@ public class Digibyte extends Bitcoiny {
 					new Server("electrum.qortal.link", Server.ConnectionType.SSL, 55002),
 					new Server("electrum1.cipig.net", Server.ConnectionType.SSL, 20059),
 					new Server("electrum2.cipig.net", Server.ConnectionType.SSL, 20059),
-					new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20059),
-					new Server("electrum3-dgb.qortal.online", Server.ConnectionType.SSL, 40002)
+					new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20059)
 				);
 			}
 

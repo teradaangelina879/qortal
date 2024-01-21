@@ -49,7 +49,6 @@ public class Ravencoin extends Bitcoiny {
 					new Server("electrum1.cipig.net", Server.ConnectionType.SSL, 20051),
 					new Server("electrum2.cipig.net", Server.ConnectionType.SSL, 20051),
 					new Server("electrum3.cipig.net", Server.ConnectionType.SSL, 20051),
-					new Server("electrum3-rvn.qortal.online", Server.ConnectionType.SSL, 50002),
 					new Server("rvn-dashboard.com", Server.ConnectionType.SSL, 50002),
 					new Server("rvn4lyfe.com", Server.ConnectionType.SSL, 50002)
 				);
