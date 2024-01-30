@@ -183,11 +183,17 @@ public class RewardShareTransaction extends Transaction {
 
 	@Override
 	public boolean isConfirmableAtHeight(int height) {
+		final int min = BlockChain.getInstance().getPenaltyFixHeight() - 50;
+		final int max = BlockChain.getInstance().getPenaltyFixHeight() + 50;
 		if (height >= BlockChain.getInstance().getUnconfirmableRewardSharesHeight()) {
 			// Not confirmable in online accounts or distribution blocks
 			if (Block.isOnlineAccountsBlock(height) || Block.isBatchRewardDistributionBlock(height)) {
 				return false;
 			}
+		}
+		// Not confirmable on penalty fix
+		if (height > min && height < max) {
+			return false;
 		}
 		return true;
 	}

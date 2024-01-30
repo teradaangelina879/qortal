@@ -30,10 +30,12 @@
 	"onlineAccountSignaturesMaxLifetime": 86400000,
 	"onlineAccountsModulusV2Timestamp": 1659801600000,
 	"selfSponsorshipAlgoV1SnapshotTimestamp": 1670230000000,
+	"selfSponsorshipAlgoV2SnapshotTimestamp": 1706745600000,
 	"mempowTransactionUpdatesTimestamp": 1693558800000,
 	"blockRewardBatchStartHeight": 1508000,
 	"blockRewardBatchSize": 1000,
 	"blockRewardBatchAccountsBlockCount": 25,
+	"penaltyFixHash": "DG23E4Y63wC8FquG9FKAnfKwatvdJV3Z3iYnozMHn2A3",
 	"rewardsByHeight": [
 		{ "height": 1, "reward": 5.00 },
 		{ "height": 259201, "reward": 4.75 },
@@ -93,10 +95,15 @@
 		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
 		"onlineAccountMinterLevelValidationHeight": 1092000,
 		"selfSponsorshipAlgoV1Height": 1092400,
+		"selfSponsorshipAlgoV2Height": 9999999,
 		"feeValidationFixTimestamp": 1671918000000,
 		"chatReferenceTimestamp": 1674316800000,
 		"arbitraryOptionalFeeTimestamp": 1680278400000,
-		"unconfirmableRewardSharesHeight": 1575500
+		"unconfirmableRewardSharesHeight": 1575500,
+		"disableTransferPrivsTimestamp": 1706745000000,
+		"enableTransferPrivsTimestamp": 1709251200000,
+		"penaltyFixHeight": 1589200
+
 	},
 	"checkpoints": [
 		{ "height": 1136300, "signature": "3BbwawEF2uN8Ni5ofpJXkukoU8ctAPxYoFB7whq9pKfBnjfZcpfEJT4R95NvBDoTP8WDyWvsUvbfHbcr9qSZuYpSKZjUQTvdFf6eqznHGEwhZApWfvXu6zjGCxYCp65F4jsVYYJjkzbjmkCg5WAwN5voudngA23kMK6PpTNygapCzXt" }

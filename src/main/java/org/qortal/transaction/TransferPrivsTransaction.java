@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qortal.account.Account;
 import org.qortal.asset.Asset;
+import org.qortal.block.Block;
 import org.qortal.block.BlockChain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.account.AccountData;
@@ -72,12 +73,30 @@ public class TransferPrivsTransaction extends Transaction {
 		if (senderAccountData == null || senderAccountData.getBlocksMintedPenalty() != 0)
 			return ValidationResult.ACCOUNT_NOT_TRANSFERABLE;
 
+		// Disable Transfer Privs (start - end) from feature trigger
+		long transactionTimestamp = this.transferPrivsTransactionData.getTimestamp();
+		final long startTimestamp = BlockChain.getInstance().getDisableTransferPrivsTimestamp();
+		final long endTimestamp = BlockChain.getInstance().getEnableTransferPrivsTimestamp();
+		if (transactionTimestamp > startTimestamp && transactionTimestamp < endTimestamp)
+			return ValidationResult.TRANSFER_PRIVS_DISABLED;
+
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public void preProcess() throws DataException {
 		// Nothing to do
+	}
+
+	@Override
+	public boolean isConfirmableAtHeight(int height) {
+		if (height >= BlockChain.getInstance().getUnconfirmableRewardSharesHeight()) {
+			// Not confirmable in online accounts or distribution blocks
+			if (Block.isOnlineAccountsBlock(height) || Block.isBatchRewardDistributionBlock(height)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	@Override
