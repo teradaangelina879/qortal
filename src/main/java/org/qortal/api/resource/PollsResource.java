@@ -142,7 +142,7 @@ public class PollsResource {
                     for (VoteOnPollData vote : votes) {
                             String voter = Crypto.toAddress(vote.getVoterPublicKey());
                             AccountData voterData = repository.getAccountRepository().getAccount(voter);
-                            int voteWeight = voterData.getBlocksMinted() - voterData.getBlocksMintedPenalty();
+                            int voteWeight = voterData.getBlocksMinted() + voterData.getBlocksMintedPenalty();
                             if (voteWeight < 0) voteWeight = 0;
                             totalWeight += voteWeight;
 
