@@ -41,24 +41,4 @@ public class BitcoinTests extends BitcoinyTests {
 	protected String getRecipient() {
 		return "2N8WCg52ULCtDSMjkgVTm5mtPdCsUptkHWE";
 	}
-
-	@Test
-	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
-	public void testGetMedianBlockTime() {}
-
-	@Test
-	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
-	public void testFindHtlcSecret() {}
-
-	@Test
-	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
-	public void testBuildSpend() {}
-
-	@Test
-	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
-	public void testGetWalletBalance() {}
-
-	@Test
-	@Ignore("Often fails due to unreliable BTC testnet ElectrumX servers")
-	public void testGetUnusedReceiveAddress() {}
 }
