@@ -1557,10 +1557,10 @@ public class Block {
 				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
 			}
 
-			if (this.blockData.getHeight() == BlockChain.getInstance().getPenaltyFixHeight()) {
-				// Apply fix for penalties
-				PenaltyFix.processPenaltiesFix(this);
-			}
+			// Disabled because is fixed
+			//if (this.blockData.getHeight() == BlockChain.getInstance().getPenaltyFixHeight()) {
+			//	PenaltyFix.processPenaltiesFix(this);
+			//}
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1854,10 +1854,10 @@ public class Block {
 				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
 			}
 
-			if (this.blockData.getHeight() == BlockChain.getInstance().getPenaltyFixHeight()) {
-				// Revert fix for penalties
-				PenaltyFix.orphanPenaltiesFix(this);
-			}
+			// Disabled because is fixed
+			//if (this.blockData.getHeight() == BlockChain.getInstance().getPenaltyFixHeight()) {
+			//	PenaltyFix.orphanPenaltiesFix(this);
+			//}
 
 			// Account levels and block rewards are only processed/orphaned on block reward distribution blocks
 			if (this.isRewardDistributionBlock()) {
