@@ -79,8 +79,7 @@ public class BlockChain {
 		arbitraryOptionalFeeTimestamp,
 		unconfirmableRewardSharesHeight,
 		disableTransferPrivsTimestamp,
-		enableTransferPrivsTimestamp,
-		penaltyFixHeight
+		enableTransferPrivsTimestamp
 	}
 
 	// Custom transaction fees
@@ -589,10 +588,6 @@ public class BlockChain {
 
 	public long getEnableTransferPrivsTimestamp() {
 		return this.featureTriggers.get(FeatureTrigger.enableTransferPrivsTimestamp.name()).longValue();
-	}
-
-	public int getPenaltyFixHeight() {
-		return this.featureTriggers.get(FeatureTrigger.penaltyFixHeight.name()).intValue();
 	}
 
 	// More complex getters for aspects that change by height or timestamp
