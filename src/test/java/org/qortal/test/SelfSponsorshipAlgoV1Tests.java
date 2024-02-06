@@ -38,7 +38,7 @@ public class SelfSponsorshipAlgoV1Tests extends Common {
 	
 	@Before
 	public void beforeTest() throws DataException {
-		Common.useSettings("test-settings-v2-self-sponsorship-algo.json");
+		Common.useSettings("test-settings-v2-self-sponsorship-algo-v1.json");
 		NTP.setFixedOffset(Settings.getInstance().getTestNtpOffset());
 	}
 

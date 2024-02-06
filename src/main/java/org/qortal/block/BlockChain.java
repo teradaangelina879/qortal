@@ -73,10 +73,13 @@ public class BlockChain {
 		increaseOnlineAccountsDifficultyTimestamp,
 		onlineAccountMinterLevelValidationHeight,
 		selfSponsorshipAlgoV1Height,
+		selfSponsorshipAlgoV2Height,
 		feeValidationFixTimestamp,
 		chatReferenceTimestamp,
 		arbitraryOptionalFeeTimestamp,
-		unconfirmableRewardSharesHeight;
+		unconfirmableRewardSharesHeight,
+		disableTransferPrivsTimestamp,
+		enableTransferPrivsTimestamp
 	}
 
 	// Custom transaction fees
@@ -199,6 +202,7 @@ public class BlockChain {
 
 	/** Minimum time to retain online account signatures (ms) for block validity checks. */
 	private long onlineAccountSignaturesMinLifetime;
+
 	/** Maximum time to retain online account signatures (ms) for block validity checks, to allow for clock variance. */
 	private long onlineAccountSignaturesMaxLifetime;
 
@@ -208,6 +212,9 @@ public class BlockChain {
 
 	/** Snapshot timestamp for self sponsorship algo V1 */
 	private long selfSponsorshipAlgoV1SnapshotTimestamp;
+
+	/** Snapshot timestamp for self sponsorship algo V2 */
+	private long selfSponsorshipAlgoV2SnapshotTimestamp;
 
 	/** Feature-trigger timestamp to modify behaviour of various transactions that support mempow */
 	private long mempowTransactionUpdatesTimestamp;
@@ -224,6 +231,8 @@ public class BlockChain {
 	/** Number of blocks prior to the batch reward distribution blocks to include online accounts
 	 * data and to base online accounts decisions on. */
 	private int blockRewardBatchAccountsBlockCount;
+
+	private String penaltyFixHash;
 
 	/** Max reward shares by block height */
 	public static class MaxRewardSharesByTimestamp {
@@ -267,7 +276,7 @@ public class BlockChain {
 		try {
 			// Create JAXB context aware of Settings
 			jc = JAXBContextFactory.createContext(new Class[] {
-				BlockChain.class, GenesisBlock.GenesisInfo.class
+					BlockChain.class, GenesisBlock.GenesisInfo.class
 			}, null);
 
 			// Create unmarshaller
@@ -395,10 +404,18 @@ public class BlockChain {
 		return this.blockRewardBatchAccountsBlockCount;
 	}
 
+	public String getPenaltyFixHash() {
+		return this.penaltyFixHash;
+	}
 
-	// Self sponsorship algo
+	// Self sponsorship algo V1
 	public long getSelfSponsorshipAlgoV1SnapshotTimestamp() {
 		return this.selfSponsorshipAlgoV1SnapshotTimestamp;
+	}
+
+	// Self sponsorship algo V2
+	public long getSelfSponsorshipAlgoV2SnapshotTimestamp() {
+		return this.selfSponsorshipAlgoV2SnapshotTimestamp;
 	}
 
 	// Feature-trigger timestamp to modify behaviour of various transactions that support mempow
@@ -541,6 +558,10 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV1Height.name()).intValue();
 	}
 
+	public int getSelfSponsorshipAlgoV2Height() {
+		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV2Height.name()).intValue();
+	}
+
 	public long getOnlineAccountMinterLevelValidationHeight() {
 		return this.featureTriggers.get(FeatureTrigger.onlineAccountMinterLevelValidationHeight.name()).intValue();
 	}
@@ -561,6 +582,13 @@ public class BlockChain {
 		return this.featureTriggers.get(FeatureTrigger.unconfirmableRewardSharesHeight.name()).intValue();
 	}
 
+	public long getDisableTransferPrivsTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.disableTransferPrivsTimestamp.name()).longValue();
+	}
+
+	public long getEnableTransferPrivsTimestamp() {
+		return this.featureTriggers.get(FeatureTrigger.enableTransferPrivsTimestamp.name()).longValue();
+	}
 
 	// More complex getters for aspects that change by height or timestamp
 
@@ -747,7 +775,7 @@ public class BlockChain {
 
 	/**
 	 * Some sort of start-up/initialization/checking method.
-	 * 
+	 *
 	 * @throws SQLException
 	 */
 	public static void validate() throws DataException {

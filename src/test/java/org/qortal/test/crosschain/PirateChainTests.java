@@ -259,4 +259,8 @@ public class PirateChainTests extends BitcoinyTests {
 	@Test
 	@Ignore(value = "Needs adapting for Pirate Chain")
 	public void testWalletSpendingCandidateAddresses() throws ForeignBlockchainException {}
+
+	@Test
+	@Ignore(value = "Needs adapting for Pirate Chain")
+	public void testRepair() throws ForeignBlockchainException {}
 }
