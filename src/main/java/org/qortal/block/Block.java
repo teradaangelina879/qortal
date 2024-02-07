@@ -1061,8 +1061,10 @@ public class Block {
 			return ValidationResult.MINTER_NOT_ACCEPTED;
 
 		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getMinterPublicKey(), minterLevel);
-		if (this.blockData.getTimestamp() != expectedTimestamp)
-			return ValidationResult.TIMESTAMP_INCORRECT;
+		if (this.blockData.getTimestamp() != expectedTimestamp) {
+                    LOGGER.debug(String.format("timestamp mismatch! block had %s but we expected %s", this.blockData.getTimestamp(), expectedTimestamp));
+                    return ValidationResult.TIMESTAMP_INCORRECT;
+                }
 
 		return ValidationResult.OK;
 	}
