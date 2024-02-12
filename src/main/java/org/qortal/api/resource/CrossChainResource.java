@@ -19,11 +19,14 @@ import org.qortal.api.model.CrossChainTradeSummary;
 import org.qortal.controller.tradebot.TradeBot;
 import org.qortal.crosschain.ACCT;
 import org.qortal.crosschain.AcctMode;
+import org.qortal.crosschain.Bitcoiny;
+import org.qortal.crosschain.ForeignBlockchainException;
 import org.qortal.crosschain.SupportedBlockchain;
 import org.qortal.crypto.Crypto;
 import org.qortal.data.at.ATData;
 import org.qortal.data.at.ATStateData;
 import org.qortal.data.crosschain.CrossChainTradeData;
+import org.qortal.data.crosschain.TransactionSummary;
 import org.qortal.data.transaction.BaseTransactionData;
 import org.qortal.data.transaction.MessageTransactionData;
 import org.qortal.data.transaction.TransactionData;
@@ -47,6 +50,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 @Path("/crosschain")
 @Tag(name = "Cross-Chain")
@@ -494,6 +498,111 @@ public class CrossChainResource {
 			return Base58.encode(messageTransactionBytes);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/p2sh")
+	@Operation(
+			summary = "Returns P2SH Address",
+			description = "Get the P2SH address to lock foreign coin in a cross chain trade for QORT",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "string",
+									description = "the AT address",
+									example = "AKFnu9yBp7tUAc5HAphhfCxRZTYoeKXgUy"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", description = "address"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.ADDRESS_UNKNOWN, ApiError.INVALID_CRITERIA})
+	@SecurityRequirement(name = "apiKey")
+	public String getForeignP2SH(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String atAddress) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			ATData atData = repository.getATRepository().fromATAddress(atAddress);
+			if (atData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+
+			ACCT acct = SupportedBlockchain.getAcctByCodeHash(atData.getCodeHash());
+
+			if( acct == null || !(acct.getBlockchain() instanceof Bitcoiny) )
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+			Bitcoiny bitcoiny = (Bitcoiny) acct.getBlockchain();
+
+			CrossChainTradeData crossChainTradeData = acct.populateTradeData(repository, atData);
+
+			Optional<String> p2sh
+					= CrossChainUtils.getP2ShAddressForAT(atAddress, repository, bitcoiny, crossChainTradeData);
+
+			if(p2sh.isPresent()){
+				return p2sh.get();
+			}
+			else{
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_UNKNOWN);
+			}
+		}
+		catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		}
+	}
+
+	@POST
+	@Path("/txactivity")
+	@Operation(
+			summary = "Returns Foreign Transaction Activity",
+			description = "Get the activity related to foreign coin trading",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									array = @ArraySchema(
+											schema = @Schema(
+													implementation = TransactionSummary.class
+											)
+									)
+							)
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE})
+	@SecurityRequirement(name = "apiKey")
+	public List<TransactionSummary> getForeignTransactionActivity(@HeaderParam(Security.API_KEY_HEADER) String apiKey, @Parameter(
+			description = "Limit to specific blockchain",
+			example = "LITECOIN",
+			schema = @Schema(implementation = SupportedBlockchain.class)
+	) @QueryParam("foreignBlockchain") SupportedBlockchain foreignBlockchain) {
+		Security.checkApiCallAllowed(request);
+
+		if (!(foreignBlockchain.getInstance() instanceof Bitcoiny))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		Bitcoiny bitcoiny = (Bitcoiny) foreignBlockchain.getInstance() ;
+
+		org.bitcoinj.core.Context.propagate( bitcoiny.getBitcoinjContext() );
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+
+			// sort from last lock to first lock
+			return CrossChainUtils
+					.getForeignTradeSummaries(foreignBlockchain, repository, bitcoiny).stream()
+					.sorted(Comparator.comparing(TransactionSummary::getLockingTimestamp).reversed())
+					.collect(Collectors.toList());
+		}
+		catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.REPOSITORY_ISSUE, e.getMessage());
+		}
+		catch (ForeignBlockchainException e) {
+			throw ApiExceptionFactory.INSTANCE.createCustomException(request, ApiError.FOREIGN_BLOCKCHAIN_NETWORK_ISSUE, e.getMessage());
 		}
 	}
 
