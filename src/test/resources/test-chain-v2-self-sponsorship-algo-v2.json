@@ -3,30 +3,30 @@
 	"blockTimestampMargin": 500,
 	"transactionExpiryPeriod": 86400000,
 	"maxBlockSize": 2097152,
-	"maxBytesPerUnitFee": 1024,
+	"maxBytesPerUnitFee": 0,
 	"unitFees": [
-		{ "timestamp": 0, "fee": "0.1" }
+		{ "timestamp": 0, "fee": "0.00000001" }
 	],
 	"nameRegistrationUnitFees": [
-		{ "timestamp": 0, "fee": "0.1" },
+		{ "timestamp": 0, "fee": "0.00000001" },
 		{ "timestamp": 1645372800000, "fee": "5" }
 	],
 	"requireGroupForApproval": false,
 	"minAccountLevelToRewardShare": 5,
-	"maxRewardSharesPerFounderMintingAccount": 6,
+	"maxRewardSharesPerFounderMintingAccount": 20,
 	"maxRewardSharesByTimestamp": [
-		{ "timestamp": 0, "maxShares": 6 },
+		{ "timestamp": 0, "maxShares": 20 },
 		{ "timestamp": 9999999999999, "maxShares": 3 }
 	],
 	"founderEffectiveMintingLevel": 10,
 	"onlineAccountSignaturesMinLifetime": 3600000,
 	"onlineAccountSignaturesMaxLifetime": 86400000,
 	"onlineAccountsModulusV2Timestamp": 9999999999999,
-	"selfSponsorshipAlgoV1SnapshotTimestamp": 9999999999999,
+	"selfSponsorshipAlgoV1SnapshotTimestamp": 0,
 	"selfSponsorshipAlgoV2SnapshotTimestamp": 9999999999999,
 	"selfSponsorshipAlgoV3SnapshotTimestamp": 9999999999999,
 	"referenceTimestampBlock": 9999999999999,
-	"mempowTransactionUpdatesTimestamp": 9999999999999,
+	"mempowTransactionUpdatesTimestamp": 0,
 	"blockRewardBatchStartHeight": 999999000,
 	"blockRewardBatchSize": 10,
 	"blockRewardBatchAccountsBlockCount": 3,
@@ -54,9 +54,9 @@
 		{ "height": 1000000, "share": 0.01 }
 	],
 	"qoraPerQortReward": 250,
-	"minAccountsToActivateShareBin": 30,
+	"minAccountsToActivateShareBin": 0,
 	"shareBinActivationMinLevel": 7,
-	"blocksNeededByLevel": [ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 ],
+	"blocksNeededByLevel": [ 5, 20, 30, 40, 50, 60, 18, 80, 90, 100 ],
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 0.2 }
 	],
@@ -84,15 +84,15 @@
 		"calcChainWeightTimestamp": 0,
 		"transactionV5Timestamp": 0,
 		"transactionV6Timestamp": 0,
-		"disableReferenceTimestamp": 0,
+		"disableReferenceTimestamp": 9999999999999,
 		"increaseOnlineAccountsDifficultyTimestamp": 9999999999999,
 		"onlineAccountMinterLevelValidationHeight": 0,
 		"selfSponsorshipAlgoV1Height": 999999999,
-		"selfSponsorshipAlgoV2Height": 999999999,
+		"selfSponsorshipAlgoV2Height": 30,
 		"selfSponsorshipAlgoV3Height": 999999999,
 		"feeValidationFixTimestamp": 0,
 		"chatReferenceTimestamp": 0,
-		"arbitraryOptionalFeeTimestamp": 9999999999999,
+		"arbitraryOptionalFeeTimestamp": 0,
 		"unconfirmableRewardSharesHeight": 99999999,
 		"disableTransferPrivsTimestamp": 9999999999500,
 		"enableTransferPrivsTimestamp": 9999999999950
@@ -110,17 +110,23 @@
 			{ "type": "GENESIS", "recipient": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "amount": "1000000" },
 			{ "type": "GENESIS", "recipient": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "amount": "1000000" },
 
-			{ "type": "ACCOUNT_FLAGS", "target": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "andMask": -1, "orMask": 1, "xorMask": 0 },
-			{ "type": "REWARD_SHARE", "minterPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "rewardSharePublicKey": "7PpfnvLSG7y4HPh8hE7KoqAjLCkv7Ui6xw4mKAkbZtox", "sharePercent": 100 },
+			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
 
-			{ "type": "ACCOUNT_LEVEL", "target": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "level": 1 },
+			{ "type": "UPDATE_GROUP", "ownerPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "groupId": 1, "newOwner": "QdSnUy6sUiEnaN87dWmE92g1uQjrvPgrWG", "newDescription": "developer group", "newIsOpen": false, "newApprovalThreshold": "PCT40", "minimumBlockDelay": 10, "maximumBlockDelay": 1440 },
+
+			{ "type": "ISSUE_ASSET", "issuerPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "assetName": "TEST", "description": "test asset", "data": "", "quantity": "1000000", "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "issuerPublicKey": "C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry", "assetName": "OTHER", "description": "other test asset", "data": "", "quantity": "1000000", "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "issuerPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "assetName": "GOLD", "description": "gold test asset", "data": "", "quantity": "1000000", "isDivisible": true, "fee": 0 },
+
+			{ "type": "ACCOUNT_FLAGS", "target": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "andMask": -1, "orMask": 1, "xorMask": 0 },
+			{ "type": "REWARD_SHARE", "minterPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "rewardSharePublicKey": "7PpfnvLSG7y4HPh8hE7KoqAjLCkv7Ui6xw4mKAkbZtox", "sharePercent": "100" },
+
+			{ "type": "ACCOUNT_LEVEL", "target": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "level": 5 },
 			{ "type": "REWARD_SHARE", "minterPublicKey": "C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry", "recipient": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "rewardSharePublicKey": "CcABzvk26TFEHG7Yok84jxyd4oBtLkx8RJdGFVz2csvp", "sharePercent": 100 },
 
-			{ "type": "ACCOUNT_LEVEL", "target": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "level": 8 },
-			{ "type": "REWARD_SHARE", "minterPublicKey": "7KNBj2MnEb6zq1vvKY1q8G2Voctcc2Z1X4avFyEH2eJC", "recipient": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "rewardSharePublicKey": "6bnEKqZbsCSWryUQnbBT9Umufdu3CapFvxfAni6afhFb", "sharePercent": 100 },
-
 			{ "type": "ACCOUNT_LEVEL", "target": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "level": 5 },
-			{ "type": "REWARD_SHARE", "minterPublicKey": "CGAedAQU91SR73iqoYtss6NAsra284SShXnDWvRXqR4G", "recipient": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "rewardSharePublicKey": "4QafENiQCCDCnbXgcZfiyCu9qWqZ6YEciXAyFb4TT8YQ", "sharePercent": 100 }
+			{ "type": "ACCOUNT_LEVEL", "target": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "level": 5 },
+			{ "type": "ACCOUNT_LEVEL", "target": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "level": 6 }
 		]
 	}
 }

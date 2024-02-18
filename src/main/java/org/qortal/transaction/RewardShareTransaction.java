@@ -183,12 +183,28 @@ public class RewardShareTransaction extends Transaction {
 
 	@Override
 	public boolean isConfirmableAtHeight(int height) {
+		final int startV2 = BlockChain.getInstance().getSelfSponsorshipAlgoV2Height() - 15;
+		final int startV3 = BlockChain.getInstance().getSelfSponsorshipAlgoV3Height() - 15;
+		final int endV2 = BlockChain.getInstance().getSelfSponsorshipAlgoV2Height() + 10;
+		final int endV3 = BlockChain.getInstance().getSelfSponsorshipAlgoV3Height() + 10;
+
 		if (height >= BlockChain.getInstance().getUnconfirmableRewardSharesHeight()) {
 			// Not confirmable in online accounts or distribution blocks
 			if (Block.isOnlineAccountsBlock(height) || Block.isBatchRewardDistributionBlock(height)) {
 				return false;
 			}
 		}
+
+		if (height >= startV2 && height <= endV2) {
+			// Not confirmable on algo V2 run
+			return false;
+		}
+
+		if (height >= startV3 && height <= endV3) {
+			// Not confirmable on algo V3 run
+			return false;
+		}
+
 		return true;
 	}
 

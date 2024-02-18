@@ -1062,9 +1062,9 @@ public class Block {
 
 		long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getMinterPublicKey(), minterLevel);
 		if (this.blockData.getTimestamp() != expectedTimestamp) {
-                    LOGGER.debug(String.format("timestamp mismatch! block had %s but we expected %s", this.blockData.getTimestamp(), expectedTimestamp));
-                    return ValidationResult.TIMESTAMP_INCORRECT;
-                }
+			LOGGER.debug(String.format("timestamp mismatch! block had %s but we expected %s", this.blockData.getTimestamp(), expectedTimestamp));
+			return ValidationResult.TIMESTAMP_INCORRECT;
+		}
 
 		return ValidationResult.OK;
 	}
@@ -1558,6 +1558,14 @@ public class Block {
 			if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV1Height()) {
 				SelfSponsorshipAlgoV1Block.processAccountPenalties(this);
 			}
+
+			if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV2Height()) {
+				SelfSponsorshipAlgoV2Block.processAccountPenalties(this);
+			}
+
+			if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV3Height()) {
+				SelfSponsorshipAlgoV3Block.processAccountPenalties(this);
+			}
 		}
 
 		// We're about to (test-)process a batch of transactions,
@@ -1851,6 +1859,14 @@ public class Block {
 				SelfSponsorshipAlgoV1Block.orphanAccountPenalties(this);
 			}
 
+			if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV2Height()) {
+				SelfSponsorshipAlgoV2Block.orphanAccountPenalties(this);
+			}
+
+			if (this.blockData.getHeight() == BlockChain.getInstance().getSelfSponsorshipAlgoV3Height()) {
+				SelfSponsorshipAlgoV3Block.orphanAccountPenalties(this);
+			}
+			
 			// Account levels and block rewards are only processed/orphaned on block reward distribution blocks
 			if (this.isRewardDistributionBlock()) {
 				// Block rewards, including transaction fees, removed after transactions undone

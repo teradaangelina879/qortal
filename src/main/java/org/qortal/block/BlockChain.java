@@ -74,6 +74,7 @@ public class BlockChain {
 		onlineAccountMinterLevelValidationHeight,
 		selfSponsorshipAlgoV1Height,
 		selfSponsorshipAlgoV2Height,
+		selfSponsorshipAlgoV3Height,
 		feeValidationFixTimestamp,
 		chatReferenceTimestamp,
 		arbitraryOptionalFeeTimestamp,
@@ -215,6 +216,12 @@ public class BlockChain {
 
 	/** Snapshot timestamp for self sponsorship algo V2 */
 	private long selfSponsorshipAlgoV2SnapshotTimestamp;
+
+	/** Snapshot timestamp for self sponsorship algo V3 */
+	private long selfSponsorshipAlgoV3SnapshotTimestamp;
+
+	/** Reference timestamp for self sponsorship algo V1 block height */
+	private long referenceTimestampBlock;
 
 	/** Feature-trigger timestamp to modify behaviour of various transactions that support mempow */
 	private long mempowTransactionUpdatesTimestamp;
@@ -418,6 +425,15 @@ public class BlockChain {
 		return this.selfSponsorshipAlgoV2SnapshotTimestamp;
 	}
 
+	// Self sponsorship algo V3
+	public long getSelfSponsorshipAlgoV3SnapshotTimestamp() {
+		return this.selfSponsorshipAlgoV3SnapshotTimestamp;
+	}
+
+	// Self sponsorship algo V3
+	public long getReferenceTimestampBlock() {
+		return this.referenceTimestampBlock;
+	}
 	// Feature-trigger timestamp to modify behaviour of various transactions that support mempow
 	public long getMemPoWTransactionUpdatesTimestamp() {
 		return this.mempowTransactionUpdatesTimestamp;
@@ -560,6 +576,10 @@ public class BlockChain {
 
 	public int getSelfSponsorshipAlgoV2Height() {
 		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV2Height.name()).intValue();
+	}
+
+	public int getSelfSponsorshipAlgoV3Height() {
+		return this.featureTriggers.get(FeatureTrigger.selfSponsorshipAlgoV3Height.name()).intValue();
 	}
 
 	public long getOnlineAccountMinterLevelValidationHeight() {
