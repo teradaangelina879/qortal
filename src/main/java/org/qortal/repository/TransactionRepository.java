@@ -206,6 +206,15 @@ public interface TransactionRepository {
 	public List<String> getConfirmedRewardShareCreatorsExcludingSelfShares() throws DataException;
 
 	/**
+	 * Returns list of transfer asset transaction creators.
+	 * This uses confirmed transactions only.
+	 *
+	 * @return
+	 * @throws DataException
+	 */
+	public List<String> getConfirmedTransferAssetCreators() throws DataException;
+
+	/**
 	 * Returns list of transactions pending approval, with optional txGgroupId filtering.
 	 * <p>
 	 * This is typically called by the API.

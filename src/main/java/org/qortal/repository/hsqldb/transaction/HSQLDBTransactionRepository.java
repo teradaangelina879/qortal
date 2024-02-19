@@ -1043,6 +1043,33 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	public List<String> getConfirmedTransferAssetCreators() throws DataException {
+		List<String> transferAssetCreators = new ArrayList<>();
+
+		String sql = "SELECT account "
+				+ "FROM TransferAssetTransactions "
+				+ "JOIN Accounts ON Accounts.public_key = TransferAssetTransactions.sender "
+				+ "JOIN Transactions ON Transactions.signature = TransferAssetTransactions.signature "
+				+ "WHERE block_height IS NOT NULL AND TransferAssetTransactions.recipient != Accounts.account "
+				+ "GROUP BY account "
+				+ "ORDER BY account";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return transferAssetCreators;
+
+			do {
+				String address = resultSet.getString(1);
+
+				transferAssetCreators.add(address);
+			} while (resultSet.next());
+
+			return transferAssetCreators;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch transfer asset from repository", e);
+		}
+	}
+
 	@Override
 	public List<TransactionData> getApprovalPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		StringBuilder sql = new StringBuilder(512);
