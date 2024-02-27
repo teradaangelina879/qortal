@@ -63,8 +63,7 @@ public class Litecoin extends Bitcoiny {
 
 			@Override
 			public long getP2shFee(Long timestamp) {
-				// TODO: This will need to be replaced with something better in the near future!
-				return MAINNET_FEE;
+				return this.getFeeCeiling();
 			}
 		},
 		TEST3 {
@@ -117,6 +116,16 @@ public class Litecoin extends Bitcoiny {
 			}
 		};
 
+		private long feeCeiling = MAINNET_FEE;
+
+		public long getFeeCeiling() {
+			return feeCeiling;
+		}
+
+		public void setFeeCeiling(long feeCeiling) {
+			this.feeCeiling = feeCeiling;
+		}
+
 		public abstract NetworkParameters getParams();
 		public abstract Collection<ElectrumX.Server> getServers();
 		public abstract String getGenesisHash();
@@ -130,7 +139,7 @@ public class Litecoin extends Bitcoiny {
 	// Constructors and instance
 
 	private Litecoin(LitecoinNet litecoinNet, BitcoinyBlockchainProvider blockchain, Context bitcoinjContext, String currencyCode) {
-		super(blockchain, bitcoinjContext, currencyCode);
+		super(blockchain, bitcoinjContext, currencyCode, DEFAULT_FEE_PER_KB);
 		this.litecoinNet = litecoinNet;
 
 		LOGGER.info(() -> String.format("Starting Litecoin support using %s", this.litecoinNet.name()));
@@ -159,12 +168,6 @@ public class Litecoin extends Bitcoiny {
 
 	// Actual useful methods for use by other classes
 
-	/** Default Litecoin fee is lower than Bitcoin: only 10sats/byte. */
-	@Override
-	public Coin getFeePerKb() {
-		return DEFAULT_FEE_PER_KB;
-	}
-
 	@Override
 	public long getMinimumOrderAmount() {
 		return MINIMUM_ORDER_AMOUNT;
@@ -181,4 +184,14 @@ public class Litecoin extends Bitcoiny {
 		return this.litecoinNet.getP2shFee(timestamp);
 	}
 
+	@Override
+	public long getFeeCeiling() {
+		return this.litecoinNet.getFeeCeiling();
+	}
+
+	@Override
+	public void setFeeCeiling(long fee) {
+
+		this.litecoinNet.setFeeCeiling( fee );
+	}
 }

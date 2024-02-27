@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.bitcoinj.core.Coin;
 import org.bitcoinj.core.Transaction;
 import org.qortal.api.ApiError;
 import org.qortal.api.ApiErrors;
@@ -264,5 +265,118 @@ public class CrossChainBitcoinResource {
 	public ServerConfigurationInfo getServerConfiguration() {
 
 		return CrossChainUtils.buildServerConfigurationInfo(Bitcoin.getInstance());
+	}
+
+	@GET
+	@Path("/feekb")
+	@Operation(
+			summary = "Returns Bitcoin fee per Kb.",
+			description = "Returns Bitcoin fee per Kb.",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									schema = @Schema(
+											type = "number"
+									)
+							)
+					)
+			}
+	)
+	public String getBitcoinFeePerKb() {
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		return String.valueOf(bitcoin.getFeePerKb().value);
+	}
+
+	@POST
+	@Path("/updatefeekb")
+	@Operation(
+			summary = "Sets Bitcoin fee per Kb.",
+			description = "Sets Bitcoin fee per Kb.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number",
+									description = "the fee per Kb",
+									example = "100"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number", description = "fee"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA})
+	public String setBitcoinFeePerKb(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String fee) {
+		Security.checkApiCallAllowed(request);
+
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		try {
+			return CrossChainUtils.setFeePerKb(bitcoin, fee);
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
+	}
+
+	@GET
+	@Path("/feeceiling")
+	@Operation(
+			summary = "Returns Bitcoin fee per Kb.",
+			description = "Returns Bitcoin fee per Kb.",
+			responses = {
+					@ApiResponse(
+							content = @Content(
+									schema = @Schema(
+											type = "number"
+									)
+							)
+					)
+			}
+	)
+	public String getBitcoinFeeCeiling() {
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		return String.valueOf(bitcoin.getFeeCeiling());
+	}
+
+	@POST
+	@Path("/updatefeeceiling")
+	@Operation(
+			summary = "Sets Bitcoin fee ceiling.",
+			description = "Sets Bitcoin fee ceiling.",
+			requestBody = @RequestBody(
+					required = true,
+					content = @Content(
+							mediaType = MediaType.TEXT_PLAIN,
+							schema = @Schema(
+									type = "number",
+									description = "the fee",
+									example = "100"
+							)
+					)
+			),
+			responses = {
+					@ApiResponse(
+							content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number", description = "fee"))
+					)
+			}
+	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_CRITERIA})
+	public String setBitcoinFeeCeiling(@HeaderParam(Security.API_KEY_HEADER) String apiKey, String fee) {
+		Security.checkApiCallAllowed(request);
+
+		Bitcoin bitcoin = Bitcoin.getInstance();
+
+		try {
+			return CrossChainUtils.setFeeCeiling(bitcoin, fee);
+		}
+		catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+		}
 	}
 }

@@ -22,8 +22,6 @@ public class Bitcoin extends Bitcoiny {
 	private static final long MINIMUM_ORDER_AMOUNT = 100000; // 0.001 BTC minimum order, due to high fees
 
 	// Temporary values until a dynamic fee system is written.
-	private static final long OLD_FEE_AMOUNT = 4_000L; // Not 5000 so that existing P2SH-B can output 1000, avoiding dust issue, leaving 4000 for fees.
-	private static final long NEW_FEE_TIMESTAMP = 1598280000000L; // milliseconds since epoch
 	private static final long NEW_FEE_AMOUNT = 6_000L;
 
 	private static final long NON_MAINNET_FEE = 1000L; // enough for TESTNET3 and should be OK for REGTEST
@@ -113,11 +111,7 @@ public class Bitcoin extends Bitcoiny {
 
 			@Override
 			public long getP2shFee(Long timestamp) {
-				// TODO: This will need to be replaced with something better in the near future!
-				if (timestamp != null && timestamp < NEW_FEE_TIMESTAMP)
-					return OLD_FEE_AMOUNT;
-
-				return NEW_FEE_AMOUNT;
+				return this.getFeeCeiling();
 			}
 		},
 		TEST3 {
@@ -179,6 +173,16 @@ public class Bitcoin extends Bitcoiny {
 			}
 		};
 
+		private long feeCeiling = NEW_FEE_AMOUNT;
+
+		public long getFeeCeiling() {
+			return feeCeiling;
+		}
+
+		public void setFeeCeiling(long feeCeiling) {
+			this.feeCeiling = feeCeiling;
+		}
+
 		public abstract NetworkParameters getParams();
 		public abstract Collection<ElectrumX.Server> getServers();
 		public abstract String getGenesisHash();
@@ -192,7 +196,7 @@ public class Bitcoin extends Bitcoiny {
 	// Constructors and instance
 
 	private Bitcoin(BitcoinNet bitcoinNet, BitcoinyBlockchainProvider blockchain, Context bitcoinjContext, String currencyCode) {
-		super(blockchain, bitcoinjContext, currencyCode);
+		super(blockchain, bitcoinjContext, currencyCode, bitcoinjContext.getFeePerKb());
 		this.bitcoinNet = bitcoinNet;
 
 		LOGGER.info(() -> String.format("Starting Bitcoin support using %s", this.bitcoinNet.name()));
@@ -237,6 +241,16 @@ public class Bitcoin extends Bitcoiny {
 		return this.bitcoinNet.getP2shFee(timestamp);
 	}
 
+	@Override
+	public long getFeeCeiling() {
+		return this.bitcoinNet.getFeeCeiling();
+	}
+
+	@Override
+	public void setFeeCeiling(long fee) {
+
+		this.bitcoinNet.setFeeCeiling( fee );
+	}
 	/**
  	* Returns bitcoinj transaction sending <tt>amount</tt> to <tt>recipient</tt> using 20 sat/byte fee.
  	*

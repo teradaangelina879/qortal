@@ -61,8 +61,7 @@ public class Ravencoin extends Bitcoiny {
 
 			@Override
 			public long getP2shFee(Long timestamp) {
-				// TODO: This will need to be replaced with something better in the near future!
-				return MAINNET_FEE;
+				return this.getFeeCeiling();
 			}
 		},
 		TEST3 {
@@ -112,6 +111,16 @@ public class Ravencoin extends Bitcoiny {
 			}
 		};
 
+		private long feeCeiling = MAINNET_FEE;
+
+		public long getFeeCeiling() {
+			return feeCeiling;
+		}
+
+		public void setFeeCeiling(long feeCeiling) {
+			this.feeCeiling = feeCeiling;
+		}
+
 		public abstract NetworkParameters getParams();
 		public abstract Collection<Server> getServers();
 		public abstract String getGenesisHash();
@@ -125,7 +134,7 @@ public class Ravencoin extends Bitcoiny {
 	// Constructors and instance
 
 	private Ravencoin(RavencoinNet ravencoinNet, BitcoinyBlockchainProvider blockchain, Context bitcoinjContext, String currencyCode) {
-		super(blockchain, bitcoinjContext, currencyCode);
+		super(blockchain, bitcoinjContext, currencyCode, DEFAULT_FEE_PER_KB);
 		this.ravencoinNet = ravencoinNet;
 
 		LOGGER.info(() -> String.format("Starting Ravencoin support using %s", this.ravencoinNet.name()));
@@ -155,11 +164,6 @@ public class Ravencoin extends Bitcoiny {
 	// Actual useful methods for use by other classes
 
 	@Override
-	public Coin getFeePerKb() {
-		return DEFAULT_FEE_PER_KB;
-	}
-
-	@Override
 	public long getMinimumOrderAmount() {
 		return MINIMUM_ORDER_AMOUNT;
 	}
@@ -175,4 +179,14 @@ public class Ravencoin extends Bitcoiny {
 		return this.ravencoinNet.getP2shFee(timestamp);
 	}
 
+	@Override
+	public long getFeeCeiling() {
+		return this.ravencoinNet.getFeeCeiling();
+	}
+
+	@Override
+	public void setFeeCeiling(long fee) {
+
+		this.ravencoinNet.setFeeCeiling( fee );
+	}
 }
